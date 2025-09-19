@@ -253,6 +253,259 @@ ACCOUNT_CATALOG: List[Dict[str, str]] = [
 ]
 
 
+SCHEMA_MIGRATIONS: List[Dict[str, Any]] = [
+    {
+        "name": "0001_initial",
+        "statements": [
+            """
+            CREATE TABLE IF NOT EXISTS accounts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                group_name TEXT NOT NULL,
+                sat_code TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS expense_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                external_reference TEXT,
+                description TEXT NOT NULL,
+                amount REAL NOT NULL,
+                currency TEXT DEFAULT 'MXN',
+                account_code TEXT NOT NULL,
+                has_invoice INTEGER NOT NULL DEFAULT 0,
+                invoice_uuid TEXT,
+                sat_document_type TEXT,
+                metadata TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (account_code) REFERENCES accounts(code)
+            )
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_expense_records_account_code
+                ON expense_records(account_code)
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS bank_movements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                movement_id TEXT NOT NULL UNIQUE,
+                movement_date TEXT NOT NULL,
+                description TEXT NOT NULL,
+                amount REAL NOT NULL,
+                currency TEXT NOT NULL DEFAULT 'MXN',
+                bank TEXT NOT NULL,
+                reference TEXT,
+                tags TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS bank_match_feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                expense_id TEXT NOT NULL,
+                movement_id TEXT NOT NULL,
+                confidence REAL NOT NULL,
+                decision TEXT NOT NULL,
+                notes TEXT,
+                metadata TEXT,
+                created_at TEXT NOT NULL
+            )
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_bank_match_feedback_movement
+                ON bank_match_feedback(movement_id)
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_bank_match_feedback_expense
+                ON bank_match_feedback(expense_id)
+            """,
+        ],
+    },
+    {
+        "name": "0002_expense_extended",
+        "statements": [
+            """
+            ALTER TABLE expense_records RENAME TO expense_records_legacy
+            """,
+            """
+            CREATE TABLE expense_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                external_reference TEXT,
+                description TEXT NOT NULL,
+                amount REAL NOT NULL,
+                currency TEXT DEFAULT 'MXN',
+                expense_date TEXT,
+                category TEXT,
+                provider_name TEXT,
+                provider_rfc TEXT,
+                workflow_status TEXT NOT NULL DEFAULT 'draft',
+                invoice_status TEXT NOT NULL DEFAULT 'pendiente',
+                invoice_uuid TEXT,
+                invoice_folio TEXT,
+                invoice_url TEXT,
+                tax_total REAL,
+                tax_metadata TEXT,
+                payment_method TEXT,
+                paid_by TEXT NOT NULL DEFAULT 'company_account',
+                will_have_cfdi INTEGER NOT NULL DEFAULT 1,
+                bank_status TEXT NOT NULL DEFAULT 'pendiente',
+                account_code TEXT,
+                metadata TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (account_code) REFERENCES accounts(code)
+            )
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_expense_records_account_code
+                ON expense_records(account_code)
+            """,
+            """
+            INSERT INTO expense_records (
+                id,
+                external_reference,
+                description,
+                amount,
+                currency,
+                account_code,
+                metadata,
+                created_at,
+                updated_at,
+                invoice_status,
+                workflow_status,
+                invoice_uuid,
+                will_have_cfdi
+            )
+            SELECT
+                id,
+                external_reference,
+                description,
+                amount,
+                currency,
+                account_code,
+                metadata,
+                created_at,
+                updated_at,
+                CASE WHEN has_invoice = 1 THEN 'facturado' ELSE 'pendiente' END,
+                'draft',
+                invoice_uuid,
+                has_invoice
+            FROM expense_records_legacy
+            """,
+            """
+            DROP TABLE expense_records_legacy
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_expense_records_date
+                ON expense_records(expense_date)
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_expense_records_status
+                ON expense_records(invoice_status)
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_expense_records_bank_status
+                ON expense_records(bank_status)
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS expense_invoices (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                expense_id INTEGER NOT NULL,
+                uuid TEXT,
+                folio TEXT,
+                url TEXT,
+                issued_at TEXT,
+                status TEXT NOT NULL DEFAULT 'registrada',
+                raw_xml TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (expense_id) REFERENCES expense_records(id)
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS expense_bank_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                expense_id INTEGER NOT NULL,
+                bank_movement_id INTEGER NOT NULL,
+                link_type TEXT NOT NULL DEFAULT 'suggested',
+                confidence REAL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (expense_id) REFERENCES expense_records(id),
+                FOREIGN KEY (bank_movement_id) REFERENCES bank_movements(id)
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS expense_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                expense_id INTEGER NOT NULL,
+                event_type TEXT NOT NULL,
+                payload TEXT,
+                actor TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (expense_id) REFERENCES expense_records(id)
+            )
+            """,
+            """
+            ALTER TABLE bank_movements ADD COLUMN account TEXT
+            """,
+            """
+            ALTER TABLE bank_movements ADD COLUMN movement_type TEXT
+            """,
+            """
+            ALTER TABLE bank_movements ADD COLUMN balance REAL
+            """,
+            """
+            ALTER TABLE bank_movements ADD COLUMN metadata TEXT
+            """,
+            """
+            ALTER TABLE bank_movements ADD COLUMN expense_id INTEGER
+            """,
+        ],
+    },
+]
+
+
+def _apply_migrations(connection: sqlite3.Connection) -> None:
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_versions'"
+    )
+    exists = cursor.fetchone() is not None
+    if not exists:
+        cursor.execute(
+            """
+            CREATE TABLE schema_versions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                applied_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.commit()
+
+    cursor.execute("SELECT name FROM schema_versions")
+    applied = {row[0] for row in cursor.fetchall()}
+
+    for migration in SCHEMA_MIGRATIONS:
+        if migration["name"] in applied:
+            continue
+
+        logger.info("Applying migration %s", migration["name"])
+        for statement in migration["statements"]:
+            cursor.execute(statement)
+        cursor.execute(
+            "INSERT INTO schema_versions (name, applied_at) VALUES (?, ?)",
+            (migration["name"], datetime.utcnow().isoformat()),
+        )
+        connection.commit()
+
 def initialize_internal_database() -> None:
     """Ensure the internal database exists, tables are created and seeded."""
 
@@ -262,104 +515,9 @@ def initialize_internal_database() -> None:
     with _DB_LOCK:
         with sqlite3.connect(db_path) as connection:
             connection.execute("PRAGMA foreign_keys = ON;")
-            _create_core_tables(connection)
+            _apply_migrations(connection)
             _seed_account_catalog(connection, ACCOUNT_CATALOG)
             _seed_bank_movements(connection, BANK_MOVEMENTS_SEED)
-
-
-def _create_core_tables(connection: sqlite3.Connection) -> None:
-    """Create the core tables required by the internal data model."""
-
-    logger.debug("Creating internal database tables if they do not exist")
-
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS accounts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            code TEXT NOT NULL UNIQUE,
-            name TEXT NOT NULL,
-            description TEXT NOT NULL,
-            group_name TEXT NOT NULL,
-            sat_code TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-        """
-    )
-
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS expense_records (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            external_reference TEXT,
-            description TEXT NOT NULL,
-            amount REAL NOT NULL,
-            currency TEXT DEFAULT 'MXN',
-            account_code TEXT NOT NULL,
-            has_invoice INTEGER NOT NULL DEFAULT 0,
-            invoice_uuid TEXT,
-            sat_document_type TEXT,
-            metadata TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            FOREIGN KEY (account_code) REFERENCES accounts(code)
-        )
-        """
-    )
-
-    connection.execute(
-        """
-        CREATE INDEX IF NOT EXISTS idx_expense_records_account_code
-            ON expense_records(account_code)
-        """
-    )
-
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS bank_movements (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            movement_id TEXT NOT NULL UNIQUE,
-            movement_date TEXT NOT NULL,
-            description TEXT NOT NULL,
-            amount REAL NOT NULL,
-            currency TEXT NOT NULL DEFAULT 'MXN',
-            bank TEXT NOT NULL,
-            reference TEXT,
-            tags TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-        """
-    )
-
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS bank_match_feedback (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            expense_id TEXT NOT NULL,
-            movement_id TEXT NOT NULL,
-            confidence REAL NOT NULL,
-            decision TEXT NOT NULL,
-            notes TEXT,
-            metadata TEXT,
-            created_at TEXT NOT NULL
-        )
-        """
-    )
-
-    connection.execute(
-        """
-        CREATE INDEX IF NOT EXISTS idx_bank_match_feedback_movement
-            ON bank_match_feedback(movement_id)
-        """
-    )
-
-    connection.execute(
-        """
-        CREATE INDEX IF NOT EXISTS idx_bank_match_feedback_expense
-            ON bank_match_feedback(expense_id)
-        """
-    )
 
 
 def _seed_account_catalog(
@@ -533,18 +691,45 @@ def record_internal_expense(
     *,
     description: str,
     amount: float,
-    account_code: str,
+    account_code: Optional[str] = None,
     currency: str = "MXN",
-    has_invoice: bool = False,
+    expense_date: Optional[str] = None,
+    category: Optional[str] = None,
+    provider_name: Optional[str] = None,
+    provider_rfc: Optional[str] = None,
+    workflow_status: str = "draft",
+    invoice_status: str = "pendiente",
     invoice_uuid: Optional[str] = None,
-    sat_document_type: Optional[str] = None,
+    invoice_folio: Optional[str] = None,
+    invoice_url: Optional[str] = None,
+    tax_total: Optional[float] = None,
+    tax_metadata: Optional[Dict[str, Any]] = None,
+    payment_method: Optional[str] = None,
+    paid_by: str = "company_account",
+    will_have_cfdi: bool = True,
+    bank_status: str = "pendiente",
     external_reference: Optional[str] = None,
     metadata: Optional[Dict[str, str]] = None,
+    # Backwards compatibility flags
+    has_invoice: Optional[bool] = None,
+    sat_document_type: Optional[str] = None,
 ) -> int:
     """Persist an expense record for future reconciliation workflows."""
 
-    payload = metadata or {}
+    payload: Dict[str, Any] = dict(metadata or {})
+    if sat_document_type:
+        payload.setdefault("sat_document_type", sat_document_type)
     now = datetime.utcnow().isoformat()
+
+    if has_invoice is not None and invoice_status in (None, "pendiente"):
+        invoice_status = "facturado" if has_invoice else "pendiente"
+    if invoice_status is None:
+        invoice_status = "pendiente"
+    if bank_status is None:
+        bank_status = "pendiente"
+
+    tax_metadata_json = json.dumps(tax_metadata) if tax_metadata else None
+    metadata_json = json.dumps(payload) if payload else None
 
     with _DB_LOCK:
         with sqlite3.connect(_get_db_path()) as connection:
@@ -556,25 +741,49 @@ def record_internal_expense(
                     description,
                     amount,
                     currency,
+                    expense_date,
+                    category,
+                    provider_name,
+                    provider_rfc,
+                    workflow_status,
+                    invoice_status,
                     account_code,
-                    has_invoice,
                     invoice_uuid,
-                    sat_document_type,
+                    invoice_folio,
+                    invoice_url,
+                    tax_total,
+                    tax_metadata,
+                    payment_method,
+                    paid_by,
+                    will_have_cfdi,
+                    bank_status,
                     metadata,
                     created_at,
                     updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     external_reference,
                     description,
                     amount,
                     currency,
+                    expense_date,
+                    category,
+                    provider_name,
+                    provider_rfc,
+                    workflow_status,
+                    invoice_status,
                     account_code,
-                    int(has_invoice),
                     invoice_uuid,
-                    sat_document_type,
-                    json.dumps(payload) if payload else None,
+                    invoice_folio,
+                    invoice_url,
+                    tax_total,
+                    tax_metadata_json,
+                    payment_method,
+                    paid_by,
+                    int(will_have_cfdi),
+                    bank_status,
+                    metadata_json,
                     now,
                     now,
                 ),
@@ -583,10 +792,310 @@ def record_internal_expense(
             return int(cursor.lastrowid)
 
 
+def _row_to_expense_dict(row: sqlite3.Row) -> Dict[str, Any]:
+    data = dict(row)
+    data["metadata"] = json.loads(data["metadata"]) if data.get("metadata") else {}
+    data["tax_metadata"] = json.loads(data["tax_metadata"]) if data.get("tax_metadata") else {}
+    data["will_have_cfdi"] = bool(data.get("will_have_cfdi", 0))
+    return data
+
+
+def fetch_expense_records(
+    *,
+    limit: int = 100,
+    invoice_status: Optional[str] = None,
+    category: Optional[str] = None,
+    month: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Retrieve expense records applying optional filters."""
+
+    conditions: List[str] = []
+    params: List[Any] = []
+
+    if invoice_status:
+        conditions.append("invoice_status = ?")
+        params.append(invoice_status)
+    if category:
+        conditions.append("LOWER(IFNULL(category, '')) = LOWER(?)")
+        params.append(category)
+    if month:
+        conditions.append("substr(COALESCE(expense_date, created_at), 1, 7) = ?")
+        params.append(month)
+
+    query = "SELECT * FROM expense_records"
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    query += " ORDER BY datetime(created_at) DESC LIMIT ?"
+    params.append(limit)
+
+    with sqlite3.connect(_get_db_path()) as connection:
+        connection.row_factory = sqlite3.Row
+        rows = connection.execute(query, params).fetchall()
+        expenses = []
+        for row in rows:
+            expense = _row_to_expense_dict(row)
+            expense["invoices"] = fetch_expense_invoices(expense["id"], _connection=connection)
+            expenses.append(expense)
+        return expenses
+
+
+def fetch_expense_record(expense_id: int) -> Optional[Dict[str, Any]]:
+    """Fetch a single expense record by id."""
+
+    with sqlite3.connect(_get_db_path()) as connection:
+        connection.row_factory = sqlite3.Row
+        row = connection.execute(
+            "SELECT * FROM expense_records WHERE id = ?", (expense_id,)
+        ).fetchone()
+        if not row:
+            return None
+        expense = _row_to_expense_dict(row)
+        expense["invoices"] = fetch_expense_invoices(expense_id, _connection=connection)
+        return expense
+
+
+def fetch_expense_invoices(
+    expense_id: int,
+    *,
+    _connection: Optional[sqlite3.Connection] = None,
+) -> List[Dict[str, Any]]:
+    owns_connection = False
+    if _connection is None:
+        owns_connection = True
+        _connection = sqlite3.connect(_get_db_path())
+        _connection.row_factory = sqlite3.Row
+
+    rows = _connection.execute(
+        """
+        SELECT id, uuid, folio, url, issued_at, status, raw_xml, created_at, updated_at
+          FROM expense_invoices
+         WHERE expense_id = ?
+         ORDER BY datetime(created_at) DESC
+        """,
+        (expense_id,),
+    ).fetchall()
+
+    invoices = [dict(row) for row in rows]
+
+    if owns_connection:
+        _connection.close()
+
+    return invoices
+
+
+def update_expense_record(expense_id: int, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Apply updates to an expense record and return the refreshed struct."""
+
+    if not updates:
+        return fetch_expense_record(expense_id)
+
+    allowed_fields = {
+        "description",
+        "amount",
+        "currency",
+        "expense_date",
+        "category",
+        "provider_name",
+        "provider_rfc",
+        "workflow_status",
+        "invoice_status",
+        "invoice_uuid",
+        "invoice_folio",
+        "invoice_url",
+        "tax_total",
+        "tax_metadata",
+        "payment_method",
+        "paid_by",
+        "will_have_cfdi",
+        "bank_status",
+        "account_code",
+        "metadata",
+    }
+
+    set_clauses: List[str] = []
+    values: List[Any] = []
+
+    for key, value in updates.items():
+        if key not in allowed_fields:
+            continue
+
+        if key in {"metadata", "tax_metadata"} and value is not None:
+            value = json.dumps(value)
+        if key == "will_have_cfdi" and value is not None:
+            value = int(bool(value))
+
+        set_clauses.append(f"{key} = ?")
+        values.append(value)
+
+    if not set_clauses:
+        return fetch_expense_record(expense_id)
+
+    values.append(datetime.utcnow().isoformat())
+    values.append(expense_id)
+
+    with _DB_LOCK:
+        with sqlite3.connect(_get_db_path()) as connection:
+            connection.execute("PRAGMA foreign_keys = ON;")
+            connection.execute(
+                f"UPDATE expense_records SET {', '.join(set_clauses)}, updated_at = ? WHERE id = ?",
+                values,
+            )
+            connection.commit()
+
+    return fetch_expense_record(expense_id)
+
+
+def _log_expense_event(
+    expense_id: int,
+    *,
+    event_type: str,
+    payload: Optional[Dict[str, Any]] = None,
+    actor: Optional[str] = None,
+) -> None:
+    with _DB_LOCK:
+        with sqlite3.connect(_get_db_path()) as connection:
+            connection.execute(
+                """
+                INSERT INTO expense_events (expense_id, event_type, payload, actor, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    expense_id,
+                    event_type,
+                    json.dumps(payload or {}),
+                    actor or "system",
+                    datetime.utcnow().isoformat(),
+                ),
+            )
+            connection.commit()
+
+
+def register_expense_invoice(
+    expense_id: int,
+    *,
+    uuid: Optional[str],
+    folio: Optional[str],
+    url: Optional[str],
+    issued_at: Optional[str] = None,
+    status: str = "registrada",
+    raw_xml: Optional[str] = None,
+    actor: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    now = datetime.utcnow().isoformat()
+
+    with _DB_LOCK:
+        with sqlite3.connect(_get_db_path()) as connection:
+            connection.execute("PRAGMA foreign_keys = ON;")
+            connection.execute(
+                """
+                INSERT INTO expense_invoices (
+                    expense_id, uuid, folio, url, issued_at, status, raw_xml, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (expense_id, uuid, folio, url, issued_at, status, raw_xml, now, now),
+            )
+            connection.execute(
+                """
+                UPDATE expense_records
+                   SET invoice_status = ?,
+                       invoice_uuid = ?,
+                       invoice_folio = ?,
+                       invoice_url = ?,
+                       will_have_cfdi = 1,
+                       updated_at = ?
+                 WHERE id = ?
+                """,
+                (status, uuid, folio, url, now, expense_id),
+            )
+            connection.commit()
+
+    _log_expense_event(
+        expense_id,
+        event_type="invoice_registered",
+        payload={"uuid": uuid, "folio": folio, "status": status},
+        actor=actor,
+    )
+
+    return fetch_expense_record(expense_id)
+
+
+def mark_expense_invoiced(
+    expense_id: int,
+    *,
+    actor: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    now = datetime.utcnow().isoformat()
+
+    with _DB_LOCK:
+        with sqlite3.connect(_get_db_path()) as connection:
+            connection.execute(
+                """
+                UPDATE expense_records
+                   SET invoice_status = 'facturado',
+                       bank_status = CASE
+                           WHEN bank_status = 'pendiente' THEN 'pendiente_bancaria'
+                           ELSE bank_status
+                       END,
+                       updated_at = ?
+                 WHERE id = ?
+                """,
+                (now, expense_id),
+            )
+            connection.commit()
+
+    _log_expense_event(
+        expense_id,
+        event_type="invoice_marked_as_invoiced",
+        actor=actor,
+    )
+
+    return fetch_expense_record(expense_id)
+
+
+def mark_expense_without_invoice(
+    expense_id: int,
+    *,
+    actor: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    now = datetime.utcnow().isoformat()
+
+    with _DB_LOCK:
+        with sqlite3.connect(_get_db_path()) as connection:
+            connection.execute(
+                """
+                UPDATE expense_records
+                   SET invoice_status = 'sin_factura',
+                       will_have_cfdi = 0,
+                       invoice_uuid = NULL,
+                       invoice_folio = NULL,
+                       invoice_url = NULL,
+                       bank_status = CASE
+                           WHEN bank_status = 'pendiente' THEN 'sin_factura'
+                           ELSE bank_status
+                       END,
+                       updated_at = ?
+                 WHERE id = ?
+                """,
+                (now, expense_id),
+            )
+            connection.commit()
+
+    _log_expense_event(
+        expense_id,
+        event_type="invoice_marked_as_not_required",
+        actor=actor,
+    )
+
+    return fetch_expense_record(expense_id)
+
 def list_bank_movements(*, limit: int = 100, include_matched: bool = True) -> List[Dict[str, Any]]:
     """Return bank movements from the internal database."""
 
-    query = "SELECT id, movement_id, movement_date, description, amount, currency, bank, reference, tags, created_at, updated_at FROM bank_movements"
+    query = (
+        "SELECT id, movement_id, movement_date, description, amount, currency, bank, reference, "
+        "tags, account, movement_type, balance, metadata, expense_id, created_at, updated_at "
+        "FROM bank_movements"
+    )
     if not include_matched:
         query += " WHERE movement_id NOT IN (SELECT movement_id FROM bank_match_feedback WHERE decision = 'accepted')"
     query += " ORDER BY movement_date DESC LIMIT ?"
@@ -598,6 +1107,7 @@ def list_bank_movements(*, limit: int = 100, include_matched: bool = True) -> Li
             {
                 **dict(row),
                 "tags": json.loads(row["tags"]) if row["tags"] else [],
+                "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
             }
             for row in rows
         ]
@@ -613,10 +1123,16 @@ def record_bank_movement(
     bank: str = "",
     reference: Optional[str] = None,
     tags: Optional[List[str]] = None,
+    account: Optional[str] = None,
+    movement_type: Optional[str] = None,
+    balance: Optional[float] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    expense_id: Optional[int] = None,
 ) -> None:
     """Insert or update a bank movement."""
 
     payload_tags = json.dumps(tags) if tags else None
+    payload_metadata = json.dumps(metadata) if metadata else None
     now = datetime.utcnow().isoformat()
 
     with _DB_LOCK:
@@ -625,8 +1141,9 @@ def record_bank_movement(
                 """
                 INSERT INTO bank_movements (
                     movement_id, movement_date, description, amount, currency,
-                    bank, reference, tags, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    bank, reference, tags, account, movement_type, balance, metadata,
+                    expense_id, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(movement_id) DO UPDATE SET
                     movement_date = excluded.movement_date,
                     description = excluded.description,
@@ -635,6 +1152,11 @@ def record_bank_movement(
                     bank = excluded.bank,
                     reference = excluded.reference,
                     tags = excluded.tags,
+                    account = excluded.account,
+                    movement_type = excluded.movement_type,
+                    balance = excluded.balance,
+                    metadata = excluded.metadata,
+                    expense_id = excluded.expense_id,
                     updated_at = excluded.updated_at
                 """,
                 (
@@ -646,6 +1168,11 @@ def record_bank_movement(
                     bank,
                     reference,
                     payload_tags,
+                    account,
+                    movement_type,
+                    balance,
+                    payload_metadata,
+                    expense_id,
                     now,
                     now,
                 ),
@@ -696,6 +1223,13 @@ __all__ = [
     "initialize_internal_database",
     "get_account_catalog",
     "record_internal_expense",
+    "fetch_expense_records",
+    "fetch_expense_record",
+    "fetch_expense_invoices",
+    "update_expense_record",
+    "register_expense_invoice",
+    "mark_expense_invoiced",
+    "mark_expense_without_invoice",
     "ACCOUNT_CATALOG",
     "list_bank_movements",
     "record_bank_movement",

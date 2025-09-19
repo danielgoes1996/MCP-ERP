@@ -299,7 +299,13 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
         };
 
         // Componente de Facturas Pendientes
-        const PendingInvoicesContent = ({ expensesData, onUpdateExpense, onOpenNonReconciliation }) => {
+        const PendingInvoicesContent = ({
+            expensesData,
+            onRegisterInvoice,
+            onMarkInvoiced,
+            onCloseNoInvoice,
+            onOpenNonReconciliation,
+        }) => {
             try {
             const dataset = Array.isArray(expensesData) ? expensesData : [];
             const pendingInvoices = dataset.filter(expense => expense.estado_factura === 'pendiente');
@@ -308,6 +314,9 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
             const [invoiceFormError, setInvoiceFormError] = useState('');
             const [confirmNoInvoiceExpense, setConfirmNoInvoiceExpense] = useState(null);
             const [confirmMarkInvoicedExpense, setConfirmMarkInvoicedExpense] = useState(null);
+            const [isSavingInvoice, setIsSavingInvoice] = useState(false);
+            const [isConfirmingMark, setIsConfirmingMark] = useState(false);
+            const [isConfirmingNoInvoice, setIsConfirmingNoInvoice] = useState(false);
 
             // AI Analysis - Análisis inteligente de urgencia
             const analyzeUrgency = (expense) => {
@@ -399,7 +408,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                 setConfirmNoInvoiceExpense(expense);
             };
 
-            const handleInvoiceFormSubmit = () => {
+            const handleInvoiceFormSubmit = async () => {
                 if (!invoiceFormExpense) {
                     return;
                 }
@@ -412,58 +421,67 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                     return;
                 }
 
-                if (typeof onUpdateExpense === 'function') {
-                    onUpdateExpense(invoiceFormExpense.id, (current) => ({
-                        factura_id: trimmedId,
-                        factura_url: trimmedUrl,
-                        fecha_facturacion: new Date().toISOString(),
-                        estado_factura: current.estado_factura,
-                        tax_info: current.tax_info || invoiceFormExpense.tax_info || null,
-                    }));
+                if (!onRegisterInvoice) {
+                    return;
                 }
 
-                setInvoiceFormExpense(null);
-                setInvoiceFormData({ invoiceId: '', invoiceUrl: '' });
-                setInvoiceFormError('');
+                try {
+                    setIsSavingInvoice(true);
+                    await onRegisterInvoice(invoiceFormExpense.id, {
+                        uuid: trimmedId,
+                        folio: trimmedId,
+                        url: trimmedUrl,
+                        actor: 'ui',
+                    });
+                    setInvoiceFormExpense(null);
+                    setInvoiceFormData({ invoiceId: '', invoiceUrl: '' });
+                    setInvoiceFormError('');
+                } catch (error) {
+                    console.error('Error registrando factura:', error);
+                    setInvoiceFormError(error?.message || 'No se pudo registrar la factura');
+                } finally {
+                    setIsSavingInvoice(false);
+                }
             };
 
-            const handleConfirmMarkInvoiced = () => {
+            const handleConfirmMarkInvoiced = async () => {
                 if (!confirmMarkInvoicedExpense) {
                     return;
                 }
 
-                if (typeof onUpdateExpense === 'function') {
-                    onUpdateExpense(confirmMarkInvoicedExpense.id, () => ({
-                        estado_factura: 'facturado',
-                        fecha_facturacion: new Date().toISOString(),
-                        estado_conciliacion: 'pendiente_bancaria'
-                    }));
+                if (!onMarkInvoiced) {
+                    return;
                 }
 
-                setConfirmMarkInvoicedExpense(null);
+                try {
+                    setIsConfirmingMark(true);
+                    await onMarkInvoiced(confirmMarkInvoicedExpense.id);
+                    setConfirmMarkInvoicedExpense(null);
+                } catch (error) {
+                    console.error('Error marcando como facturado:', error);
+                } finally {
+                    setIsConfirmingMark(false);
+                }
             };
 
-            const handleConfirmNoInvoice = () => {
+            const handleConfirmNoInvoice = async () => {
                 if (!confirmNoInvoiceExpense) {
                     return;
                 }
 
-                if (typeof onUpdateExpense === 'function') {
-                    onUpdateExpense(confirmNoInvoiceExpense.id, () => ({
-                        will_have_cfdi: false,
-                        estado_factura: 'sin_factura',
-                        factura_id: null,
-                        factura_url: null,
-                        tax_info: null,
-                        xml_file: null,
-                        estado_conciliacion: 'sin_factura',
-                        movimientos_bancarios: [],
-                        movimiento_bancario: null,
-                        conciliacion_detalle: null,
-                    }));
+                if (!onCloseNoInvoice) {
+                    return;
                 }
 
-                setConfirmNoInvoiceExpense(null);
+                try {
+                    setIsConfirmingNoInvoice(true);
+                    await onCloseNoInvoice(confirmNoInvoiceExpense.id);
+                    setConfirmNoInvoiceExpense(null);
+                } catch (error) {
+                    console.error('Error cerrando sin factura:', error);
+                } finally {
+                    setIsConfirmingNoInvoice(false);
+                }
             };
 
             const openNonReconciliationModal = (expense) => {
@@ -664,14 +682,15 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                                 </button>
                                 <button
                                     onClick={handleInvoiceFormSubmit}
-                                    className="px-4 py-2 text-sm text-white bg-orange-600 hover:bg-orange-700 rounded-lg"
-                                >
-                                    Guardar factura
-                                </button>
+                                        className="px-4 py-2 text-sm text-white bg-orange-600 hover:bg-orange-700 rounded-lg disabled:opacity-50"
+                                        disabled={isSavingInvoice}
+                                    >
+                                        {isSavingInvoice ? 'Guardando...' : 'Guardar factura'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
                 {confirmMarkInvoicedExpense && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -701,16 +720,17 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                                 >
                                     Cancelar
                                 </button>
-                                <button
-                                    onClick={handleConfirmMarkInvoiced}
-                                    className="px-4 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-lg"
-                                >
-                                    Marcar como facturado
-                                </button>
+                                    <button
+                                        onClick={handleConfirmMarkInvoiced}
+                                        className="px-4 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
+                                        disabled={isConfirmingMark}
+                                    >
+                                        {isConfirmingMark ? 'Marcando...' : 'Marcar como facturado'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
                 {confirmNoInvoiceExpense && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -740,16 +760,17 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                                 >
                                     Cancelar
                                 </button>
-                                <button
-                                    onClick={handleConfirmNoInvoice}
-                                    className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg"
-                                >
-                                    Cerrar sin factura
-                                </button>
+                                    <button
+                                        onClick={handleConfirmNoInvoice}
+                                        className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
+                                        disabled={isConfirmingNoInvoice}
+                                    >
+                                        {isConfirmingNoInvoice ? 'Cerrando...' : 'Cerrar sin factura'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
                 </>
             );
             } catch (error) {
@@ -2400,6 +2421,99 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                     console.warn('⚠️ Gasto actualizado en localStorage (fallback)');
                 }
             }, [expensesData, setExpensesData, normalizeExpense]);
+
+            const registerInvoiceForExpense = useCallback(
+                async (expenseId, payload) => {
+                    const response = await fetch(`/expenses/${expenseId}/invoice`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                    });
+
+                    if (!response.ok) {
+                        const message = await response.text();
+                        throw new Error(message || `Error del servidor: ${response.status}`);
+                    }
+
+                    const updatedExpense = await response.json();
+                    const normalizedExpense = normalizeExpense(updatedExpense);
+
+                    setExpensesData(prevExpenses => {
+                        const nextExpenses = prevExpenses.map(expense => (
+                            expense.id === expenseId ? normalizedExpense : expense
+                        ));
+                        localStorage.setItem('expensesData', JSON.stringify(nextExpenses));
+                        return nextExpenses;
+                    });
+
+                    return normalizedExpense;
+                },
+                [normalizeExpense, setExpensesData],
+            );
+
+            const markExpenseAsInvoiced = useCallback(
+                async (expenseId) => {
+                    const response = await fetch(`/expenses/${expenseId}/mark-invoiced`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ actor: 'ui' }),
+                    });
+
+                    if (!response.ok) {
+                        const message = await response.text();
+                        throw new Error(message || `Error del servidor: ${response.status}`);
+                    }
+
+                    const updatedExpense = await response.json();
+                    const normalizedExpense = normalizeExpense(updatedExpense);
+
+                    setExpensesData(prevExpenses => {
+                        const nextExpenses = prevExpenses.map(expense => (
+                            expense.id === expenseId ? normalizedExpense : expense
+                        ));
+                        localStorage.setItem('expensesData', JSON.stringify(nextExpenses));
+                        return nextExpenses;
+                    });
+
+                    return normalizedExpense;
+                },
+                [normalizeExpense, setExpensesData],
+            );
+
+            const closeExpenseWithoutInvoice = useCallback(
+                async (expenseId) => {
+                    const response = await fetch(`/expenses/${expenseId}/close-no-invoice`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ actor: 'ui' }),
+                    });
+
+                    if (!response.ok) {
+                        const message = await response.text();
+                        throw new Error(message || `Error del servidor: ${response.status}`);
+                    }
+
+                    const updatedExpense = await response.json();
+                    const normalizedExpense = normalizeExpense(updatedExpense);
+
+                    setExpensesData(prevExpenses => {
+                        const nextExpenses = prevExpenses.map(expense => (
+                            expense.id === expenseId ? normalizedExpense : expense
+                        ));
+                        localStorage.setItem('expensesData', JSON.stringify(nextExpenses));
+                        return nextExpenses;
+                    });
+
+                    return normalizedExpense;
+                },
+                [normalizeExpense, setExpensesData],
+            );
 
             // Referencias para Web Speech API
             const recognitionRef = useRef(null);
@@ -4846,7 +4960,9 @@ Ejemplo: 'Compra de gasolina por 500 pesos en Pemex, pagado con tarjeta de empre
 
                                 <PendingInvoicesContent
                                     expensesData={expensesData}
-                                    onUpdateExpense={updateExpense}
+                                    onRegisterInvoice={registerInvoiceForExpense}
+                                    onMarkInvoiced={markExpenseAsInvoiced}
+                                    onCloseNoInvoice={closeExpenseWithoutInvoice}
                                     onOpenNonReconciliation={(expense) => {
                                         setSelectedExpenseForNonReconciliation(expense);
                                         setShowNonReconciliationModal(true);

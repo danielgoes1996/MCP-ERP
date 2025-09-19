@@ -13,7 +13,7 @@ import uvicorn
 import logging
 import tempfile
 import os
-from datetime import datetime, timezone
+from datetime import datetime
 
 # Import our core MCP handler and reconciliation helpers
 from core.mcp_handler import handle_mcp_request
@@ -23,6 +23,13 @@ from core.internal_db import (
     initialize_internal_database,
     list_bank_movements,
     record_bank_match_feedback,
+    record_internal_expense,
+    fetch_expense_records,
+    fetch_expense_record,
+    update_expense_record as db_update_expense_record,
+    register_expense_invoice,
+    mark_expense_invoiced as db_mark_expense_invoiced,
+    mark_expense_without_invoice as db_mark_expense_without_invoice,
 )
 from config.config import config
 
@@ -171,6 +178,76 @@ class ExpenseResponse(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
     created_at: str
     updated_at: str
+
+
+class ExpenseInvoicePayload(BaseModel):
+    uuid: Optional[str] = None
+    folio: Optional[str] = None
+    url: Optional[str] = None
+    issued_at: Optional[str] = None
+    status: Optional[str] = None
+    raw_xml: Optional[str] = None
+    actor: Optional[str] = None
+
+
+class ExpenseActionRequest(BaseModel):
+    actor: Optional[str] = None
+
+
+def _build_expense_response(record: Dict[str, Any]) -> ExpenseResponse:
+    metadata = dict(record.get("metadata") or {})
+    provider = metadata.get("proveedor")
+    provider_name = record.get("provider_name")
+    provider_rfc = record.get("provider_rfc")
+    metadata_rfc = metadata.get("rfc")
+
+    if not provider and provider_name:
+        provider = {"nombre": provider_name}
+        if provider_rfc:
+            provider["rfc"] = provider_rfc
+
+    tax_info = metadata.get("tax_info") or record.get("tax_metadata")
+    asientos = metadata.get("asientos_contables")
+    movimientos = metadata.get("movimientos_bancarios")
+
+    for key in [
+        "proveedor",
+        "rfc",
+        "tax_info",
+        "asientos_contables",
+        "movimientos_bancarios",
+        "workflow_status",
+        "estado_factura",
+        "estado_conciliacion",
+        "forma_pago",
+        "paid_by",
+        "will_have_cfdi",
+        "categoria",
+        "fecha_gasto",
+    ]:
+        metadata.pop(key, None)
+
+    return ExpenseResponse(
+        id=record["id"],
+        descripcion=record["description"],
+        monto_total=record["amount"],
+        fecha_gasto=record.get("expense_date"),
+        categoria=record.get("category"),
+        proveedor=provider,
+        rfc=provider_rfc or metadata_rfc,
+        tax_info=tax_info,
+        asientos_contables=asientos,
+        workflow_status=record.get("workflow_status", "draft"),
+        estado_factura=record.get("invoice_status", "pendiente"),
+        estado_conciliacion=record.get("bank_status", "pendiente"),
+        forma_pago=record.get("payment_method"),
+        paid_by=record.get("paid_by", "company_account"),
+        will_have_cfdi=bool(record.get("will_have_cfdi", True)),
+        movimientos_bancarios=movimientos,
+        metadata=metadata or None,
+        created_at=record.get("created_at"),
+        updated_at=record.get("updated_at"),
+    )
 
 
 class InvoiceParseResponse(BaseModel):
@@ -971,39 +1048,11 @@ async def create_expense(expense: ExpenseCreate) -> ExpenseResponse:
     """Crear un nuevo gasto en la base de datos."""
 
     try:
-        # Preparar datos para la base de datos
-        metadata = {
-            # Información del proveedor
-            'proveedor': expense.proveedor,
-            'rfc': expense.rfc,
+        provider_name = (expense.proveedor or {}).get("nombre") if expense.proveedor else None
 
-            # Información fiscal
-            'tax_info': expense.tax_info,
-            'asientos_contables': expense.asientos_contables,
-
-            # Estados del workflow
-            'workflow_status': expense.workflow_status,
-            'estado_factura': expense.estado_factura,
-            'estado_conciliacion': expense.estado_conciliacion,
-
-            # Información de pago
-            'forma_pago': expense.forma_pago,
-            'paid_by': expense.paid_by,
-            'will_have_cfdi': expense.will_have_cfdi,
-
-            # Movimientos bancarios
-            'movimientos_bancarios': expense.movimientos_bancarios,
-
-            # Otros metadatos
-            'categoria': expense.categoria,
-            'fecha_gasto': expense.fecha_gasto,
-            **(expense.metadata or {})
-        }
-
-        # Usar una cuenta por defecto basada en la categoría si no se especifica
-        account_code = "6180"  # Papelería y misceláneos por defecto
+        account_code = "6180"
         if expense.categoria:
-            category_mapping = {
+            account_mapping = {
                 'combustible': '6140',
                 'combustibles': '6140',
                 'viajes': '6150',
@@ -1016,52 +1065,50 @@ async def create_expense(expense: ExpenseCreate) -> ExpenseResponse:
                 'publicidad': '6160',
                 'marketing': '6160'
             }
-            account_code = category_mapping.get(expense.categoria.lower(), "6180")
+            account_code = account_mapping.get(expense.categoria.lower(), account_code)
 
-        # Determinar si tiene factura basado en el UUID o estado
-        has_invoice = False
         invoice_uuid = None
         if expense.tax_info and expense.tax_info.get('uuid'):
-            has_invoice = True
             invoice_uuid = expense.tax_info['uuid']
-        elif expense.estado_factura == 'facturado':
-            has_invoice = True
 
-        from core.internal_db import record_internal_expense
+        metadata_extra: Dict[str, Any] = dict(expense.metadata or {})
+        if expense.proveedor:
+            metadata_extra.setdefault('proveedor', expense.proveedor)
+        if expense.rfc:
+            metadata_extra.setdefault('rfc', expense.rfc)
+        if expense.tax_info:
+            metadata_extra.setdefault('tax_info', expense.tax_info)
+        if expense.asientos_contables:
+            metadata_extra['asientos_contables'] = expense.asientos_contables
+        if expense.movimientos_bancarios:
+            metadata_extra['movimientos_bancarios'] = expense.movimientos_bancarios
+
         expense_id = record_internal_expense(
             description=expense.descripcion,
             amount=expense.monto_total,
             account_code=account_code,
             currency="MXN",
-            has_invoice=has_invoice,
-            invoice_uuid=invoice_uuid,
-            sat_document_type="factura" if has_invoice else None,
-            metadata=metadata
-        )
-
-        # Retornar la respuesta con el ID generado
-        now = datetime.now().isoformat()
-        return ExpenseResponse(
-            id=expense_id,
-            descripcion=expense.descripcion,
-            monto_total=expense.monto_total,
-            fecha_gasto=expense.fecha_gasto,
-            categoria=expense.categoria,
-            proveedor=expense.proveedor,
-            rfc=expense.rfc,
-            tax_info=expense.tax_info,
-            asientos_contables=expense.asientos_contables,
+            expense_date=expense.fecha_gasto,
+            category=expense.categoria,
+            provider_name=provider_name,
+            provider_rfc=expense.rfc,
             workflow_status=expense.workflow_status,
-            estado_factura=expense.estado_factura,
-            estado_conciliacion=expense.estado_conciliacion,
-            forma_pago=expense.forma_pago,
+            invoice_status=expense.estado_factura,
+            invoice_uuid=invoice_uuid,
+            tax_total=expense.tax_info.get('total') if expense.tax_info else None,
+            tax_metadata=expense.tax_info,
+            payment_method=expense.forma_pago,
             paid_by=expense.paid_by,
             will_have_cfdi=expense.will_have_cfdi,
-            movimientos_bancarios=expense.movimientos_bancarios,
-            metadata=expense.metadata,
-            created_at=now,
-            updated_at=now
+            bank_status=expense.estado_conciliacion,
+            metadata=metadata_extra,
         )
+
+        record = fetch_expense_record(expense_id)
+        if not record:
+            raise HTTPException(status_code=500, detail="No se pudo recuperar el gasto creado")
+
+        return _build_expense_response(record)
 
     except Exception as exc:
         logger.exception("Error creating expense: %s", exc)
@@ -1069,63 +1116,31 @@ async def create_expense(expense: ExpenseCreate) -> ExpenseResponse:
 
 
 @app.get("/expenses", response_model=List[ExpenseResponse])
-async def list_expenses(limit: int = 100) -> List[ExpenseResponse]:
+async def list_expenses(
+    limit: int = 100,
+    mes: Optional[str] = None,
+    categoria: Optional[str] = None,
+    estatus: Optional[str] = None,
+) -> List[ExpenseResponse]:
     """Listar gastos desde la base de datos."""
 
     try:
-        from core.internal_db import _get_db_path
-        import sqlite3
-        import json
+        if mes:
+            try:
+                datetime.strptime(mes, "%Y-%m")
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail="Formato de mes inválido. Usa YYYY-MM") from exc
 
-        db_path = _get_db_path()
-        with sqlite3.connect(db_path) as connection:
-            connection.row_factory = sqlite3.Row
+        records = fetch_expense_records(
+            limit=limit,
+            month=mes,
+            category=categoria,
+            invoice_status=estatus,
+        )
+        return [_build_expense_response(record) for record in records]
 
-            query = """
-                SELECT id, external_reference, description, amount, currency,
-                       account_code, has_invoice, invoice_uuid, sat_document_type,
-                       metadata, created_at, updated_at
-                FROM expense_records
-                ORDER BY created_at DESC
-                LIMIT ?
-            """
-
-            rows = connection.execute(query, (limit,)).fetchall()
-
-            expenses = []
-            for row in rows:
-                metadata = json.loads(row['metadata']) if row['metadata'] else {}
-
-                expense = ExpenseResponse(
-                    id=row['id'],
-                    descripcion=row['description'],
-                    monto_total=row['amount'],
-                    fecha_gasto=metadata.get('fecha_gasto'),
-                    categoria=metadata.get('categoria'),
-                    proveedor=metadata.get('proveedor'),
-                    rfc=metadata.get('rfc'),
-                    tax_info=metadata.get('tax_info'),
-                    asientos_contables=metadata.get('asientos_contables'),
-                    workflow_status=metadata.get('workflow_status', 'draft'),
-                    estado_factura=metadata.get('estado_factura', 'pendiente'),
-                    estado_conciliacion=metadata.get('estado_conciliacion', 'pendiente'),
-                    forma_pago=metadata.get('forma_pago'),
-                    paid_by=metadata.get('paid_by', 'company_account'),
-                    will_have_cfdi=metadata.get('will_have_cfdi', True),
-                    movimientos_bancarios=metadata.get('movimientos_bancarios'),
-                    metadata={k: v for k, v in metadata.items() if k not in [
-                        'proveedor', 'rfc', 'tax_info', 'asientos_contables',
-                        'workflow_status', 'estado_factura', 'estado_conciliacion',
-                        'forma_pago', 'paid_by', 'will_have_cfdi', 'movimientos_bancarios',
-                        'categoria', 'fecha_gasto'
-                    ]},
-                    created_at=row['created_at'],
-                    updated_at=row['updated_at']
-                )
-                expenses.append(expense)
-
-            return expenses
-
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("Error listing expenses: %s", exc)
         raise HTTPException(status_code=500, detail=f"Error obteniendo gastos: {str(exc)}")
@@ -1136,41 +1151,9 @@ async def update_expense(expense_id: int, expense: ExpenseCreate) -> ExpenseResp
     """Actualizar un gasto existente en la base de datos."""
 
     try:
-        from core.internal_db import _get_db_path
-        import sqlite3
-        import json
+        provider_name = (expense.proveedor or {}).get("nombre") if expense.proveedor else None
 
-        # Preparar datos para la base de datos
-        metadata = {
-            # Información del proveedor
-            'proveedor': expense.proveedor,
-            'rfc': expense.rfc,
-
-            # Información fiscal
-            'tax_info': expense.tax_info,
-            'asientos_contables': expense.asientos_contables,
-
-            # Estados del workflow
-            'workflow_status': expense.workflow_status,
-            'estado_factura': expense.estado_factura,
-            'estado_conciliacion': expense.estado_conciliacion,
-
-            # Información de pago
-            'forma_pago': expense.forma_pago,
-            'paid_by': expense.paid_by,
-            'will_have_cfdi': expense.will_have_cfdi,
-
-            # Movimientos bancarios
-            'movimientos_bancarios': expense.movimientos_bancarios,
-
-            # Otros metadatos
-            'categoria': expense.categoria,
-            'fecha_gasto': expense.fecha_gasto,
-            **(expense.metadata or {})
-        }
-
-        # Usar una cuenta por defecto basada en la categoría si no se especifica
-        account_code = "6180"  # Papelería y misceláneos por defecto
+        account_code = "6180"
         if expense.categoria:
             category_mapping = {
                 'combustible': '6140',
@@ -1185,86 +1168,109 @@ async def update_expense(expense_id: int, expense: ExpenseCreate) -> ExpenseResp
                 'publicidad': '6160',
                 'marketing': '6160'
             }
-            account_code = category_mapping.get(expense.categoria.lower(), "6180")
+            account_code = category_mapping.get(expense.categoria.lower(), account_code)
 
-        # Determinar si tiene factura basado en el UUID o estado
-        has_invoice = False
         invoice_uuid = None
         if expense.tax_info and expense.tax_info.get('uuid'):
-            has_invoice = True
             invoice_uuid = expense.tax_info['uuid']
-        elif expense.estado_factura == 'facturado':
-            has_invoice = True
 
-        db_path = _get_db_path()
-        now = datetime.now().isoformat()
+        metadata_extra: Dict[str, Any] = dict(expense.metadata or {})
+        if expense.proveedor:
+            metadata_extra.setdefault('proveedor', expense.proveedor)
+        if expense.rfc:
+            metadata_extra.setdefault('rfc', expense.rfc)
+        if expense.tax_info:
+            metadata_extra.setdefault('tax_info', expense.tax_info)
+        if expense.asientos_contables:
+            metadata_extra['asientos_contables'] = expense.asientos_contables
+        if expense.movimientos_bancarios:
+            metadata_extra['movimientos_bancarios'] = expense.movimientos_bancarios
 
-        with sqlite3.connect(db_path) as connection:
-            # Verificar que el gasto existe
-            cursor = connection.execute(
-                "SELECT id FROM expense_records WHERE id = ?",
-                (expense_id,)
-            )
-            if not cursor.fetchone():
-                raise HTTPException(status_code=404, detail="Gasto no encontrado")
+        updates = {
+            "description": expense.descripcion,
+            "amount": expense.monto_total,
+            "account_code": account_code,
+            "expense_date": expense.fecha_gasto,
+            "category": expense.categoria,
+            "provider_name": provider_name,
+            "provider_rfc": expense.rfc,
+            "workflow_status": expense.workflow_status,
+            "invoice_status": expense.estado_factura,
+            "bank_status": expense.estado_conciliacion,
+            "payment_method": expense.forma_pago,
+            "paid_by": expense.paid_by,
+            "will_have_cfdi": expense.will_have_cfdi,
+            "invoice_uuid": invoice_uuid,
+            "tax_total": expense.tax_info.get('total') if expense.tax_info else None,
+            "tax_metadata": expense.tax_info,
+            "metadata": metadata_extra,
+        }
 
-            # Actualizar el gasto
-            connection.execute(
-                """
-                UPDATE expense_records
-                SET description = ?,
-                    amount = ?,
-                    account_code = ?,
-                    has_invoice = ?,
-                    invoice_uuid = ?,
-                    sat_document_type = ?,
-                    metadata = ?,
-                    updated_at = ?
-                WHERE id = ?
-                """,
-                (
-                    expense.descripcion,
-                    expense.monto_total,
-                    account_code,
-                    int(has_invoice),
-                    invoice_uuid,
-                    "factura" if has_invoice else None,
-                    json.dumps(metadata),
-                    now,
-                    expense_id
-                )
-            )
+        record = db_update_expense_record(expense_id, updates)
+        if not record:
+            raise HTTPException(status_code=404, detail="Gasto no encontrado")
 
-            connection.commit()
-
-        # Retornar la respuesta actualizada
-        return ExpenseResponse(
-            id=expense_id,
-            descripcion=expense.descripcion,
-            monto_total=expense.monto_total,
-            fecha_gasto=expense.fecha_gasto,
-            categoria=expense.categoria,
-            proveedor=expense.proveedor,
-            rfc=expense.rfc,
-            tax_info=expense.tax_info,
-            asientos_contables=expense.asientos_contables,
-            workflow_status=expense.workflow_status,
-            estado_factura=expense.estado_factura,
-            estado_conciliacion=expense.estado_conciliacion,
-            forma_pago=expense.forma_pago,
-            paid_by=expense.paid_by,
-            will_have_cfdi=expense.will_have_cfdi,
-            movimientos_bancarios=expense.movimientos_bancarios,
-            metadata=expense.metadata,
-            created_at="",  # Lo dejaríamos obtener de la BD en una implementación completa
-            updated_at=now
-        )
+        return _build_expense_response(record)
 
     except HTTPException:
         raise
     except Exception as exc:
         logger.exception("Error updating expense: %s", exc)
         raise HTTPException(status_code=500, detail=f"Error actualizando gasto: {str(exc)}")
+
+
+@app.post("/expenses/{expense_id}/invoice", response_model=ExpenseResponse)
+async def register_expense_invoice_endpoint(
+    expense_id: int,
+    payload: ExpenseInvoicePayload,
+) -> ExpenseResponse:
+    try:
+        record = register_expense_invoice(
+            expense_id,
+            uuid=payload.uuid,
+            folio=payload.folio,
+            url=payload.url,
+            issued_at=payload.issued_at,
+            status=payload.status or "registrada",
+            raw_xml=payload.raw_xml,
+            actor=payload.actor,
+        )
+        if not record:
+            raise HTTPException(status_code=404, detail="Gasto no encontrado")
+        return _build_expense_response(record)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Error registrando factura interna: %s", exc)
+        raise HTTPException(status_code=500, detail="No se pudo registrar la factura")
+
+
+@app.post("/expenses/{expense_id}/mark-invoiced", response_model=ExpenseResponse)
+async def mark_expense_as_invoiced(expense_id: int, request: ExpenseActionRequest) -> ExpenseResponse:
+    try:
+        record = db_mark_expense_invoiced(expense_id, actor=request.actor)
+        if not record:
+            raise HTTPException(status_code=404, detail="Gasto no encontrado")
+        return _build_expense_response(record)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Error marcando gasto como facturado: %s", exc)
+        raise HTTPException(status_code=500, detail="No se pudo actualizar el estado de factura")
+
+
+@app.post("/expenses/{expense_id}/close-no-invoice", response_model=ExpenseResponse)
+async def close_expense_without_invoice(expense_id: int, request: ExpenseActionRequest) -> ExpenseResponse:
+    try:
+        record = db_mark_expense_without_invoice(expense_id, actor=request.actor)
+        if not record:
+            raise HTTPException(status_code=404, detail="Gasto no encontrado")
+        return _build_expense_response(record)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Error cerrando gasto sin factura: %s", exc)
+        raise HTTPException(status_code=500, detail="No se pudo cerrar el gasto sin factura")
 
 
 @app.post("/expenses/check-duplicates", response_model=DuplicateCheckResponse)
@@ -1279,41 +1285,24 @@ async def check_expense_duplicates(request: DuplicateCheckRequest) -> DuplicateC
         # Obtener gastos existentes si se solicita
         existing_expenses = []
         if request.check_existing:
-            # Reutilizar la lógica del endpoint GET /expenses
-            from core.internal_db import _get_db_path
-            import sqlite3
-            import json
-
-            db_path = _get_db_path()
-            with sqlite3.connect(db_path) as connection:
-                connection.row_factory = sqlite3.Row
-
-                # Obtener gastos de los últimos 60 días para optimizar
-                query = """
-                    SELECT id, external_reference, description, amount, currency,
-                           account_code, has_invoice, invoice_uuid, sat_document_type,
-                           metadata, created_at, updated_at
-                    FROM expense_records
-                    WHERE created_at >= datetime('now', '-60 days')
-                    ORDER BY created_at DESC
-                """
-
-                rows = connection.execute(query).fetchall()
-
-                for row in rows:
-                    metadata = json.loads(row['metadata']) if row['metadata'] else {}
-
-                    expense = {
-                        'id': row['id'],
-                        'descripcion': row['description'],
-                        'monto_total': row['amount'],
-                        'fecha_gasto': metadata.get('fecha_gasto'),
-                        'categoria': metadata.get('categoria'),
-                        'proveedor': metadata.get('proveedor'),
-                        'rfc': metadata.get('rfc'),
-                        'created_at': row['created_at']
+            records = fetch_expense_records(limit=200)
+            for record in records:
+                metadata = record.get("metadata") or {}
+                proveedor = metadata.get("proveedor") or (
+                    {"nombre": record.get("provider_name")} if record.get("provider_name") else None
+                )
+                existing_expenses.append(
+                    {
+                        'id': record['id'],
+                        'descripcion': record['description'],
+                        'monto_total': record['amount'],
+                        'fecha_gasto': record.get('expense_date'),
+                        'categoria': record.get('category'),
+                        'proveedor': proveedor,
+                        'rfc': record.get('provider_rfc') or metadata.get('rfc'),
+                        'created_at': record.get('created_at'),
                     }
-                    existing_expenses.append(expense)
+                )
 
         # Convertir ExpenseCreate a diccionario
         new_expense_dict = {
@@ -1362,36 +1351,23 @@ async def predict_expense_category(request: CategoryPredictionRequest) -> Catego
         # Obtener historial de gastos si se solicita
         expense_history = []
         if request.include_history:
-            from core.internal_db import _get_db_path
-            import sqlite3
-            import json
+            records = fetch_expense_records(limit=50)
+            for record in records:
+                metadata = record.get("metadata") or {}
+                provider = metadata.get('proveedor')
+                if not provider and record.get('provider_name'):
+                    provider = {"nombre": record.get('provider_name')}
 
-            db_path = _get_db_path()
-            with sqlite3.connect(db_path) as connection:
-                connection.row_factory = sqlite3.Row
-
-                # Obtener gastos recientes para contexto
-                query = """
-                    SELECT description, amount, metadata, created_at
-                    FROM expense_records
-                    WHERE created_at >= datetime('now', '-90 days')
-                    ORDER BY created_at DESC
-                    LIMIT 50
-                """
-
-                rows = connection.execute(query).fetchall()
-
-                for row in rows:
-                    metadata = json.loads(row['metadata']) if row['metadata'] else {}
-
-                    expense_history.append({
-                        'descripcion': row['description'],
-                        'monto_total': row['amount'],
-                        'categoria': metadata.get('categoria'),
-                        'proveedor': metadata.get('proveedor'),
-                        'fecha_gasto': metadata.get('fecha_gasto'),
-                        'created_at': row['created_at']
-                    })
+                expense_history.append(
+                    {
+                        'descripcion': record['description'],
+                        'monto_total': record['amount'],
+                        'categoria': record.get('category'),
+                        'proveedor': provider,
+                        'fecha_gasto': record.get('expense_date'),
+                        'created_at': record.get('created_at'),
+                    }
+                )
 
         # Predecir categoría
         prediction_result = predict_expense_category(

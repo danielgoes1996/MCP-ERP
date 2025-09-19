@@ -212,6 +212,37 @@ mcp-server/
     └── 🎤 voice_test_example.py    # Test procesamiento de voz
 ```
 
+## 🗃️ ERP Interno (SQLite)
+
+El servidor incluye un ERP interno ligero persistido en SQLite. El esquema se gestiona con migraciones automáticas (`schema_versions`) y se inicializa al arrancar (`core/internal_db.initialize_internal_database`). Tablas clave:
+
+- `expense_records`: gastos con columnas normalizadas (fecha, categoría, proveedor, estados de factura/conciliación, campos de pago). Los datos adicionales se guardan en `metadata` (JSON).
+- `expense_invoices`: historial de facturas asociadas a un gasto (uuid, folio, URL, estatus, XML raw).
+- `expense_bank_links`: vínculos gasto ↔ movimiento bancario para conciliación manual o automática.
+- `expense_events`: log auditable de acciones (creación, registros de factura, cambios de estado, conciliaciones).
+- `bank_movements`: movimientos bancarios con campos `account`, `movement_type`, `balance`, `metadata`.
+
+Migraciones disponibles:
+
+1. `0001_initial`: catálogo de cuentas, gastos básicos, movimientos bancarios y feedback de conciliación.
+2. `0002_expense_extended`: amplía `expense_records` con campos explícitos, crea tablas de facturas/eventos/enlaces y extiende `bank_movements`.
+
+## 🔗 Endpoints REST Clave
+
+FastAPI expone operaciones sobre el ERP interno (todas en JSON):
+
+- `POST /expenses` — crea un gasto nuevo (`ExpenseCreate` → `ExpenseResponse`).
+- `PUT /expenses/{id}` — actualiza un gasto existente.
+- `GET /expenses` — lista gastos con los campos normalizados del ERP interno (acepta filtros `mes=YYYY-MM`, `categoria`, `estatus`).
+- `POST /expenses/{id}/invoice` — registra/actualiza datos de factura (uuid, folio, URL, estatus).
+- `POST /expenses/{id}/mark-invoiced` — marca el gasto como facturado (actualiza `invoice_status`).
+- `POST /expenses/{id}/close-no-invoice` — cierra el gasto como “sin factura”.
+- `GET /bank_reconciliation/movements` — consulta movimientos bancarios almacenados (incluye `tags`, `account`, `movement_type`).
+- `POST /bank_reconciliation/suggestions` & `/feedback` — sugerencias IA y feedback de conciliación.
+- `POST /expenses/check-duplicates`, `/expenses/predict-category`, `/invoices/parse` — utilidades IA/OCR.
+
+Todas las operaciones de escritura registran eventos en `expense_events` para trazabilidad.
+
 ## 🎯 Métodos MCP Soportados
 
 ### Gestión de Gastos
