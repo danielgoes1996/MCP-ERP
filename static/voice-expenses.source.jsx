@@ -303,6 +303,11 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
             try {
             const dataset = Array.isArray(expensesData) ? expensesData : [];
             const pendingInvoices = dataset.filter(expense => expense.estado_factura === 'pendiente');
+            const [invoiceFormExpense, setInvoiceFormExpense] = useState(null);
+            const [invoiceFormData, setInvoiceFormData] = useState({ invoiceId: '', invoiceUrl: '' });
+            const [invoiceFormError, setInvoiceFormError] = useState('');
+            const [confirmNoInvoiceExpense, setConfirmNoInvoiceExpense] = useState(null);
+            const [confirmMarkInvoicedExpense, setConfirmMarkInvoicedExpense] = useState(null);
 
             // AI Analysis - Análisis inteligente de urgencia
             const analyzeUrgency = (expense) => {
@@ -369,35 +374,13 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
             };
 
             const registerInvoice = (expense) => {
-                const existingId = expense.factura_id || '';
-                const invoiceId = window.prompt('¿Cuál es el folio de la factura CFDI?', existingId);
-                if (!invoiceId) {
-                    return;
-                }
-
-                const trimmedInvoiceId = invoiceId.trim();
-                if (!trimmedInvoiceId) {
-                    return;
-                }
-
-                const defaultUrl = expense.factura_url || `https://erp.tuempresa.com/facturas/${trimmedInvoiceId}`;
-                const invoiceUrlPrompt = window.prompt('Pega la URL donde se puede revisar la factura:', defaultUrl) || defaultUrl;
-                const trimmedUrl = invoiceUrlPrompt.trim();
-
-                if (!expense.tax_info) {
-                    const continueWithoutTax = window.confirm('No se detectaron impuestos del CFDI. ¿Quieres continuar de todos modos?');
-                    if (!continueWithoutTax) {
-                        return;
-                    }
-                }
-
-                onUpdateExpense(expense.id, (current) => ({
-                    factura_id: trimmedInvoiceId,
-                    factura_url: trimmedUrl,
-                    fecha_facturacion: new Date().toISOString(),
-                    estado_factura: current.estado_factura,
-                    tax_info: current.tax_info || expense.tax_info || null,
-                }));
+                const defaultUrl = expense.factura_url || `https://erp.tuempresa.com/facturas/${expense.factura_id || ''}`;
+                setInvoiceFormExpense(expense);
+                setInvoiceFormData({
+                    invoiceId: expense.factura_id || '',
+                    invoiceUrl: defaultUrl
+                });
+                setInvoiceFormError('');
             };
 
             const markAsInvoiced = (expenseId) => {
@@ -405,25 +388,68 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                 if (!expense) return;
 
                 if (!expense.factura_id) {
-                    alert('Primero registra la factura para este gasto. Sin factura no se puede conciliar.');
+                    registerInvoice(expense);
+                    return;
+                }
+
+                setConfirmMarkInvoicedExpense(expense);
+            };
+
+            const markAsNoInvoice = (expense) => {
+                setConfirmNoInvoiceExpense(expense);
+            };
+
+            const handleInvoiceFormSubmit = () => {
+                if (!invoiceFormExpense) {
+                    return;
+                }
+
+                const trimmedId = invoiceFormData.invoiceId.trim();
+                const trimmedUrl = (invoiceFormData.invoiceUrl || '').trim() || `https://erp.tuempresa.com/facturas/${trimmedId}`;
+
+                if (!trimmedId) {
+                    setInvoiceFormError('Ingresa el folio de la factura.');
                     return;
                 }
 
                 if (typeof onUpdateExpense === 'function') {
-                    onUpdateExpense(expenseId, () => ({
+                    onUpdateExpense(invoiceFormExpense.id, (current) => ({
+                        factura_id: trimmedId,
+                        factura_url: trimmedUrl,
+                        fecha_facturacion: new Date().toISOString(),
+                        estado_factura: current.estado_factura,
+                        tax_info: current.tax_info || invoiceFormExpense.tax_info || null,
+                    }));
+                }
+
+                setInvoiceFormExpense(null);
+                setInvoiceFormData({ invoiceId: '', invoiceUrl: '' });
+                setInvoiceFormError('');
+            };
+
+            const handleConfirmMarkInvoiced = () => {
+                if (!confirmMarkInvoicedExpense) {
+                    return;
+                }
+
+                if (typeof onUpdateExpense === 'function') {
+                    onUpdateExpense(confirmMarkInvoicedExpense.id, () => ({
                         estado_factura: 'facturado',
                         fecha_facturacion: new Date().toISOString(),
                         estado_conciliacion: 'pendiente_bancaria'
                     }));
                 }
+
+                setConfirmMarkInvoicedExpense(null);
             };
 
-            const markAsNoInvoice = (expense) => {
-                const confirmCancel = window.confirm('¿Seguro que este gasto ya no tendrá factura? Se cerrará el flujo contable sin CFDI.');
-                if (!confirmCancel) return;
+            const handleConfirmNoInvoice = () => {
+                if (!confirmNoInvoiceExpense) {
+                    return;
+                }
 
                 if (typeof onUpdateExpense === 'function') {
-                    onUpdateExpense(expense.id, () => ({
+                    onUpdateExpense(confirmNoInvoiceExpense.id, () => ({
                         will_have_cfdi: false,
                         estado_factura: 'sin_factura',
                         factura_id: null,
@@ -436,6 +462,8 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                         conciliacion_detalle: null,
                     }));
                 }
+
+                setConfirmNoInvoiceExpense(null);
             };
 
             const openNonReconciliationModal = (expense) => {
@@ -445,6 +473,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
             };
 
             return (
+                <>
                 <div className="p-6 space-y-4">
                     <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
                         <h3 className="font-medium text-orange-800 mb-2">
@@ -577,6 +606,151 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                         )}
                     </div>
                 </div>
+                {invoiceFormExpense && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+                            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-900">Registrar factura CFDI</h3>
+                                    <p className="text-sm text-gray-600">Completa los datos para {invoiceFormExpense.descripcion}</p>
+                                </div>
+                                <button
+                                    onClick={() => setInvoiceFormExpense(null)}
+                                    className="text-gray-400 hover:text-gray-600"
+                                    aria-label="Cerrar formulario de factura"
+                                >
+                                    <i className="fas fa-times text-xl"></i>
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Folio CFDI</label>
+                                    <input
+                                        type="text"
+                                        value={invoiceFormData.invoiceId}
+                                        onChange={(e) => {
+                                            setInvoiceFormData((prev) => ({ ...prev, invoiceId: e.target.value }));
+                                            setInvoiceFormError('');
+                                        }}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                        placeholder="UUID o folio de la factura"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">URL de consulta</label>
+                                    <input
+                                        type="url"
+                                        value={invoiceFormData.invoiceUrl}
+                                        onChange={(e) => setInvoiceFormData((prev) => ({ ...prev, invoiceUrl: e.target.value }))}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                        placeholder="https://"
+                                    />
+                                </div>
+                                {!invoiceFormExpense.tax_info && (
+                                    <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg px-3 py-2 text-sm">
+                                        No se detectaron impuestos en el CFDI. Puedes completar esta información más tarde.
+                                    </div>
+                                )}
+                                {invoiceFormError && (
+                                    <div className="text-sm text-red-600">{invoiceFormError}</div>
+                                )}
+                            </div>
+                            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+                                <button
+                                    onClick={() => setInvoiceFormExpense(null)}
+                                    className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleInvoiceFormSubmit}
+                                    className="px-4 py-2 text-sm text-white bg-orange-600 hover:bg-orange-700 rounded-lg"
+                                >
+                                    Guardar factura
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {confirmMarkInvoicedExpense && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+                            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                                <h3 className="text-lg font-semibold text-gray-900">Confirmar conciliación</h3>
+                                <button
+                                    onClick={() => setConfirmMarkInvoicedExpense(null)}
+                                    className="text-gray-400 hover:text-gray-600"
+                                    aria-label="Cerrar confirmación de conciliación"
+                                >
+                                    <i className="fas fa-times text-xl"></i>
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-3 text-sm text-gray-700">
+                                <p>
+                                    ¿Marcar el gasto <strong>{confirmMarkInvoicedExpense.descripcion}</strong> como facturado?
+                                </p>
+                                <p className="text-gray-500">
+                                    Se moverá al estatus “pendiente de conciliación bancaria”.
+                                </p>
+                            </div>
+                            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+                                <button
+                                    onClick={() => setConfirmMarkInvoicedExpense(null)}
+                                    className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleConfirmMarkInvoiced}
+                                    className="px-4 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-lg"
+                                >
+                                    Marcar como facturado
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {confirmNoInvoiceExpense && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+                            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                                <h3 className="text-lg font-semibold text-gray-900">Cerrar sin factura</h3>
+                                <button
+                                    onClick={() => setConfirmNoInvoiceExpense(null)}
+                                    className="text-gray-400 hover:text-gray-600"
+                                    aria-label="Cerrar confirmación sin factura"
+                                >
+                                    <i className="fas fa-times text-xl"></i>
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-3 text-sm text-gray-700">
+                                <p>
+                                    ¿Confirmas que el gasto <strong>{confirmNoInvoiceExpense.descripcion}</strong> no tendrá factura CFDI?
+                                </p>
+                                <p className="text-gray-500">
+                                    El flujo se cerrará como “sin factura” y se quitarán datos fiscales.
+                                </p>
+                            </div>
+                            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+                                <button
+                                    onClick={() => setConfirmNoInvoiceExpense(null)}
+                                    className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleConfirmNoInvoice}
+                                    className="px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700 rounded-lg"
+                                >
+                                    Cerrar sin factura
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                </>
             );
             } catch (error) {
                 console.error('PendingInvoicesContent error:', error);
@@ -2080,6 +2254,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
             const [showConversationalAssistant, setShowConversationalAssistant] = useState(false);
             const [showNonReconciliationModal, setShowNonReconciliationModal] = useState(false);
             const [selectedExpenseForNonReconciliation, setSelectedExpenseForNonReconciliation] = useState(null);
+            const [moreActionsOpen, setMoreActionsOpen] = useState(false);
 
             // Estados de operaciones
             const [isSaving, setIsSaving] = useState(false);
@@ -3700,41 +3875,83 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                                 <i className="fas fa-file-invoice mr-2"></i>
                                 Facturas Pendientes
                             </button>
-                            <button
-                                onClick={() => setShowInvoiceUpload(true)}
-                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                            >
-                                <i className="fas fa-upload mr-2"></i>
-                                Cargar Facturas
-                            </button>
-                            <button
-                                onClick={() => setShowReconciliation(true)}
-                                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
-                            >
-                                <i className="fas fa-balance-scale mr-2"></i>
-                                Conciliar Gastos
-                            </button>
-                            <button
-                                onClick={() => setShowBankReconciliation(true)}
-                                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm"
-                            >
-                                <i className="fas fa-university mr-2"></i>
-                                Conciliación bancaria
-                            </button>
-                            <button
-                                onClick={() => setShowCompletenessView(true)}
-                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
-                            >
-                                <i className="fas fa-clipboard-check mr-2"></i>
-                                Vista Contable
-                            </button>
-                            <button
-                                onClick={() => setShowConversationalAssistant(true)}
-                                className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors text-sm"
-                            >
-                                <i className="fas fa-robot mr-2"></i>
-                                Asistente IA
-                            </button>
+                            <div className="relative">
+                                <button
+                                    onClick={() => setMoreActionsOpen((open) => !open)}
+                                    aria-haspopup="true"
+                                    aria-expanded={moreActionsOpen}
+                                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm flex items-center"
+                                >
+                                    <i className="fas fa-ellipsis-h mr-2"></i>
+                                    Más opciones
+                                </button>
+                                {moreActionsOpen && (
+                                    <div className="absolute right-0 mt-2 w-56 bg-white shadow-lg rounded-lg border border-gray-200 z-10">
+                                        <ul className="py-2 text-sm text-gray-700">
+                                            <li>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowInvoiceUpload(true);
+                                                        setMoreActionsOpen(false);
+                                                    }}
+                                                    className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                                >
+                                                    <i className="fas fa-upload mr-2 text-green-600"></i>
+                                                    Cargar Facturas
+                                                </button>
+                                            </li>
+                                            <li>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowReconciliation(true);
+                                                        setMoreActionsOpen(false);
+                                                    }}
+                                                    className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                                >
+                                                    <i className="fas fa-balance-scale mr-2 text-purple-600"></i>
+                                                    Conciliar Gastos
+                                                </button>
+                                            </li>
+                                            <li>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowBankReconciliation(true);
+                                                        setMoreActionsOpen(false);
+                                                    }}
+                                                    className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                                >
+                                                    <i className="fas fa-university mr-2 text-teal-600"></i>
+                                                    Conciliación Bancaria
+                                                </button>
+                                            </li>
+                                            <li>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowCompletenessView(true);
+                                                        setMoreActionsOpen(false);
+                                                    }}
+                                                    className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                                >
+                                                    <i className="fas fa-clipboard-check mr-2 text-indigo-600"></i>
+                                                    Vista Contable
+                                                </button>
+                                            </li>
+                                            <li>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowConversationalAssistant(true);
+                                                        setMoreActionsOpen(false);
+                                                    }}
+                                                    className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                                >
+                                                    <i className="fas fa-robot mr-2 text-pink-600"></i>
+                                                    Asistente IA
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                     </div>
@@ -4590,6 +4807,7 @@ Ejemplo: 'Compra de gasolina por 500 pesos en Pemex, pagado con tarjeta de empre
                                         <button
                                             onClick={() => setShowExpensesDashboard(false)}
                                             className="text-gray-400 hover:text-gray-600"
+                                            aria-label="Cerrar modal de dashboard"
                                         >
                                             <i className="fas fa-times text-xl"></i>
                                         </button>
@@ -4619,6 +4837,7 @@ Ejemplo: 'Compra de gasolina por 500 pesos en Pemex, pagado con tarjeta de empre
                                         <button
                                             onClick={() => setShowPendingInvoices(false)}
                                             className="text-gray-400 hover:text-gray-600"
+                                            aria-label="Cerrar facturas pendientes"
                                         >
                                             <i className="fas fa-times text-xl"></i>
                                         </button>
@@ -4650,6 +4869,7 @@ Ejemplo: 'Compra de gasolina por 500 pesos en Pemex, pagado con tarjeta de empre
                                         <button
                                             onClick={() => setShowInvoiceUpload(false)}
                                             className="text-gray-400 hover:text-gray-600"
+                                            aria-label="Cerrar carga de facturas"
                                         >
                                             <i className="fas fa-times text-xl"></i>
                                         </button>
@@ -4677,6 +4897,7 @@ Ejemplo: 'Compra de gasolina por 500 pesos en Pemex, pagado con tarjeta de empre
                                         <button
                                             onClick={() => setShowReconciliation(false)}
                                             className="text-gray-400 hover:text-gray-600"
+                                            aria-label="Cerrar conciliación"
                                         >
                                             <i className="fas fa-times text-xl"></i>
                                         </button>
@@ -4704,6 +4925,7 @@ Ejemplo: 'Compra de gasolina por 500 pesos en Pemex, pagado con tarjeta de empre
                                         <button
                                             onClick={() => setShowBankReconciliation(false)}
                                             className="text-gray-400 hover:text-gray-600"
+                                            aria-label="Cerrar conciliación bancaria"
                                         >
                                             <i className="fas fa-times text-xl"></i>
                                         </button>
@@ -4731,6 +4953,7 @@ Ejemplo: 'Compra de gasolina por 500 pesos en Pemex, pagado con tarjeta de empre
                                         <button
                                             onClick={() => setShowCompletenessView(false)}
                                             className="text-gray-400 hover:text-gray-600"
+                                            aria-label="Cerrar vista contable"
                                         >
                                             <i className="fas fa-times text-xl"></i>
                                         </button>
