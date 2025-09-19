@@ -1,0 +1,38 @@
+{
+  "name": "mcp-server",
+  "version": "1.0.0",
+  "description": "🚀 **MCP Server** es una solución completa para gestión de gastos empresariales que actúa como capa universal entre agentes AI y sistemas ERP como Odoo.",
+  "main": "index.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "build:voice": "NODE_ENV=production babel static/voice-expenses.source.jsx --presets @babel/preset-env,@babel/preset-react --plugins @babel/plugin-transform-optional-chaining,@babel/plugin-transform-nullish-coalescing-operator,@babel/plugin-transform-class-properties,@babel/plugin-transform-object-rest-spread --minified --no-comments --out-file static/voice-expenses.bundle.js && echo '✅ voice-expenses.bundle.js actualizado'",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danielgoes1996/MCP-ERP.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/danielgoes1996/MCP-ERP/issues"
+  },
+  "homepage": "https://github.com/danielgoes1996/MCP-ERP#readme",
+  "devDependencies": {
+    "@babel/cli": "^7.28.3",
+    "@babel/core": "^7.28.4",
+    "@babel/plugin-transform-class-properties": "^7.27.1",
+    "@babel/plugin-transform-nullish-coalescing-operator": "^7.27.1",
+    "@babel/plugin-transform-object-rest-spread": "^7.28.4",
+    "@babel/plugin-transform-optional-chaining": "^7.27.1",
+    "@babel/preset-env": "^7.28.3",
+    "@babel/preset-react": "^7.27.1",
+    "jsdom": "^27.0.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  }
+}
