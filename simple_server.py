@@ -11,6 +11,8 @@ from urllib.parse import urlparse, parse_qs
 from datetime import datetime
 import uuid
 
+from core.internal_db import initialize_internal_database
+
 PORT = 8004
 
 class MCPHandler(http.server.BaseHTTPRequestHandler):
@@ -81,6 +83,13 @@ class MCPHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(data).encode('utf-8'))
 
 if __name__ == "__main__":
+    try:
+        initialize_internal_database()
+        print("✅ Internal account catalog ready.")
+    except Exception as exc:
+        print(f"❌ Failed to initialise internal database: {exc}")
+        raise
+
     with socketserver.TCPServer(("", PORT), MCPHandler) as httpd:
         print(f"🚀 MCP Server running at http://localhost:{PORT}")
         print(f"📖 Test endpoint: http://localhost:{PORT}/mcp")

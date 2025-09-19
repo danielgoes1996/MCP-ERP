@@ -4,15 +4,35 @@ This is the entry point for the MCP (Model Context Protocol) Server that acts as
 a universal layer between AI agents and business systems.
 """
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from typing import Dict, Any, Optional
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+from typing import Dict, Any, List, Optional
 import uvicorn
 import logging
+import tempfile
+import os
+from datetime import datetime, timezone
 
-# Import our core MCP handler
+# Import our core MCP handler and reconciliation helpers
 from core.mcp_handler import handle_mcp_request
+from core.bank_reconciliation import suggest_bank_matches
+from core.invoice_parser import parse_cfdi_xml, InvoiceParseError
+from core.internal_db import (
+    initialize_internal_database,
+    list_bank_movements,
+    record_bank_match_feedback,
+)
 from config.config import config
+
+# Import voice processing (optional - only if OpenAI is configured)
+try:
+    from core.voice_handler import process_voice_request, get_voice_handler
+    VOICE_ENABLED = True
+except ImportError as e:
+    VOICE_ENABLED = False
+    logging.getLogger(__name__).warning(f"Voice processing disabled: {e}")
 
 # Configure logging
 logging.basicConfig(
@@ -29,6 +49,21 @@ app = FastAPI(
     docs_url="/docs",  # Swagger UI
     redoc_url="/redoc"  # ReDoc
 )
+
+# Mount static files for web interface
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.on_event("startup")
+async def bootstrap_internal_catalog() -> None:
+    """Ensure the internal database and account catalog are ready."""
+
+    try:
+        initialize_internal_database()
+        logger.info("Internal account catalog initialised")
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.exception("Error initialising internal database: %s", exc)
+        raise
 
 
 class MCPRequest(BaseModel):
@@ -48,15 +83,213 @@ class MCPResponse(BaseModel):
     error: Optional[str] = None
 
 
+class BankSuggestionExpense(BaseModel):
+    expense_id: str
+    amount: float
+    currency: str = "MXN"
+    description: Optional[str] = None
+    date: Optional[str] = None
+    provider_name: Optional[str] = None
+    paid_by: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class BankSuggestionResponse(BaseModel):
+    suggestions: List[Dict[str, Any]]
+
+
+class BankReconciliationFeedback(BaseModel):
+    expense_id: str
+    movement_id: str
+    confidence: float
+    decision: str
+    notes: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class ExpenseCreate(BaseModel):
+    # Campos básicos de gasto
+    descripcion: str
+    monto_total: float
+    fecha_gasto: Optional[str] = None
+    categoria: Optional[str] = None
+
+    # Información del proveedor
+    proveedor: Optional[Dict[str, Any]] = None
+    rfc: Optional[str] = None
+
+    # Información fiscal
+    tax_info: Optional[Dict[str, Any]] = None
+    asientos_contables: Optional[List[Dict[str, Any]]] = None
+
+    # Estados del workflow
+    workflow_status: str = "draft"  # draft, pending_invoice, invoiced, closed
+    estado_factura: str = "pendiente"  # pendiente, facturado, sin_factura
+    estado_conciliacion: str = "pendiente"  # pendiente, conciliado, excluido
+
+    # Información de pago
+    forma_pago: Optional[str] = None
+    paid_by: str = "company_account"
+    will_have_cfdi: bool = True
+
+    # Movimientos bancarios asociados
+    movimientos_bancarios: Optional[List[Dict[str, Any]]] = None
+
+    # Metadatos adicionales
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class ExpenseResponse(BaseModel):
+    id: int
+    descripcion: str
+    monto_total: float
+    fecha_gasto: Optional[str] = None
+    categoria: Optional[str] = None
+
+    # Información del proveedor
+    proveedor: Optional[Dict[str, Any]] = None
+    rfc: Optional[str] = None
+
+    # Información fiscal
+    tax_info: Optional[Dict[str, Any]] = None
+    asientos_contables: Optional[List[Dict[str, Any]]] = None
+
+    # Estados del workflow
+    workflow_status: str
+    estado_factura: str
+    estado_conciliacion: str
+
+    # Información de pago
+    forma_pago: Optional[str] = None
+    paid_by: str
+    will_have_cfdi: bool
+
+    # Movimientos bancarios asociados
+    movimientos_bancarios: Optional[List[Dict[str, Any]]] = None
+
+    # Metadatos
+    metadata: Optional[Dict[str, Any]] = None
+    created_at: str
+    updated_at: str
+
+
+class InvoiceParseResponse(BaseModel):
+    subtotal: float
+    total: float
+    currency: str = "MXN"
+    taxes: List[Dict[str, Any]] = Field(default_factory=list)
+    iva_amount: float = 0.0
+    other_taxes: float = 0.0
+    emitter: Optional[Dict[str, Any]] = None
+    receiver: Optional[Dict[str, Any]] = None
+    uuid: Optional[str] = None
+
+
+class DuplicateCheckRequest(BaseModel):
+    new_expense: ExpenseCreate
+    check_existing: bool = True
+
+
+class DuplicateCheckResponse(BaseModel):
+    has_duplicates: bool
+    total_found: int
+    risk_level: str  # 'none', 'low', 'medium', 'high'
+    recommendation: str  # 'proceed', 'warn', 'review', 'block'
+    duplicates: List[Dict[str, Any]] = Field(default_factory=list)
+    summary: Dict[str, Any] = Field(default_factory=dict)
+
+
+class CategoryPredictionRequest(BaseModel):
+    description: str
+    amount: Optional[float] = None
+    provider_name: Optional[str] = None
+    include_history: bool = True
+
+
+class CategoryPredictionResponse(BaseModel):
+    categoria_sugerida: str
+    confianza: float
+    razonamiento: str
+    alternativas: List[Dict[str, Any]] = Field(default_factory=list)
+    metodo_prediccion: str
+    sugerencias_autocompletado: List[Dict[str, Any]] = Field(default_factory=list)
+
+
 @app.get("/")
 async def root():
     """
-    Root endpoint - health check for the MCP server.
+    Root endpoint - serves the web interface.
+
+    Returns:
+        HTMLResponse: The main web interface
+    """
+    logger.info("Web interface accessed")
+    return FileResponse("static/index.html")
+
+
+@app.get("/voice-expenses")
+async def voice_expenses():
+    """
+    Voice expenses endpoint - serves the new React voice interface.
+
+    Returns:
+        HTMLResponse: The voice-enabled expense registration interface
+    """
+    logger.info("Voice expenses interface accessed")
+    return FileResponse("static/voice-expenses.html")
+
+
+@app.post("/simple_expense")
+async def create_simple_expense(request: dict):
+    """
+    Endpoint simplificado para crear gastos desde la nueva interfaz de voz.
+    Evita la complejidad de los modelos y usa mapeo directo.
+
+    Args:
+        request: Datos del gasto en formato simple
+
+    Returns:
+        JSONResponse: Resultado de la creación
+    """
+    try:
+        logger.info("Creating simple expense from voice interface")
+
+        # Usar el OdooFieldMapper directamente
+        from core.odoo_field_mapper import OdooFieldMapper
+
+        mapper = OdooFieldMapper()
+
+        # Conectar a Odoo
+        if not mapper.connect_to_odoo():
+            raise Exception("No se pudo conectar a Odoo")
+
+        # Mapear y crear el gasto
+        result = mapper.create_expense_in_odoo(request)
+
+        logger.info(f"Simple expense creation result: {result}")
+
+        return JSONResponse(content=result)
+
+    except Exception as e:
+        logger.error(f"Error creating simple expense: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": f"Error interno creando gasto: {str(e)}"
+            }
+        )
+
+
+@app.get("/api/status")
+async def api_status():
+    """
+    API status endpoint - health check for the MCP server.
 
     Returns:
         dict: Status message indicating server is running
     """
-    logger.info("Root endpoint accessed")
+    logger.info("API status endpoint accessed")
     return {"status": "MCP Server running"}
 
 
@@ -118,6 +351,479 @@ async def mcp_endpoint(request: MCPRequest):
         )
 
 
+@app.post("/voice_mcp")
+async def voice_mcp_endpoint(file: UploadFile = File(...)):
+    """
+    Voice-enabled MCP endpoint that processes audio input and returns both JSON and audio responses.
+
+    Flow:
+    1. Transcribe uploaded audio file to text using OpenAI Whisper
+    2. Process the text through MCP handler
+    3. Convert MCP response to speech using OpenAI TTS
+    4. Return JSON response with transcript, MCP result, and audio file
+
+    Args:
+        file (UploadFile): Audio file (MP3, WAV, etc.)
+
+    Returns:
+        JSONResponse: {
+            "success": bool,
+            "transcript": str,
+            "mcp_response": dict,
+            "response_text": str,
+            "audio_file_url": str,
+            "error": str (if failed)
+        }
+    """
+    if not VOICE_ENABLED:
+        raise HTTPException(
+            status_code=503,
+            detail="Voice processing is disabled. Please configure OPENAI_API_KEY and install required dependencies."
+        )
+
+    try:
+        logger.info(f"Voice MCP request received - File: {file.filename}, Content-Type: {file.content_type}")
+
+        # Validate file type
+        if not file.content_type or not file.content_type.startswith('audio/'):
+            logger.warning(f"Invalid file type: {file.content_type}")
+            # Allow anyway as some browsers may not set correct content type
+
+        # Save uploaded file to temporary location
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename or "audio.mp3")[1]) as tmp_file:
+            content = await file.read()
+            tmp_file.write(content)
+            tmp_audio_path = tmp_file.name
+
+        logger.info(f"Audio file saved to: {tmp_audio_path}")
+
+        # Process voice request through the pipeline
+        def mcp_handler_wrapper(mcp_request):
+            """Wrapper to handle MCP requests from voice processing"""
+            method = mcp_request.get("method", "unknown")
+            params = mcp_request.get("params", {})
+            return handle_mcp_request(method, params)
+
+        # Process through voice handler
+        result = process_voice_request(tmp_audio_path, mcp_handler_wrapper)
+
+        # Clean up temporary file
+        try:
+            os.unlink(tmp_audio_path)
+        except Exception as e:
+            logger.warning(f"Failed to cleanup temp file: {e}")
+
+        if not result["success"]:
+            logger.error(f"Voice processing failed: {result.get('error')}")
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": result.get("error", "Voice processing failed"),
+                    "transcript": "",
+                    "mcp_response": {},
+                    "audio_file_url": ""
+                }
+            )
+
+        # Prepare response
+        response_data = {
+            "success": True,
+            "transcript": result.get("transcript", ""),
+            "mcp_response": result.get("mcp_response", {}),
+            "response_text": result.get("response_text", ""),
+            "tts_success": result.get("tts_success", False),
+            "audio_file_url": f"/audio/{os.path.basename(result.get('audio_file', ''))}" if result.get('audio_file') else ""
+        }
+
+        # Store audio file path for serving
+        if result.get('audio_file'):
+            # Store reference for serving the file
+            app.state.audio_files = getattr(app.state, 'audio_files', {})
+            audio_filename = os.path.basename(result['audio_file'])
+            app.state.audio_files[audio_filename] = result['audio_file']
+
+        logger.info(f"Voice MCP processed successfully - Transcript: {result.get('transcript', '')[:100]}...")
+        return JSONResponse(content=response_data)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in voice MCP endpoint: {str(e)}")
+        # Cleanup any temp files
+        if 'tmp_audio_path' in locals():
+            try:
+                os.unlink(tmp_audio_path)
+            except:
+                pass
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        )
+
+
+@app.get("/audio/{filename}")
+async def serve_audio_file(filename: str):
+    """
+    Serve generated audio files.
+
+    Args:
+        filename (str): Audio file name
+
+    Returns:
+        FileResponse: Audio file
+    """
+    if not VOICE_ENABLED:
+        raise HTTPException(status_code=503, detail="Voice processing disabled")
+
+    try:
+        # Get stored audio file path
+        audio_files = getattr(app.state, 'audio_files', {})
+        if filename not in audio_files:
+            raise HTTPException(status_code=404, detail="Audio file not found")
+
+        file_path = audio_files[filename]
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="Audio file not found on disk")
+
+        return FileResponse(
+            path=file_path,
+            media_type="audio/mpeg",
+            filename=filename
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error serving audio file: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error serving audio file")
+
+
+@app.post("/voice_mcp_enhanced")
+async def voice_mcp_enhanced_endpoint(file: UploadFile = File(...)):
+    """
+    Enhanced voice-enabled MCP endpoint with field validation and completion forms.
+
+    Flow:
+    1. Transcribe audio to text using OpenAI Whisper
+    2. Enhance with LLM for better descriptions
+    3. Validate completeness of fields
+    4. Return completion form if fields are missing
+    5. Allow user to complete and create expense
+
+    Args:
+        file (UploadFile): Audio file (MP3, WAV, etc.)
+
+    Returns:
+        JSONResponse: Enhanced response with validation and form
+    """
+    if not VOICE_ENABLED:
+        raise HTTPException(
+            status_code=503,
+            detail="Voice processing is disabled. Please configure OPENAI_API_KEY and install required dependencies."
+        )
+
+    try:
+        logger.info(f"Enhanced Voice MCP request received - File: {file.filename}")
+
+        # Save uploaded file to temporary location
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename or "audio.mp3")[1]) as tmp_file:
+            content = await file.read()
+            tmp_file.write(content)
+            tmp_audio_path = tmp_file.name
+
+        # Step 1: Transcribe audio
+        from core.voice_handler import get_voice_handler
+        voice_handler = get_voice_handler()
+
+        transcription_result = voice_handler.transcribe_audio(tmp_audio_path)
+
+        # Clean up temp file
+        try:
+            os.unlink(tmp_audio_path)
+        except:
+            pass
+
+        if not transcription_result["success"]:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": transcription_result.get("error", "Transcription failed"),
+                    "stage": "transcription"
+                }
+            )
+
+        transcript = transcription_result["transcript"]
+        logger.info(f"Transcribed: {transcript}")
+
+        # Step 2: Enhance with LLM
+        try:
+            from core.expense_enhancer import enhance_expense_from_voice
+            # Extract amount from transcript for enhancement
+            import re
+            amount_match = re.search(r'(\d+(?:\.\d+)?)', transcript)
+            amount = float(amount_match.group(1)) if amount_match else 100.0
+
+            enhanced_data = enhance_expense_from_voice(transcript, amount)
+        except Exception as e:
+            logger.error(f"Error in LLM enhancement: {e}")
+            enhanced_data = {
+                'name': transcript,
+                'total_amount': amount,
+                'date': datetime.now().strftime('%Y-%m-%d'),
+                'payment_mode': 'own_account'
+            }
+
+        # Step 3: Validate completeness
+        from core.expense_validator import expense_validator
+        validation_result = expense_validator.validate_expense_data(enhanced_data)
+
+        # Step 4: Generate completion form if needed
+        completion_form = None
+        if not validation_result['is_complete'] or validation_result['missing_critical']:
+            completion_form = expense_validator.create_completion_form(enhanced_data, validation_result)
+
+        response_data = {
+            "success": True,
+            "transcript": transcript,
+            "enhanced_data": enhanced_data,
+            "validation": validation_result,
+            "completion_form": completion_form,
+            "can_create_directly": validation_result['can_create'],
+            "completeness_score": validation_result['completeness_score']
+        }
+
+        # If the expense is complete enough, offer direct creation
+        if validation_result['can_create'] and validation_result['completeness_score'] >= 60:
+            response_data['direct_creation_available'] = True
+
+        logger.info(f"Enhanced voice processing completed - Score: {validation_result['completeness_score']}%")
+        return JSONResponse(content=response_data)
+
+    except Exception as e:
+        logger.error(f"Error in enhanced voice MCP endpoint: {str(e)}")
+        if 'tmp_audio_path' in locals():
+            try:
+                os.unlink(tmp_audio_path)
+            except:
+                pass
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        )
+
+
+class CompleteExpenseRequest(BaseModel):
+    """
+    Pydantic model for complete expense request structure.
+    """
+    enhanced_data: Dict[str, Any]
+    user_completions: Dict[str, Any]
+
+
+@app.post("/complete_expense")
+async def complete_expense_endpoint(request: CompleteExpenseRequest):
+    """
+    Complete and create expense with user-provided additional fields.
+
+    Args:
+        request: CompleteExpenseRequest with enhanced_data and user_completions
+
+    Returns:
+        JSONResponse: Result of expense creation in Odoo
+    """
+    try:
+        logger.info("Completing expense with user data")
+
+        # Merge enhanced data with user completions
+        enhanced_data = request.enhanced_data
+        user_completions = request.user_completions
+
+        # Merge data
+        final_expense_data = {**enhanced_data, **user_completions}
+
+        # Create in Odoo using the mapper
+        from core.odoo_field_mapper import get_odoo_mapper
+        mapper = get_odoo_mapper()
+
+        # Map to Odoo fields
+        mapped_data, missing_fields = mapper.map_expense_data(final_expense_data)
+
+        if missing_fields:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "Critical fields still missing",
+                    "missing_fields": missing_fields
+                }
+            )
+
+        # Create in Odoo
+        creation_result = mapper.create_expense_in_odoo(mapped_data)
+
+        if creation_result['success']:
+            # Generate TTS response
+            if VOICE_ENABLED:
+                try:
+                    from core.voice_handler import text_to_speech
+                    response_text = f"Gasto creado exitosamente con ID {creation_result['expense_id']}. Monto: ${final_expense_data.get('total_amount', 0)} pesos."
+                    tts_result = text_to_speech(response_text)
+
+                    if tts_result['success']:
+                        # Store audio file for serving
+                        app.state.audio_files = getattr(app.state, 'audio_files', {})
+                        audio_filename = os.path.basename(tts_result['audio_file'])
+                        app.state.audio_files[audio_filename] = tts_result['audio_file']
+                        creation_result['audio_file_url'] = f"/audio/{audio_filename}"
+                except Exception as e:
+                    logger.warning(f"TTS generation failed: {e}")
+
+        return JSONResponse(content=creation_result)
+
+    except Exception as e:
+        logger.error(f"Error completing expense: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error creating expense: {str(e)}"
+        )
+
+
+@app.post("/ocr/parse")
+async def ocr_parse(file: UploadFile = File(...), lang: str = Form("spa+eng")):
+    """
+    OCR endpoint - Parse image/PDF and extract structured fields.
+
+    Args:
+        file: Image or PDF file
+        lang: Tesseract language (default: spa+eng)
+
+    Returns:
+        JSONResponse: Extracted text and fields
+    """
+    try:
+        logger.info(f"OCR parse request - File: {file.filename}, Size: {file.size}")
+
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No file uploaded")
+
+        # Read file content
+        content = await file.read()
+
+        # Call Node.js OCR service
+        import httpx
+
+        files = {"file": (file.filename, content, file.content_type)}
+        data = {"lang": lang}
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "http://localhost:3001/ocr/parse",
+                files=files,
+                data=data,
+                timeout=30.0
+            )
+
+        if response.status_code == 200:
+            result = response.json()
+            logger.info(f"OCR parse successful - Confidence: {result.get('confidence', 0)}")
+            return JSONResponse(content=result)
+        else:
+            error_msg = f"OCR service error: {response.status_code}"
+            logger.error(error_msg)
+            raise HTTPException(status_code=500, detail=error_msg)
+
+    except Exception as e:
+        logger.error(f"Error in OCR parse: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
+
+
+@app.post("/ocr/intake")
+async def ocr_intake(
+    file: UploadFile = File(...),
+    paid_by: str = Form(...),
+    will_have_cfdi: str = Form(...)
+):
+    """
+    OCR intake endpoint - Create expense directly from OCR.
+
+    Args:
+        file: Image or PDF file
+        paid_by: Payment method (company_account/own_account)
+        will_have_cfdi: Whether CFDI is expected (true/false)
+
+    Returns:
+        JSONResponse: Created intake with route decision
+    """
+    try:
+        logger.info(f"OCR intake request - File: {file.filename}, paid_by: {paid_by}")
+
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No file uploaded")
+
+        # Read file content
+        content = await file.read()
+
+        # Call Node.js OCR service
+        import httpx
+
+        files = {"file": (file.filename, content, file.content_type)}
+        data = {
+            "paid_by": paid_by,
+            "will_have_cfdi": will_have_cfdi
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "http://localhost:3001/ocr/intake",
+                files=files,
+                data=data,
+                timeout=60.0
+            )
+
+        if response.status_code == 201:
+            result = response.json()
+            logger.info(f"OCR intake successful - ID: {result.get('intake_id')}, Route: {result.get('route')}")
+            return JSONResponse(content=result)
+        else:
+            error_msg = f"OCR intake service error: {response.status_code}"
+            logger.error(error_msg)
+            raise HTTPException(status_code=500, detail=error_msg)
+
+    except Exception as e:
+        logger.error(f"Error in OCR intake: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"OCR intake failed: {str(e)}")
+
+
+@app.get("/ocr/stats")
+async def ocr_stats():
+    """
+    OCR stats endpoint - Get OCR service statistics.
+
+    Returns:
+        JSONResponse: OCR service stats
+    """
+    try:
+        import httpx
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get("http://localhost:3001/ocr/stats", timeout=10.0)
+
+        if response.status_code == 200:
+            result = response.json()
+            logger.info("OCR stats retrieved successfully")
+            return JSONResponse(content=result)
+        else:
+            raise HTTPException(status_code=500, detail="OCR stats service error")
+
+    except Exception as e:
+        logger.error(f"Error getting OCR stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"OCR stats failed: {str(e)}")
+
+
 @app.get("/methods")
 async def list_supported_methods():
     """
@@ -138,13 +844,1170 @@ async def list_supported_methods():
         "create_expense": {
             "description": "Create a new expense record",
             "parameters": ["employee", "amount", "description"]
+        },
+        "ocr_parse": {
+            "description": "Parse image/PDF with OCR and extract fields (POST /ocr/parse)",
+            "parameters": ["file (multipart/form-data)", "lang (optional)"]
+        },
+        "ocr_intake": {
+            "description": "Create expense directly from OCR (POST /ocr/intake)",
+            "parameters": ["file (multipart/form-data)", "paid_by", "will_have_cfdi"]
+        },
+        "ocr_stats": {
+            "description": "Get OCR service statistics (GET /ocr/stats)",
+            "parameters": []
+        },
+        "bank_reconciliation_suggestions": {
+            "description": "Sugerencias IA de conciliación bancaria (POST /bank_reconciliation/suggestions)",
+            "parameters": ["expense_payload"]
+        },
+        "bank_reconciliation_feedback": {
+            "description": "Registrar feedback de conciliación bancaria (POST /bank_reconciliation/feedback)",
+            "parameters": ["expense_id", "movement_id", "confidence", "decision"]
+        },
+        "invoice_parse": {
+            "description": "Analizar CFDI XML para extraer impuestos (POST /invoices/parse)",
+            "parameters": ["file (multipart/form-data)"]
         }
     }
 
+    # Add voice endpoints if enabled
+    voice_endpoints = {}
+    if VOICE_ENABLED:
+        voice_endpoints = {
+            "voice_mcp": {
+                "description": "Basic voice-enabled MCP endpoint (POST /voice_mcp)",
+                "parameters": ["audio_file (multipart/form-data)"],
+                "returns": "JSON response + audio file"
+            },
+            "voice_mcp_enhanced": {
+                "description": "Enhanced voice MCP with field validation (POST /voice_mcp_enhanced)",
+                "parameters": ["audio_file (multipart/form-data)"],
+                "returns": "JSON response + completion form + validation"
+            },
+            "complete_expense": {
+                "description": "Complete expense creation with additional fields (POST /complete_expense)",
+                "parameters": ["enhanced_data", "user_completions"],
+                "returns": "Expense creation result"
+            },
+            "audio_file": {
+                "description": "Serve generated audio files (GET /audio/{filename})",
+                "parameters": ["filename"],
+                "returns": "Audio file (MP3)"
+            }
+        }
+
+    all_methods = {**supported_methods, **voice_endpoints}
+
     return {
-        "supported_methods": supported_methods,
-        "total_methods": len(supported_methods)
+        "supported_methods": all_methods,
+        "total_methods": len(all_methods),
+        "voice_enabled": VOICE_ENABLED
     }
+
+
+@app.get("/bank_reconciliation/movements")
+async def get_bank_movements(limit: int = 100, include_matched: bool = True) -> Dict[str, Any]:
+    """Return bank movements stored in the internal database."""
+
+    movements = list_bank_movements(limit=limit, include_matched=include_matched)
+    return {"movements": movements, "count": len(movements)}
+
+
+@app.post("/bank_reconciliation/suggestions", response_model=BankSuggestionResponse)
+async def bank_reconciliation_suggestions(expense: BankSuggestionExpense) -> BankSuggestionResponse:
+    """Return a ranked list of possible bank movements for an expense."""
+
+    try:
+        logger.debug("Generating bank reconciliation suggestions for %s", expense.expense_id)
+        suggestions = suggest_bank_matches(expense.model_dump())
+        return BankSuggestionResponse(suggestions=suggestions)
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.exception("Bank reconciliation suggestion error: %s", exc)
+        raise HTTPException(status_code=500, detail="Error generando sugerencias de conciliación bancaria")
+
+
+@app.post("/bank_reconciliation/feedback")
+async def bank_reconciliation_feedback(feedback: BankReconciliationFeedback) -> Dict[str, Any]:
+    """Store user feedback about a bank reconciliation suggestion."""
+
+    decision = feedback.decision.lower()
+    if decision not in {"accepted", "rejected", "manual"}:
+        raise HTTPException(status_code=400, detail="Decisión inválida. Usa accepted, rejected o manual.")
+
+    record_bank_match_feedback(
+        expense_id=feedback.expense_id,
+        movement_id=feedback.movement_id,
+        confidence=feedback.confidence,
+        decision=decision,
+        notes=feedback.notes,
+        metadata=feedback.metadata,
+    )
+
+    return {"success": True}
+
+
+@app.post("/invoices/parse", response_model=InvoiceParseResponse)
+async def parse_invoice(file: UploadFile = File(...)) -> InvoiceParseResponse:
+    """Parse CFDI XML uploads and return tax breakdown information."""
+
+    filename = file.filename or ""
+    if not filename.lower().endswith(".xml"):
+        raise HTTPException(status_code=400, detail="Solo se aceptan archivos CFDI XML")
+
+    try:
+        content = await file.read()
+        parsed = parse_cfdi_xml(content)
+        return InvoiceParseResponse(**parsed)
+    except InvoiceParseError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("Invoice parsing error: %s", exc)
+        raise HTTPException(status_code=500, detail="Error interno al analizar la factura")
+
+
+@app.post("/expenses", response_model=ExpenseResponse)
+async def create_expense(expense: ExpenseCreate) -> ExpenseResponse:
+    """Crear un nuevo gasto en la base de datos."""
+
+    try:
+        # Preparar datos para la base de datos
+        metadata = {
+            # Información del proveedor
+            'proveedor': expense.proveedor,
+            'rfc': expense.rfc,
+
+            # Información fiscal
+            'tax_info': expense.tax_info,
+            'asientos_contables': expense.asientos_contables,
+
+            # Estados del workflow
+            'workflow_status': expense.workflow_status,
+            'estado_factura': expense.estado_factura,
+            'estado_conciliacion': expense.estado_conciliacion,
+
+            # Información de pago
+            'forma_pago': expense.forma_pago,
+            'paid_by': expense.paid_by,
+            'will_have_cfdi': expense.will_have_cfdi,
+
+            # Movimientos bancarios
+            'movimientos_bancarios': expense.movimientos_bancarios,
+
+            # Otros metadatos
+            'categoria': expense.categoria,
+            'fecha_gasto': expense.fecha_gasto,
+            **(expense.metadata or {})
+        }
+
+        # Usar una cuenta por defecto basada en la categoría si no se especifica
+        account_code = "6180"  # Papelería y misceláneos por defecto
+        if expense.categoria:
+            category_mapping = {
+                'combustible': '6140',
+                'combustibles': '6140',
+                'viajes': '6150',
+                'viaticos': '6150',
+                'alimentos': '6150',
+                'servicios': '6130',
+                'oficina': '6180',
+                'honorarios': '6110',
+                'renta': '6120',
+                'publicidad': '6160',
+                'marketing': '6160'
+            }
+            account_code = category_mapping.get(expense.categoria.lower(), "6180")
+
+        # Determinar si tiene factura basado en el UUID o estado
+        has_invoice = False
+        invoice_uuid = None
+        if expense.tax_info and expense.tax_info.get('uuid'):
+            has_invoice = True
+            invoice_uuid = expense.tax_info['uuid']
+        elif expense.estado_factura == 'facturado':
+            has_invoice = True
+
+        from core.internal_db import record_internal_expense
+        expense_id = record_internal_expense(
+            description=expense.descripcion,
+            amount=expense.monto_total,
+            account_code=account_code,
+            currency="MXN",
+            has_invoice=has_invoice,
+            invoice_uuid=invoice_uuid,
+            sat_document_type="factura" if has_invoice else None,
+            metadata=metadata
+        )
+
+        # Retornar la respuesta con el ID generado
+        now = datetime.now().isoformat()
+        return ExpenseResponse(
+            id=expense_id,
+            descripcion=expense.descripcion,
+            monto_total=expense.monto_total,
+            fecha_gasto=expense.fecha_gasto,
+            categoria=expense.categoria,
+            proveedor=expense.proveedor,
+            rfc=expense.rfc,
+            tax_info=expense.tax_info,
+            asientos_contables=expense.asientos_contables,
+            workflow_status=expense.workflow_status,
+            estado_factura=expense.estado_factura,
+            estado_conciliacion=expense.estado_conciliacion,
+            forma_pago=expense.forma_pago,
+            paid_by=expense.paid_by,
+            will_have_cfdi=expense.will_have_cfdi,
+            movimientos_bancarios=expense.movimientos_bancarios,
+            metadata=expense.metadata,
+            created_at=now,
+            updated_at=now
+        )
+
+    except Exception as exc:
+        logger.exception("Error creating expense: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Error creando gasto: {str(exc)}")
+
+
+@app.get("/expenses", response_model=List[ExpenseResponse])
+async def list_expenses(limit: int = 100) -> List[ExpenseResponse]:
+    """Listar gastos desde la base de datos."""
+
+    try:
+        from core.internal_db import _get_db_path
+        import sqlite3
+        import json
+
+        db_path = _get_db_path()
+        with sqlite3.connect(db_path) as connection:
+            connection.row_factory = sqlite3.Row
+
+            query = """
+                SELECT id, external_reference, description, amount, currency,
+                       account_code, has_invoice, invoice_uuid, sat_document_type,
+                       metadata, created_at, updated_at
+                FROM expense_records
+                ORDER BY created_at DESC
+                LIMIT ?
+            """
+
+            rows = connection.execute(query, (limit,)).fetchall()
+
+            expenses = []
+            for row in rows:
+                metadata = json.loads(row['metadata']) if row['metadata'] else {}
+
+                expense = ExpenseResponse(
+                    id=row['id'],
+                    descripcion=row['description'],
+                    monto_total=row['amount'],
+                    fecha_gasto=metadata.get('fecha_gasto'),
+                    categoria=metadata.get('categoria'),
+                    proveedor=metadata.get('proveedor'),
+                    rfc=metadata.get('rfc'),
+                    tax_info=metadata.get('tax_info'),
+                    asientos_contables=metadata.get('asientos_contables'),
+                    workflow_status=metadata.get('workflow_status', 'draft'),
+                    estado_factura=metadata.get('estado_factura', 'pendiente'),
+                    estado_conciliacion=metadata.get('estado_conciliacion', 'pendiente'),
+                    forma_pago=metadata.get('forma_pago'),
+                    paid_by=metadata.get('paid_by', 'company_account'),
+                    will_have_cfdi=metadata.get('will_have_cfdi', True),
+                    movimientos_bancarios=metadata.get('movimientos_bancarios'),
+                    metadata={k: v for k, v in metadata.items() if k not in [
+                        'proveedor', 'rfc', 'tax_info', 'asientos_contables',
+                        'workflow_status', 'estado_factura', 'estado_conciliacion',
+                        'forma_pago', 'paid_by', 'will_have_cfdi', 'movimientos_bancarios',
+                        'categoria', 'fecha_gasto'
+                    ]},
+                    created_at=row['created_at'],
+                    updated_at=row['updated_at']
+                )
+                expenses.append(expense)
+
+            return expenses
+
+    except Exception as exc:
+        logger.exception("Error listing expenses: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Error obteniendo gastos: {str(exc)}")
+
+
+@app.put("/expenses/{expense_id}", response_model=ExpenseResponse)
+async def update_expense(expense_id: int, expense: ExpenseCreate) -> ExpenseResponse:
+    """Actualizar un gasto existente en la base de datos."""
+
+    try:
+        from core.internal_db import _get_db_path
+        import sqlite3
+        import json
+
+        # Preparar datos para la base de datos
+        metadata = {
+            # Información del proveedor
+            'proveedor': expense.proveedor,
+            'rfc': expense.rfc,
+
+            # Información fiscal
+            'tax_info': expense.tax_info,
+            'asientos_contables': expense.asientos_contables,
+
+            # Estados del workflow
+            'workflow_status': expense.workflow_status,
+            'estado_factura': expense.estado_factura,
+            'estado_conciliacion': expense.estado_conciliacion,
+
+            # Información de pago
+            'forma_pago': expense.forma_pago,
+            'paid_by': expense.paid_by,
+            'will_have_cfdi': expense.will_have_cfdi,
+
+            # Movimientos bancarios
+            'movimientos_bancarios': expense.movimientos_bancarios,
+
+            # Otros metadatos
+            'categoria': expense.categoria,
+            'fecha_gasto': expense.fecha_gasto,
+            **(expense.metadata or {})
+        }
+
+        # Usar una cuenta por defecto basada en la categoría si no se especifica
+        account_code = "6180"  # Papelería y misceláneos por defecto
+        if expense.categoria:
+            category_mapping = {
+                'combustible': '6140',
+                'combustibles': '6140',
+                'viajes': '6150',
+                'viaticos': '6150',
+                'alimentos': '6150',
+                'servicios': '6130',
+                'oficina': '6180',
+                'honorarios': '6110',
+                'renta': '6120',
+                'publicidad': '6160',
+                'marketing': '6160'
+            }
+            account_code = category_mapping.get(expense.categoria.lower(), "6180")
+
+        # Determinar si tiene factura basado en el UUID o estado
+        has_invoice = False
+        invoice_uuid = None
+        if expense.tax_info and expense.tax_info.get('uuid'):
+            has_invoice = True
+            invoice_uuid = expense.tax_info['uuid']
+        elif expense.estado_factura == 'facturado':
+            has_invoice = True
+
+        db_path = _get_db_path()
+        now = datetime.now().isoformat()
+
+        with sqlite3.connect(db_path) as connection:
+            # Verificar que el gasto existe
+            cursor = connection.execute(
+                "SELECT id FROM expense_records WHERE id = ?",
+                (expense_id,)
+            )
+            if not cursor.fetchone():
+                raise HTTPException(status_code=404, detail="Gasto no encontrado")
+
+            # Actualizar el gasto
+            connection.execute(
+                """
+                UPDATE expense_records
+                SET description = ?,
+                    amount = ?,
+                    account_code = ?,
+                    has_invoice = ?,
+                    invoice_uuid = ?,
+                    sat_document_type = ?,
+                    metadata = ?,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    expense.descripcion,
+                    expense.monto_total,
+                    account_code,
+                    int(has_invoice),
+                    invoice_uuid,
+                    "factura" if has_invoice else None,
+                    json.dumps(metadata),
+                    now,
+                    expense_id
+                )
+            )
+
+            connection.commit()
+
+        # Retornar la respuesta actualizada
+        return ExpenseResponse(
+            id=expense_id,
+            descripcion=expense.descripcion,
+            monto_total=expense.monto_total,
+            fecha_gasto=expense.fecha_gasto,
+            categoria=expense.categoria,
+            proveedor=expense.proveedor,
+            rfc=expense.rfc,
+            tax_info=expense.tax_info,
+            asientos_contables=expense.asientos_contables,
+            workflow_status=expense.workflow_status,
+            estado_factura=expense.estado_factura,
+            estado_conciliacion=expense.estado_conciliacion,
+            forma_pago=expense.forma_pago,
+            paid_by=expense.paid_by,
+            will_have_cfdi=expense.will_have_cfdi,
+            movimientos_bancarios=expense.movimientos_bancarios,
+            metadata=expense.metadata,
+            created_at="",  # Lo dejaríamos obtener de la BD en una implementación completa
+            updated_at=now
+        )
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Error updating expense: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Error actualizando gasto: {str(exc)}")
+
+
+@app.post("/expenses/check-duplicates", response_model=DuplicateCheckResponse)
+async def check_expense_duplicates(request: DuplicateCheckRequest) -> DuplicateCheckResponse:
+    """
+    Verifica si un gasto nuevo es posiblemente duplicado comparándolo con gastos existentes.
+    Usa embeddings semánticos y heurísticas para detectar similitudes.
+    """
+    try:
+        from core.duplicate_detector import detect_expense_duplicates
+
+        # Obtener gastos existentes si se solicita
+        existing_expenses = []
+        if request.check_existing:
+            # Reutilizar la lógica del endpoint GET /expenses
+            from core.internal_db import _get_db_path
+            import sqlite3
+            import json
+
+            db_path = _get_db_path()
+            with sqlite3.connect(db_path) as connection:
+                connection.row_factory = sqlite3.Row
+
+                # Obtener gastos de los últimos 60 días para optimizar
+                query = """
+                    SELECT id, external_reference, description, amount, currency,
+                           account_code, has_invoice, invoice_uuid, sat_document_type,
+                           metadata, created_at, updated_at
+                    FROM expense_records
+                    WHERE created_at >= datetime('now', '-60 days')
+                    ORDER BY created_at DESC
+                """
+
+                rows = connection.execute(query).fetchall()
+
+                for row in rows:
+                    metadata = json.loads(row['metadata']) if row['metadata'] else {}
+
+                    expense = {
+                        'id': row['id'],
+                        'descripcion': row['description'],
+                        'monto_total': row['amount'],
+                        'fecha_gasto': metadata.get('fecha_gasto'),
+                        'categoria': metadata.get('categoria'),
+                        'proveedor': metadata.get('proveedor'),
+                        'rfc': metadata.get('rfc'),
+                        'created_at': row['created_at']
+                    }
+                    existing_expenses.append(expense)
+
+        # Convertir ExpenseCreate a diccionario
+        new_expense_dict = {
+            'descripcion': request.new_expense.descripcion,
+            'monto_total': request.new_expense.monto_total,
+            'fecha_gasto': request.new_expense.fecha_gasto,
+            'categoria': request.new_expense.categoria,
+            'proveedor': request.new_expense.proveedor,
+            'rfc': request.new_expense.rfc,
+        }
+
+        # Detectar duplicados
+        detection_result = detect_expense_duplicates(new_expense_dict, existing_expenses)
+
+        return DuplicateCheckResponse(
+            has_duplicates=detection_result['summary']['has_duplicates'],
+            total_found=detection_result['summary']['total_found'],
+            risk_level=detection_result['summary']['risk_level'],
+            recommendation=detection_result['summary']['recommendation'],
+            duplicates=detection_result['duplicates'],
+            summary=detection_result['summary']
+        )
+
+    except Exception as exc:
+        logger.exception("Error checking for duplicate expenses: %s", exc)
+        # En caso de error, permitir que continúe (fail-safe)
+        return DuplicateCheckResponse(
+            has_duplicates=False,
+            total_found=0,
+            risk_level='none',
+            recommendation='proceed',
+            duplicates=[],
+            summary={'error': f'Error en detección: {str(exc)}'}
+        )
+
+
+@app.post("/expenses/predict-category", response_model=CategoryPredictionResponse)
+async def predict_expense_category(request: CategoryPredictionRequest) -> CategoryPredictionResponse:
+    """
+    Predice la categoría de un gasto usando LLM contextual y historial del usuario.
+    Incluye sugerencias de autocompletado para mejorar la UX.
+    """
+    try:
+        from core.category_predictor import predict_expense_category, get_category_predictor
+
+        # Obtener historial de gastos si se solicita
+        expense_history = []
+        if request.include_history:
+            from core.internal_db import _get_db_path
+            import sqlite3
+            import json
+
+            db_path = _get_db_path()
+            with sqlite3.connect(db_path) as connection:
+                connection.row_factory = sqlite3.Row
+
+                # Obtener gastos recientes para contexto
+                query = """
+                    SELECT description, amount, metadata, created_at
+                    FROM expense_records
+                    WHERE created_at >= datetime('now', '-90 days')
+                    ORDER BY created_at DESC
+                    LIMIT 50
+                """
+
+                rows = connection.execute(query).fetchall()
+
+                for row in rows:
+                    metadata = json.loads(row['metadata']) if row['metadata'] else {}
+
+                    expense_history.append({
+                        'descripcion': row['description'],
+                        'monto_total': row['amount'],
+                        'categoria': metadata.get('categoria'),
+                        'proveedor': metadata.get('proveedor'),
+                        'fecha_gasto': metadata.get('fecha_gasto'),
+                        'created_at': row['created_at']
+                    })
+
+        # Predecir categoría
+        prediction_result = predict_expense_category(
+            description=request.description,
+            amount=request.amount,
+            provider_name=request.provider_name,
+            expense_history=expense_history
+        )
+
+        # Obtener sugerencias de autocompletado
+        predictor = get_category_predictor()
+        autocomplete_suggestions = predictor.get_category_suggestions(
+            prediction_result['categoria_sugerida']
+        )
+
+        return CategoryPredictionResponse(
+            categoria_sugerida=prediction_result['categoria_sugerida'],
+            confianza=prediction_result['confianza'],
+            razonamiento=prediction_result['razonamiento'],
+            alternativas=prediction_result['alternativas'],
+            metodo_prediccion=prediction_result['metodo_prediccion'],
+            sugerencias_autocompletado=autocomplete_suggestions
+        )
+
+    except Exception as exc:
+        logger.exception("Error predicting expense category: %s", exc)
+        # En caso de error, devolver categoría por defecto
+        return CategoryPredictionResponse(
+            categoria_sugerida='oficina',
+            confianza=0.3,
+            razonamiento=f'Error en predicción: {str(exc)}. Usando categoría por defecto.',
+            alternativas=[],
+            metodo_prediccion='fallback',
+            sugerencias_autocompletado=[]
+        )
+
+
+@app.get("/expenses/category-suggestions")
+async def get_category_suggestions(partial: str = "") -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Obtiene sugerencias de categorías para autocompletado.
+    """
+    try:
+        from core.category_predictor import get_category_predictor
+
+        predictor = get_category_predictor()
+        suggestions = predictor.get_category_suggestions(partial)
+
+        return {"suggestions": suggestions}
+
+    except Exception as exc:
+        logger.exception("Error getting category suggestions: %s", exc)
+        return {"suggestions": []}
+
+
+# =====================================================
+# CONVERSATIONAL ASSISTANT ENDPOINTS
+# =====================================================
+
+class QueryRequest(BaseModel):
+    query: str = Field(..., description="Consulta en lenguaje natural")
+
+class QueryResponse(BaseModel):
+    answer: str = Field(..., description="Respuesta del asistente")
+    data: Optional[Dict[str, Any]] = Field(None, description="Datos relevantes")
+    query_type: str = Field(..., description="Tipo de consulta detectada")
+    confidence: float = Field(..., description="Confianza en la respuesta (0-1)")
+    sql_executed: Optional[str] = Field(None, description="SQL ejecutado (si aplica)")
+    has_llm: bool = Field(..., description="Si se usó LLM para procesar")
+
+class NonReconciliationRequest(BaseModel):
+    expense_id: str = Field(..., description="ID del gasto")
+    reason_code: str = Field(..., description="Código del motivo")
+    reason_text: str = Field(..., description="Descripción del motivo")
+    notes: Optional[str] = Field(None, description="Notas adicionales")
+    estimated_resolution_date: Optional[str] = Field(None, description="Fecha estimada de resolución")
+
+class NonReconciliationResponse(BaseModel):
+    success: bool = Field(..., description="Si la operación fue exitosa")
+    message: str = Field(..., description="Mensaje de confirmación")
+    expense_id: str = Field(..., description="ID del gasto actualizado")
+    status: str = Field(..., description="Nuevo estado del gasto")
+
+
+@app.post("/expenses/query")
+async def process_natural_language_query(request: QueryRequest) -> QueryResponse:
+    """
+    Procesa consultas en lenguaje natural sobre gastos.
+
+    Ejemplos de consultas:
+    - "¿Cuánto gasté este mes?"
+    - "Mostrar gastos de combustible"
+    - "Breakdown por categorías"
+    - "Gastos en Pemex"
+    - "Resumen de gastos de la semana pasada"
+    """
+    try:
+        from core.conversational_assistant import process_natural_language_query
+
+        logger.info(f"Processing natural language query: {request.query}")
+
+        result = process_natural_language_query(request.query)
+
+        return QueryResponse(
+            answer=result['answer'],
+            data=result['data'],
+            query_type=result['query_type'],
+            confidence=result['confidence'],
+            sql_executed=result['sql_executed'],
+            has_llm=result['has_llm']
+        )
+
+    except Exception as exc:
+        logger.exception("Error processing natural language query: %s", exc)
+        return QueryResponse(
+            answer=f"Ocurrió un error procesando tu consulta: {str(exc)}",
+            data=None,
+            query_type="error",
+            confidence=0.1,
+            sql_executed=None,
+            has_llm=False
+        )
+
+
+@app.get("/expenses/query-help")
+async def get_query_help() -> Dict[str, Any]:
+    """
+    Obtiene ayuda sobre los tipos de consultas que se pueden hacer.
+    """
+    return {
+        "title": "Asistente Conversacional de Gastos",
+        "description": "Puedes hacer consultas en lenguaje natural sobre tus gastos empresariales.",
+        "examples": [
+            {
+                "query": "¿Cuánto gasté este mes?",
+                "description": "Obtener resumen de gastos del mes actual"
+            },
+            {
+                "query": "Mostrar gastos de combustible",
+                "description": "Buscar gastos por categoría específica"
+            },
+            {
+                "query": "Breakdown por categorías",
+                "description": "Análisis detallado por todas las categorías"
+            },
+            {
+                "query": "Gastos de la semana pasada",
+                "description": "Análisis temporal de un período específico"
+            },
+            {
+                "query": "Gastos en Pemex",
+                "description": "Análisis por proveedor específico"
+            },
+            {
+                "query": "Resumen general",
+                "description": "Estadísticas generales de todos los gastos"
+            }
+        ],
+        "query_types": [
+            "expense_summary - Resúmenes y totales",
+            "expense_search - Búsquedas específicas",
+            "category_analysis - Análisis por categorías",
+            "time_analysis - Análisis temporal",
+            "provider_analysis - Análisis por proveedores"
+        ]
+    }
+
+
+# =====================================================
+# NON-RECONCILIATION MANAGEMENT ENDPOINTS
+# =====================================================
+
+@app.post("/expenses/{expense_id}/mark-non-reconcilable")
+async def mark_expense_non_reconcilable(
+    expense_id: str,
+    request: NonReconciliationRequest
+) -> NonReconciliationResponse:
+    """
+    Marca un gasto como no conciliable con motivo específico.
+
+    Motivos comunes:
+    - missing_invoice: Falta la factura CFDI
+    - bank_account_missing: No aparece en estado de cuenta bancario
+    - wrong_amount: Monto no coincide con la factura
+    - duplicate_entry: Gasto duplicado
+    - provider_issue: Problema con el proveedor
+    - system_error: Error del sistema
+    - pending_approval: Pendiente de aprobación
+    - other: Otro motivo (especificar en notas)
+    """
+    try:
+        logger.info(f"Marking expense {expense_id} as non-reconcilable: {request.reason_code}")
+
+        # Motivos predefinidos con descripciones
+        REASON_CODES = {
+            "missing_invoice": "Falta la factura CFDI",
+            "bank_account_missing": "No aparece en estado de cuenta bancario",
+            "wrong_amount": "Monto no coincide con la factura",
+            "duplicate_entry": "Gasto duplicado",
+            "provider_issue": "Problema con el proveedor",
+            "system_error": "Error del sistema",
+            "pending_approval": "Pendiente de aprobación",
+            "other": "Otro motivo"
+        }
+
+        if request.reason_code not in REASON_CODES:
+            return NonReconciliationResponse(
+                success=False,
+                message=f"Código de motivo inválido: {request.reason_code}",
+                expense_id=expense_id,
+                status="error"
+            )
+
+        # Aquí normalmente actualizarías la base de datos
+        # Por ahora simulamos la actualización
+        non_reconciliation_data = {
+            "expense_id": expense_id,
+            "reason_code": request.reason_code,
+            "reason_text": request.reason_text,
+            "reason_description": REASON_CODES[request.reason_code],
+            "notes": request.notes,
+            "estimated_resolution_date": request.estimated_resolution_date,
+            "marked_date": datetime.now().isoformat(),
+            "status": "non_reconcilable"
+        }
+
+        logger.info(f"Expense {expense_id} marked as non-reconcilable: {non_reconciliation_data}")
+
+        return NonReconciliationResponse(
+            success=True,
+            message=f"Gasto marcado como no conciliable: {REASON_CODES[request.reason_code]}",
+            expense_id=expense_id,
+            status="non_reconcilable"
+        )
+
+    except Exception as exc:
+        logger.exception("Error marking expense as non-reconcilable: %s", exc)
+        return NonReconciliationResponse(
+            success=False,
+            message=f"Error: {str(exc)}",
+            expense_id=expense_id,
+            status="error"
+        )
+
+
+@app.get("/expenses/non-reconciliation-reasons")
+async def get_non_reconciliation_reasons() -> Dict[str, Any]:
+    """
+    Obtiene la lista de motivos predefinidos para no conciliación.
+    """
+    return {
+        "reasons": [
+            {
+                "code": "missing_invoice",
+                "title": "Falta factura CFDI",
+                "description": "No se ha recibido o no se encuentra la factura correspondiente",
+                "category": "documentation",
+                "typical_resolution_days": 7
+            },
+            {
+                "code": "bank_account_missing",
+                "title": "No aparece en banco",
+                "description": "El gasto no aparece en el estado de cuenta bancario",
+                "category": "banking",
+                "typical_resolution_days": 3
+            },
+            {
+                "code": "wrong_amount",
+                "title": "Monto no coincide",
+                "description": "El monto registrado no coincide con la factura o estado de cuenta",
+                "category": "amount_mismatch",
+                "typical_resolution_days": 2
+            },
+            {
+                "code": "duplicate_entry",
+                "title": "Gasto duplicado",
+                "description": "Este gasto ya fue registrado anteriormente",
+                "category": "duplicate",
+                "typical_resolution_days": 1
+            },
+            {
+                "code": "provider_issue",
+                "title": "Problema con proveedor",
+                "description": "Hay un problema pendiente con el proveedor (datos incorrectos, etc.)",
+                "category": "provider",
+                "typical_resolution_days": 10
+            },
+            {
+                "code": "system_error",
+                "title": "Error del sistema",
+                "description": "Error técnico que impide la conciliación automática",
+                "category": "technical",
+                "typical_resolution_days": 1
+            },
+            {
+                "code": "pending_approval",
+                "title": "Pendiente de aprobación",
+                "description": "El gasto está pendiente de aprobación por parte de un superior",
+                "category": "approval",
+                "typical_resolution_days": 5
+            },
+            {
+                "code": "other",
+                "title": "Otro motivo",
+                "description": "Motivo no contemplado en las opciones anteriores",
+                "category": "other",
+                "typical_resolution_days": 7
+            }
+        ],
+        "categories": {
+            "documentation": "Problemas de documentación",
+            "banking": "Problemas bancarios",
+            "amount_mismatch": "Discrepancias de montos",
+            "duplicate": "Duplicados",
+            "provider": "Problemas con proveedores",
+            "technical": "Problemas técnicos",
+            "approval": "Procesos de aprobación",
+            "other": "Otros"
+        }
+    }
+
+
+@app.get("/expenses/{expense_id}/non-reconciliation-status")
+async def get_expense_non_reconciliation_status(expense_id: str) -> Dict[str, Any]:
+    """
+    Obtiene el estado de no conciliación de un gasto específico.
+    """
+    try:
+        # Aquí normalmente consultarías la base de datos
+        # Por ahora retornamos un ejemplo
+        return {
+            "expense_id": expense_id,
+            "is_non_reconcilable": False,
+            "reason": None,
+            "notes": None,
+            "marked_date": None,
+            "estimated_resolution_date": None,
+            "history": []
+        }
+
+    except Exception as exc:
+        logger.exception("Error getting non-reconciliation status: %s", exc)
+        return {
+            "error": str(exc),
+            "expense_id": expense_id
+        }
+
+
+# =====================================================
+# DUMMY DATA GENERATION ENDPOINTS
+# =====================================================
+
+@app.post("/demo/generate-dummy-data")
+async def generate_dummy_data() -> Dict[str, Any]:
+    """
+    Genera datos de prueba realistas para demostrar el sistema.
+
+    Crea gastos de ejemplo con diferentes estados:
+    - Gastos normales conciliados
+    - Gastos pendientes de facturación
+    - Gastos con problemas de conciliación
+    - Gastos duplicados
+    - Gastos con diferentes categorías y proveedores
+    """
+    try:
+        from datetime import datetime, timedelta
+        import random
+        import uuid
+
+        logger.info("Generating dummy data for demonstration")
+
+        # Datos base realistas
+        DUMMY_EXPENSES = [
+            # Gastos de Combustible
+            {
+                "descripcion": "Gasolina Premium Pemex Insurgentes",
+                "monto_total": 850.00,
+                "categoria": "combustible",
+                "proveedor": {"nombre": "Pemex", "rfc": "PEP970814HS9"},
+                "fecha_gasto": (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d'),
+                "estado_factura": "pendiente",
+                "workflow_status": "pendiente_factura",
+                "rfc": "PEP970814HS9",
+                "urgency_level": "medium"
+            },
+            {
+                "descripcion": "Diesel Shell Periférico Sur",
+                "monto_total": 1200.00,
+                "categoria": "combustible",
+                "proveedor": {"nombre": "Shell", "rfc": "SHE880315QR4"},
+                "fecha_gasto": (datetime.now() - timedelta(days=18)).strftime('%Y-%m-%d'),
+                "estado_factura": "pendiente",
+                "workflow_status": "pendiente_factura",
+                "rfc": "SHE880315QR4",
+                "urgency_level": "high"
+            },
+
+            # Gastos de Alimentos
+            {
+                "descripcion": "Almuerzo reunión con cliente Starbucks",
+                "monto_total": 320.50,
+                "categoria": "alimentos",
+                "proveedor": {"nombre": "Starbucks Coffee", "rfc": "STA950612LP8"},
+                "fecha_gasto": (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d'),
+                "estado_factura": "facturado",
+                "workflow_status": "facturado",
+                "factura_id": "A12345",
+                "urgency_level": "low"
+            },
+            {
+                "descripcion": "Cena corporativa Restaurante Pujol",
+                "monto_total": 2400.00,
+                "categoria": "alimentos",
+                "proveedor": {"nombre": "Restaurante Pujol", "rfc": "PUJ030920MN2"},
+                "fecha_gasto": (datetime.now() - timedelta(days=12)).strftime('%Y-%m-%d'),
+                "estado_factura": "pendiente",
+                "workflow_status": "pendiente_factura",
+                "rfc": "PUJ030920MN2",
+                "urgency_level": "medium"
+            },
+
+            # Gastos de Transporte
+            {
+                "descripcion": "Viaje Uber a oficina cliente",
+                "monto_total": 145.00,
+                "categoria": "transporte",
+                "proveedor": {"nombre": "Uber Technologies", "rfc": "UBE140225ST7"},
+                "fecha_gasto": (datetime.now() - timedelta(days=5)).strftime('%Y-%m-%d'),
+                "estado_factura": "pendiente",
+                "workflow_status": "pendiente_factura",
+                "rfc": "UBE140225ST7",
+                "urgency_level": "low"
+            },
+            {
+                "descripcion": "Vuelo VivaAerobus CDMX-GDL",
+                "monto_total": 1850.00,
+                "categoria": "transporte",
+                "proveedor": {"nombre": "VivaAerobus", "rfc": "VIV061205KL9"},
+                "fecha_gasto": (datetime.now() - timedelta(days=28)).strftime('%Y-%m-%d'),
+                "estado_factura": "pendiente",
+                "workflow_status": "pendiente_factura",
+                "rfc": "VIV061205KL9",
+                "urgency_level": "critical"
+            },
+
+            # Gastos de Tecnología
+            {
+                "descripcion": "Licencia Microsoft Office 365 Business",
+                "monto_total": 1890.00,
+                "categoria": "tecnologia",
+                "proveedor": {"nombre": "Microsoft Mexico", "rfc": "MIC920818QP3"},
+                "fecha_gasto": (datetime.now() - timedelta(days=15)).strftime('%Y-%m-%d'),
+                "estado_factura": "pendiente",
+                "workflow_status": "pendiente_factura",
+                "rfc": "MIC920818QP3",
+                "urgency_level": "high"
+            },
+            {
+                "descripcion": "Suscripción Adobe Creative Cloud",
+                "monto_total": 980.00,
+                "categoria": "tecnologia",
+                "proveedor": {"nombre": "Adobe Systems", "rfc": "ADO851201TP5"},
+                "fecha_gasto": (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d'),
+                "estado_factura": "facturado",
+                "workflow_status": "facturado",
+                "factura_id": "ADO98765",
+                "urgency_level": "low"
+            },
+
+            # Gastos de Oficina
+            {
+                "descripcion": "Suministros de oficina Office Depot",
+                "monto_total": 450.75,
+                "categoria": "oficina",
+                "proveedor": {"nombre": "Office Depot Mexico", "rfc": "OFD770403XY1"},
+                "fecha_gasto": (datetime.now() - timedelta(days=10)).strftime('%Y-%m-%d'),
+                "estado_factura": "pendiente",
+                "workflow_status": "pendiente_factura",
+                "rfc": "OFD770403XY1",
+                "urgency_level": "medium"
+            },
+
+            # Gastos de Hospedaje
+            {
+                "descripcion": "Hotel City Express Guadalajara",
+                "monto_total": 1250.00,
+                "categoria": "hospedaje",
+                "proveedor": {"nombre": "Hoteles City Express", "rfc": "HCE990515AB8"},
+                "fecha_gasto": (datetime.now() - timedelta(days=22)).strftime('%Y-%m-%d'),
+                "estado_factura": "pendiente",
+                "workflow_status": "pendiente_factura",
+                "rfc": "HCE990515AB8",
+                "urgency_level": "high"
+            },
+
+            # Casos especiales para demo de no conciliación
+            {
+                "descripcion": "Comida duplicada - Posible error",
+                "monto_total": 320.50,
+                "categoria": "alimentos",
+                "proveedor": {"nombre": "Starbucks Coffee", "rfc": "STA950612LP8"},
+                "fecha_gasto": (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d'),
+                "estado_factura": "pendiente",
+                "workflow_status": "pendiente_factura",
+                "rfc": "STA950612LP8",
+                "urgency_level": "low",
+                "is_potential_duplicate": True
+            },
+            {
+                "descripcion": "Gasto sin factura - Pago en efectivo",
+                "monto_total": 180.00,
+                "categoria": "alimentos",
+                "proveedor": {"nombre": "Taquería Local", "rfc": ""},
+                "fecha_gasto": (datetime.now() - timedelta(days=35)).strftime('%Y-%m-%d'),
+                "estado_factura": "pendiente",
+                "workflow_status": "pendiente_factura",
+                "urgency_level": "critical",
+                "missing_invoice_reason": "Establecimiento pequeño sin facturación"
+            }
+        ]
+
+        # Generar IDs únicos y agregar metadata
+        generated_expenses = []
+        for i, expense in enumerate(DUMMY_EXPENSES):
+            expense_id = f"DEMO-{str(uuid.uuid4())[:8].upper()}"
+
+            complete_expense = {
+                "id": expense_id,
+                "timestamp": datetime.now().isoformat(),
+                "input_method": "demo_data",
+                **expense,
+                "metadata": {
+                    "generated_demo": True,
+                    "generation_time": datetime.now().isoformat(),
+                    "urgency_analysis": {
+                        "level": expense.get("urgency_level", "low"),
+                        "days_old": (datetime.now() - datetime.strptime(expense["fecha_gasto"], '%Y-%m-%d')).days
+                    }
+                },
+                "asientos_contables": {
+                    "numero_poliza": f"POL-{1000 + i}",
+                    "tipo_poliza": "Diario",
+                    "fecha_asiento": expense["fecha_gasto"],
+                    "concepto": f"Registro de {expense['descripcion']}",
+                    "balanceado": True,
+                    "movimientos": [
+                        {
+                            "cuenta": "60101",
+                            "nombre_cuenta": f"Gastos de {expense['categoria'].title()}",
+                            "debe": expense["monto_total"],
+                            "haber": 0,
+                            "tipo": "debe"
+                        },
+                        {
+                            "cuenta": "11301",
+                            "nombre_cuenta": "Bancos - Cuenta Principal",
+                            "debe": 0,
+                            "haber": expense["monto_total"],
+                            "tipo": "haber"
+                        }
+                    ]
+                }
+            }
+
+            generated_expenses.append(complete_expense)
+
+        # Agregar estadísticas de la generación
+        stats = {
+            "total_generated": len(generated_expenses),
+            "by_category": {},
+            "by_status": {},
+            "by_urgency": {},
+            "total_amount": sum(exp["monto_total"] for exp in generated_expenses),
+            "date_range": {
+                "from": min(exp["fecha_gasto"] for exp in generated_expenses),
+                "to": max(exp["fecha_gasto"] for exp in generated_expenses)
+            }
+        }
+
+        # Calcular estadísticas
+        for expense in generated_expenses:
+            category = expense["categoria"]
+            status = expense["estado_factura"]
+            urgency = expense.get("urgency_level", "low")
+
+            stats["by_category"][category] = stats["by_category"].get(category, 0) + 1
+            stats["by_status"][status] = stats["by_status"].get(status, 0) + 1
+            stats["by_urgency"][urgency] = stats["by_urgency"].get(urgency, 0) + 1
+
+        logger.info(f"Generated {len(generated_expenses)} dummy expenses for demo")
+
+        return {
+            "success": True,
+            "message": f"Se generaron {len(generated_expenses)} gastos de demostración",
+            "expenses": generated_expenses,
+            "statistics": stats,
+            "demo_scenarios": [
+                "✅ Gastos normales en diferentes categorías",
+                "⏳ Gastos pendientes con diferentes niveles de urgencia",
+                "🔴 Gastos críticos (>25 días sin facturar)",
+                "🟡 Gastos con alta prioridad (>15 días)",
+                "🔄 Posibles duplicados para demostrar detección",
+                "📄 Gastos sin facturas para demostrar no conciliación",
+                "💰 Montos variados para análisis de insights",
+                "🏢 Proveedores reales mexicanos con RFC",
+                "📊 Asientos contables generados automáticamente"
+            ]
+        }
+
+    except Exception as exc:
+        logger.exception("Error generating dummy data: %s", exc)
+        return {
+            "success": False,
+            "error": str(exc),
+            "message": "Error generando datos de demostración"
+        }
 
 
 if __name__ == "__main__":

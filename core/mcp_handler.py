@@ -100,6 +100,7 @@ def _handle_create_order(params: Dict[str, Any]) -> Dict[str, Any]:
 def _handle_create_expense(params: Dict[str, Any]) -> Dict[str, Any]:
     """
     Real implementation for create_expense method using Odoo integration.
+    Now with LLM enhancement for better descriptions and field mapping.
 
     Args:
         params: Should contain employee, amount, description
@@ -108,15 +109,45 @@ def _handle_create_expense(params: Dict[str, Any]) -> Dict[str, Any]:
         Dict with expense creation result
     """
     try:
-        # Crear gasto directamente en Odoo sin dependencias externas
-        import xmlrpc.client
-
+        # Extraer datos básicos
         employee = params.get("employee", "DEFAULT_EMPLOYEE")
         amount = params.get("amount", 0.0)
         description = params.get("description", "Business expense")
 
-        # Configuración desde variables de entorno
+        logger.info(f"Creando gasto mejorado: {description} - ${amount}")
+
+        # NUEVO: Mejorar gasto con LLM
+        try:
+            from core.expense_enhancer import enhance_expense_from_voice
+            enhanced_expense_data = enhance_expense_from_voice(description, amount)
+            logger.info("Gasto mejorado con LLM exitosamente")
+        except ImportError:
+            logger.warning("Expense enhancer no disponible, usando datos básicos")
+            enhanced_expense_data = {
+                'name': description,
+                'description': description,
+                'price_unit': float(amount),
+                'quantity': 1.0,
+                'total_amount': float(amount),
+                'date': datetime.now().strftime('%Y-%m-%d'),
+                'payment_mode': 'own_account',
+            }
+        except Exception as e:
+            logger.error(f"Error en LLM enhancement: {e}")
+            enhanced_expense_data = {
+                'name': description,
+                'description': description,
+                'price_unit': float(amount),
+                'quantity': 1.0,
+                'total_amount': float(amount),
+                'date': datetime.now().strftime('%Y-%m-%d'),
+                'payment_mode': 'own_account',
+            }
+
+        # Crear gasto directamente en Odoo
+        import xmlrpc.client
         import os
+
         url = os.getenv("ODOO_URL", "https://your-odoo-instance.odoo.com")
         db = os.getenv("ODOO_DB", "your-database")
         username = os.getenv("ODOO_USERNAME", "your-email@domain.com")
@@ -131,20 +162,11 @@ def _handle_create_expense(params: Dict[str, Any]) -> Dict[str, Any]:
 
         models = xmlrpc.client.ServerProxy(f'{url}/xmlrpc/2/object')
 
-        # Crear gasto en Odoo
-        expense_data = {
-            'name': description,
-            'description': description,
-            'price_unit': float(amount),
-            'quantity': 1.0,
-            'total_amount': float(amount),
-            'date': datetime.now().strftime('%Y-%m-%d'),
-        }
-
+        # Usar datos mejorados para crear en Odoo
         expense_id = models.execute_kw(
             db, uid, password,
             'hr.expense', 'create',
-            [expense_data]
+            [enhanced_expense_data]
         )
 
         result = {'success': True, 'expense_id': expense_id}
@@ -157,10 +179,14 @@ def _handle_create_expense(params: Dict[str, Any]) -> Dict[str, Any]:
                 "amount": float(amount),
                 "currency": "USD",
                 "date": datetime.now().isoformat(),
-                "description": description,
-                "category": "general",
+                "description": enhanced_expense_data.get('name', description),
+                "description_detailed": enhanced_expense_data.get('description', description),
+                "category": enhanced_expense_data.get('category', 'general'),
+                "payment_mode": enhanced_expense_data.get('payment_mode', 'own_account'),
                 "receipt_required": True,
-                "odoo_id": result.get('expense_id')
+                "odoo_id": result.get('expense_id'),
+                "enhanced": True,
+                "original_transcript": description
             }
         else:
             # Fallback a mock si falla Odoo

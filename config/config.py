@@ -4,10 +4,14 @@ Handles environment variables and application settings using python-dotenv
 """
 
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class Config:
@@ -20,6 +24,10 @@ class Config:
     HOST = os.getenv("HOST", "127.0.0.1")
     PORT = int(os.getenv("PORT", "8000"))
     DEBUG = os.getenv("DEBUG", "true").lower() == "true"
+
+    # Internal persistence configuration
+    DATA_DIR = Path(os.getenv("INTERNAL_DATA_DIR", BASE_DIR / "data"))
+    INTERNAL_DB_PATH = Path(os.getenv("INTERNAL_DB_PATH", DATA_DIR / "mcp_internal.db"))
 
     # External system credentials (placeholders for now)
     # Odoo Configuration
@@ -37,6 +45,9 @@ class Config:
     BANK_API_URL = os.getenv("BANK_API_URL", "https://bank-api.com")
     BANK_API_KEY = os.getenv("BANK_API_KEY", "your_bank_api_key")
     BANK_CERT_PATH = os.getenv("BANK_CERT_PATH", "/path/to/certificate.pem")
+
+    # OpenAI Configuration for Voice Processing
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
     # Logging configuration
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
@@ -72,6 +83,9 @@ class Config:
                 "api_url": cls.BANK_API_URL,
                 "api_key": cls.BANK_API_KEY,
                 "cert_path": cls.BANK_CERT_PATH,
+            },
+            "openai": {
+                "api_key": cls.OPENAI_API_KEY,
             }
         }
 
