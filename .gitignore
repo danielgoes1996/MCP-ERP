@@ -41,6 +41,11 @@ venv.bak/
 *.swp
 *.swo
 
+# Node projects
+node_modules/
+expense-router/
+expense-router/dist/
+
 # OS
 .DS_Store
 .DS_Store?
