@@ -23,11 +23,16 @@ except ImportError as e:
     STATE_MACHINE_AVAILABLE = False
 
 try:
-    import openai
-    from openai import OpenAI
-    OPENAI_AVAILABLE = True
+    import anthropic
+    ANTHROPIC_AVAILABLE = True
 except ImportError:
-    OPENAI_AVAILABLE = False
+    ANTHROPIC_AVAILABLE = False
+
+try:
+    from python_anticaptcha import AntiCaptchaControl, ImageToTextTask
+    ANTICAPTCHA_AVAILABLE = True
+except ImportError:
+    ANTICAPTCHA_AVAILABLE = False
 
 try:
     from selenium import webdriver
@@ -59,6 +64,31 @@ class WebAutomationWorker:
         self.driver = None
         self.wait_timeout = 30
         self.current_ticket_data = None  # Para almacenar datos del ticket actual
+
+        # Sistema robusto de logs y navegación
+        self.navigation_history = []
+        self.windows_info = {}
+        self.screenshots_dir = "screenshots"
+        self.logs_file = "automation_logs.json"
+
+        # Contadores para control de loops
+        self.max_retries = 3
+        self.retry_count = 0
+
+        # Sistema de debugging y breakpoints
+        self.debugging_enabled = os.getenv("AUTOMATION_DEBUG", "false").lower() == "true"
+        self.checkpoint_counter = 0
+        self.current_merchant = None
+        self.current_step = None
+        self.debug_session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.checkpoints = []
+        self.breakpoints = {
+            "on_error": True,
+            "on_new_window": False,
+            "on_form_fill": False,
+            "on_click": False,
+            "before_submit": True
+        }
 
         # Credenciales empresariales (desde variables de entorno)
         self.company_credentials = {
@@ -95,9 +125,1206 @@ class WebAutomationWorker:
             driver = webdriver.Chrome(options=options)
             driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             return driver
+
+    def generate_human_explanation(self, context: Dict, error_details: List[str]) -> str:
+        """
+        Genera explicación humana de errores usando Claude
+
+        Args:
+            context: Contexto del proceso (URLs, tickets, etc.)
+            error_details: Lista de errores técnicos encontrados
+
+        Returns:
+            Explicación en lenguaje claro
+        """
+        if not ANTHROPIC_AVAILABLE:
+            return "Error técnico en automatización. Requiere revisión manual."
+
+        try:
+            client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+            prompt = f"""
+            Eres un experto en explicar errores técnicos de automatización web en lenguaje claro y humano.
+
+            Contexto del proceso:
+            - Merchant: {context.get('merchant_name', 'Desconocido')}
+            - URLs intentadas: {context.get('urls_tried', [])}
+            - Ticket ID: {context.get('ticket_id', 'N/A')}
+
+            Errores técnicos encontrados:
+            {chr(10).join(error_details)}
+
+            Por favor explica en 2-3 oraciones claras qué pasó y qué se puede hacer:
+            """
+
+            response = client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=300,
+                temperature=0.3,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            explanation = response.content[0].text.strip()
+            logger.info(f"🤖 Explicación generada: {explanation}")
+            return explanation
+
         except Exception as e:
-            logger.error(f"Error configurando driver: {e}")
-            raise
+            logger.error(f"❌ Error generando explicación: {e}")
+            return f"Error en automatización: {'; '.join(error_details[:2])}"
+
+    def try_multiple_urls_with_fallback(self, urls: List[str], ticket_data: Dict) -> Dict:
+        """
+        Intenta múltiples URLs con fallback inteligente
+
+        Args:
+            urls: Lista de URLs ordenadas por prioridad
+            ticket_data: Datos del ticket para validación
+
+        Returns:
+            Resultado con estado y explicación
+        """
+        if not urls:
+            return {
+                "success": False,
+                "error": "No se encontraron URLs de facturación",
+                "explanation": "El ticket no contiene enlaces válidos para facturación automática."
+            }
+
+        results = []
+        successful_url = None
+
+        # Priorizar URLs usando Claude
+        prioritized_urls = self._prioritize_urls_with_claude(urls, ticket_data.get('merchant_name', ''))
+
+        logger.info(f"🔗 Intentando {len(prioritized_urls)} URLs en orden de prioridad")
+
+        for i, url in enumerate(prioritized_urls):
+            logger.info(f"🔗 Intento {i+1}/{len(prioritized_urls)}: {url}")
+
+            try:
+                # Resetear contador de intentos para cada URL
+                self.retry_count = 0
+
+                result = self._attempt_single_url(url, ticket_data)
+                results.append(result)
+
+                # Si fue exitoso, terminar
+                if result.get("success"):
+                    successful_url = url
+                    logger.info(f"✅ URL exitosa: {url}")
+                    break
+
+                # Si falló, continuar con la siguiente
+                logger.warning(f"⚠️ URL falló: {result.get('error', 'Error desconocido')}")
+
+            except Exception as e:
+                error_msg = f"Error inesperado en {url}: {e}"
+                logger.error(f"❌ {error_msg}")
+                results.append({"success": False, "error": error_msg, "url": url})
+
+        # Generar explicación humana
+        if successful_url:
+            return {
+                "success": True,
+                "successful_url": successful_url,
+                "explanation": f"Facturación completada exitosamente usando {successful_url}",
+                "attempts": results
+            }
+        else:
+            error_details = [r.get("error", "Error desconocido") for r in results]
+            context = {
+                "merchant_name": ticket_data.get('merchant_name'),
+                "urls_tried": prioritized_urls,
+                "ticket_id": ticket_data.get('id')
+            }
+
+            explanation = self.generate_human_explanation(context, error_details)
+
+            return {
+                "success": False,
+                "error": "Todas las URLs fallaron",
+                "explanation": explanation,
+                "attempts": results
+            }
+
+    def _prioritize_urls_with_claude(self, urls: List[str], merchant_name: str) -> List[str]:
+        """
+        Usa Claude para priorizar URLs por probabilidad de éxito
+
+        Args:
+            urls: Lista de URLs encontradas
+            merchant_name: Nombre del merchant
+
+        Returns:
+            URLs ordenadas por prioridad
+        """
+        if not ANTHROPIC_AVAILABLE or len(urls) <= 1:
+            return urls
+
+        try:
+            client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+            prompt = f"""
+            Eres un experto en portales de facturación mexicanos.
+
+            Merchant: {merchant_name}
+            URLs encontradas: {urls}
+
+            Ordena estas URLs por probabilidad de contener un formulario de facturación funcional.
+            Considera:
+            1. URLs oficiales vs. terceros
+            2. Palabras clave como "factura", "cfdi", "comprobante"
+            3. Estructura típica de portales mexicanos
+
+            Responde solo con la lista ordenada en formato JSON:
+            ["url_mas_probable", "url_segunda", ...]
+            """
+
+            response = client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=500,
+                temperature=0.1,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            content = response.content[0].text.strip()
+            if content.startswith("```json"):
+                content = content.replace("```json", "").replace("```", "").strip()
+
+            prioritized = json.loads(content)
+
+            # Validar que todas las URLs originales estén incluidas
+            if len(prioritized) == len(urls) and all(url in urls for url in prioritized):
+                logger.info(f"🎯 URLs priorizadas por Claude: {prioritized}")
+                return prioritized
+            else:
+                logger.warning("⚠️ Priorización de Claude inválida, usando orden original")
+                return urls
+
+        except Exception as e:
+            logger.error(f"❌ Error priorizando URLs: {e}")
+            return urls
+
+    def _attempt_single_url(self, url: str, ticket_data: Dict) -> Dict:
+        """
+        Intenta procesar una sola URL con manejo robusto
+
+        Args:
+            url: URL a procesar
+            ticket_data: Datos del ticket
+
+        Returns:
+            Resultado del intento
+        """
+        start_time = time.time()
+
+        try:
+            # Navegar a la URL
+            navigation_result = self._navigate_with_window_handling(url, ["factura", "cfdi", "comprobante"])
+
+            if not navigation_result.get("success"):
+                return {
+                    "success": False,
+                    "error": f"No se pudo cargar la URL: {navigation_result.get('error')}",
+                    "url": url
+                }
+
+            # Buscar formulario de facturación
+            form_result = self._find_and_fill_form(ticket_data)
+
+            if not form_result.get("success"):
+                return {
+                    "success": False,
+                    "error": f"No se encontró formulario válido: {form_result.get('error')}",
+                    "url": url
+                }
+
+            # Intentar completar el proceso
+            completion_result = self._complete_invoice_process()
+
+            processing_time = time.time() - start_time
+
+            return {
+                "success": completion_result.get("success", False),
+                "error": completion_result.get("error"),
+                "url": url,
+                "processing_time": processing_time,
+                "invoice_data": completion_result.get("invoice_data")
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Error inesperado: {e}",
+                "url": url,
+                "processing_time": time.time() - start_time
+            }
+
+    def _navigate_with_window_handling(self, url: str, expected_keywords: List[str]) -> Dict:
+        """
+        Navega con manejo robusto de ventanas múltiples
+
+        Args:
+            url: URL destino
+            expected_keywords: Palabras clave esperadas en URL/título
+
+        Returns:
+            Resultado de la navegación
+        """
+        try:
+            # Recordar ventanas actuales
+            old_windows = set(self.driver.window_handles)
+
+            logger.info(f"🔗 Navegando a: {url}")
+            self._take_screenshot("before_navigation")
+
+            # Navegar
+            self.driver.get(url)
+
+            # Esperar carga completa con timeout
+            WebDriverWait(self.driver, self.wait_timeout).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )
+
+            # Detectar nuevas ventanas con wait robusto
+            new_windows = self._wait_for_new_windows(old_windows, timeout=10)
+
+            if new_windows:
+                logger.info(f"🪟 Detectadas {len(new_windows)} nuevas ventanas")
+
+                # Evaluar cuál ventana usar
+                best_window = self._choose_best_window(new_windows, expected_keywords)
+
+                if best_window:
+                    self.driver.switch_to.window(best_window)
+                    self._register_window_info(best_window)
+                    logger.info(f"✅ Cambiado a ventana óptima")
+                else:
+                    logger.warning("⚠️ Ninguna ventana nueva parece adecuada")
+
+            # Verificar URL final
+            final_url = self.driver.current_url
+
+            # Validar palabras clave
+            if expected_keywords:
+                url_contains_keywords = any(kw.lower() in final_url.lower() for kw in expected_keywords)
+                title_contains_keywords = any(kw.lower() in self.driver.title.lower() for kw in expected_keywords)
+
+                if not (url_contains_keywords or title_contains_keywords):
+                    return {
+                        "success": False,
+                        "error": f"URL final no contiene palabras clave esperadas: {expected_keywords}",
+                        "final_url": final_url
+                    }
+
+            self._take_screenshot("after_navigation")
+
+            return {
+                "success": True,
+                "final_url": final_url,
+                "new_windows": len(new_windows)
+            }
+
+        except TimeoutException:
+            return {
+                "success": False,
+                "error": f"Timeout cargando URL (>{self.wait_timeout}s)"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Error navegando: {e}"
+            }
+
+    def _wait_for_new_windows(self, old_windows: set, timeout: int = 10) -> set:
+        """
+        Espera robusta para detectar nuevas ventanas con sleep + WebDriverWait
+
+        Args:
+            old_windows: Set de handles de ventanas existentes antes de la acción
+            timeout: Tiempo máximo de espera en segundos
+
+        Returns:
+            Set de nuevas ventanas detectadas
+        """
+        logger.info(f"🔍 Esperando nuevas ventanas por hasta {timeout}s...")
+
+        # Sleep inicial para dar tiempo a que se abra la ventana
+        time.sleep(1)
+
+        try:
+            # WebDriverWait para detectar cambio en número de ventanas
+            def new_windows_appeared(driver):
+                current_windows = set(driver.window_handles)
+                new_windows = current_windows - old_windows
+                if new_windows:
+                    logger.info(f"✅ Detectadas {len(new_windows)} nuevas ventanas")
+                    return new_windows
+                return False
+
+            # Esperar hasta que aparezcan nuevas ventanas o timeout
+            new_windows = WebDriverWait(self.driver, timeout).until(new_windows_appeared)
+
+            # Sleep adicional para que cargue el contenido de la nueva ventana
+            time.sleep(2)
+
+            return new_windows
+
+        except TimeoutException:
+            logger.warning(f"⏰ Timeout: No se detectaron nuevas ventanas en {timeout}s")
+            return set()
+        except Exception as e:
+            logger.error(f"❌ Error esperando nuevas ventanas: {e}")
+            return set()
+
+    def _choose_best_window(self, window_handles: set, expected_keywords: List[str]) -> Optional[str]:
+        """
+        Decide cuál ventana es la mejor basada en contenido
+
+        Args:
+            window_handles: Handles de ventanas nuevas
+            expected_keywords: Palabras clave esperadas
+
+        Returns:
+            Handle de la mejor ventana o None
+        """
+        current_window = self.driver.current_window_handle
+        best_window = None
+        best_score = 0
+
+        for window_handle in window_handles:
+            try:
+                self.driver.switch_to.window(window_handle)
+
+                # Esperar carga
+                WebDriverWait(self.driver, 10).until(
+                    lambda d: d.execute_script("return document.readyState") == "complete"
+                )
+
+                url = self.driver.current_url
+                title = self.driver.title
+
+                # Calcular puntuación
+                score = 0
+
+                # Puntos por palabras clave en URL
+                for keyword in expected_keywords:
+                    if keyword.lower() in url.lower():
+                        score += 10
+                    if keyword.lower() in title.lower():
+                        score += 5
+
+                # Puntos por indicadores de formulario
+                form_elements = self.driver.find_elements(By.TAG_NAME, "form")
+                input_elements = self.driver.find_elements(By.TAG_NAME, "input")
+
+                score += len(form_elements) * 3
+                score += min(len(input_elements), 10)  # Max 10 puntos
+
+                logger.info(f"🏆 Ventana {window_handle}: score={score}, URL={url[:50]}...")
+
+                if score > best_score:
+                    best_score = score
+                    best_window = window_handle
+
+            except Exception as e:
+                logger.error(f"❌ Error evaluando ventana {window_handle}: {e}")
+                continue
+
+        # Regresar a ventana original
+        self.driver.switch_to.window(current_window)
+
+        return best_window if best_score > 5 else None  # Umbral mínimo
+
+    def _register_window_info(self, window_handle: str):
+        """
+        Registra información detallada de una ventana
+
+        Args:
+            window_handle: Handle de la ventana
+        """
+        try:
+            current_window = self.driver.current_window_handle
+            self.driver.switch_to.window(window_handle)
+
+            window_info = {
+                "handle": window_handle,
+                "url": self.driver.current_url,
+                "title": self.driver.title,
+                "opened_at": time.time(),
+                "form_count": len(self.driver.find_elements(By.TAG_NAME, "form")),
+                "input_count": len(self.driver.find_elements(By.TAG_NAME, "input"))
+            }
+
+            self.windows_info[window_handle] = window_info
+            logger.info(f"📋 Ventana registrada: {window_info['title'][:30]}...")
+
+            # Volver a ventana original
+            self.driver.switch_to.window(current_window)
+
+        except Exception as e:
+            logger.error(f"❌ Error registrando ventana: {e}")
+
+    def debug_checkpoint(self, step_name: str, data: Dict = None, force_screenshot: bool = False):
+        """
+        Sistema de checkpoints para debugging - Rayos X del bot
+
+        Args:
+            step_name: Nombre del paso actual
+            data: Datos contextuales del paso
+            force_screenshot: Forzar screenshot independiente de configuración
+        """
+        if not self.debugging_enabled and not force_screenshot:
+            return
+
+        self.checkpoint_counter += 1
+        checkpoint_id = f"cp_{self.checkpoint_counter:03d}"
+
+        checkpoint_data = {
+            "id": checkpoint_id,
+            "session_id": self.debug_session_id,
+            "timestamp": datetime.now().isoformat(),
+            "step_name": step_name,
+            "merchant": self.current_merchant,
+            "current_url": None,
+            "page_title": None,
+            "screenshot_path": None,
+            "html_snippet": None,
+            "visible_elements": [],
+            "errors": [],
+            "data": data or {}
+        }
+
+        try:
+            if self.driver:
+                checkpoint_data["current_url"] = self.driver.current_url
+                checkpoint_data["page_title"] = self.driver.title
+
+                # Screenshot con contexto detallado
+                screenshot_path = self._take_debug_screenshot(checkpoint_id, step_name)
+                checkpoint_data["screenshot_path"] = screenshot_path
+
+                # Capturar HTML snippet del área visible
+                try:
+                    visible_html = self.driver.execute_script(
+                        "return document.documentElement.outerHTML"
+                    )[:2000]  # Primeros 2000 chars
+                    checkpoint_data["html_snippet"] = visible_html
+                except:
+                    pass
+
+                # Elementos clickeables visibles
+                checkpoint_data["visible_elements"] = self._capture_visible_elements()
+
+        except Exception as e:
+            checkpoint_data["errors"].append(f"Error capturando datos: {e}")
+
+        # Guardar checkpoint
+        self.checkpoints.append(checkpoint_data)
+
+        # Log del checkpoint
+        logger.info(f"🔍 CHECKPOINT {checkpoint_id}: {step_name}")
+        if data:
+            logger.debug(f"📊 Datos: {data}")
+
+        # Evaluar breakpoints
+        self._evaluate_breakpoints(checkpoint_data)
+
+        return checkpoint_id
+
+    def _take_debug_screenshot(self, checkpoint_id: str, context: str) -> str:
+        """Toma screenshot con naming para debugging"""
+        try:
+            debug_dir = f"{self.screenshots_dir}/debug_{self.debug_session_id}"
+            if not os.path.exists(debug_dir):
+                os.makedirs(debug_dir)
+
+            filename = f"{debug_dir}/{checkpoint_id}_{context.replace(' ', '_')}.png"
+            self.driver.save_screenshot(filename)
+            logger.debug(f"📸 Debug screenshot: {filename}")
+            return filename
+
+        except Exception as e:
+            logger.error(f"❌ Error debug screenshot: {e}")
+            return None
+
+    def _take_screenshot(self, context: str):
+        """Toma screenshot para evidencia (método original mantenido)"""
+        try:
+            if not os.path.exists(self.screenshots_dir):
+                os.makedirs(self.screenshots_dir)
+
+            timestamp = int(time.time())
+            filename = f"{self.screenshots_dir}/{context}_{timestamp}.png"
+
+            self.driver.save_screenshot(filename)
+            logger.debug(f"📸 Screenshot: {filename}")
+
+        except Exception as e:
+            logger.error(f"❌ Error screenshot: {e}")
+
+    def _capture_visible_elements(self) -> List[Dict]:
+        """Captura elementos visibles para debugging"""
+        try:
+            elements = []
+            clickable_selectors = [
+                "button", "a", "input[type='submit']", "input[type='button']",
+                "[onclick]", "[role='button']", ".btn", ".button"
+            ]
+
+            for selector in clickable_selectors:
+                try:
+                    found_elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for elem in found_elements[:5]:  # Limitar a 5 por selector
+                        if elem.is_displayed():
+                            elements.append({
+                                "tag": elem.tag_name,
+                                "text": elem.text[:50],
+                                "selector": selector,
+                                "location": elem.location,
+                                "size": elem.size
+                            })
+                except:
+                    continue
+
+            return elements[:10]  # Máximo 10 elementos
+
+        except Exception as e:
+            logger.debug(f"Error capturando elementos: {e}")
+            return []
+
+    def _evaluate_breakpoints(self, checkpoint_data: Dict):
+        """Evalúa si debe activar breakpoints condicionales"""
+        try:
+            step_name = checkpoint_data["step_name"]
+
+            # Breakpoint on error
+            if self.breakpoints.get("on_error") and checkpoint_data.get("errors"):
+                self._trigger_breakpoint("ERROR_DETECTED", checkpoint_data)
+
+            # Breakpoint before submit
+            if self.breakpoints.get("before_submit") and "submit" in step_name.lower():
+                self._trigger_breakpoint("BEFORE_SUBMIT", checkpoint_data)
+
+            # Breakpoint on new window
+            if self.breakpoints.get("on_new_window") and "window" in step_name.lower():
+                self._trigger_breakpoint("NEW_WINDOW", checkpoint_data)
+
+            # Breakpoint on form fill
+            if self.breakpoints.get("on_form_fill") and "form" in step_name.lower():
+                self._trigger_breakpoint("FORM_FILL", checkpoint_data)
+
+            # Breakpoint on click
+            if self.breakpoints.get("on_click") and "click" in step_name.lower():
+                self._trigger_breakpoint("CLICK_ACTION", checkpoint_data)
+
+        except Exception as e:
+            logger.debug(f"Error evaluando breakpoints: {e}")
+
+    def _trigger_breakpoint(self, breakpoint_type: str, checkpoint_data: Dict):
+        """Activa un breakpoint y pausa para inspección"""
+        logger.warning(f"🛑 BREAKPOINT TRIGGERED: {breakpoint_type}")
+        logger.warning(f"📍 Checkpoint: {checkpoint_data['id']} - {checkpoint_data['step_name']}")
+        logger.warning(f"🌐 URL: {checkpoint_data.get('current_url', 'N/A')}")
+
+        if checkpoint_data.get("screenshot_path"):
+            logger.warning(f"📸 Screenshot: {checkpoint_data['screenshot_path']}")
+
+        # En modo debug, guardar snapshot completo
+        self._save_debug_snapshot(breakpoint_type, checkpoint_data)
+
+        # Si está configurado, hacer pausa real (solo en desarrollo)
+        if os.getenv("AUTOMATION_PAUSE_ON_BREAKPOINT", "false").lower() == "true":
+            input(f"🛑 Breakpoint {breakpoint_type}. Presiona Enter para continuar...")
+
+    def _save_debug_snapshot(self, breakpoint_type: str, checkpoint_data: Dict):
+        """Guarda snapshot completo para análisis posterior"""
+        try:
+            debug_dir = f"{self.screenshots_dir}/debug_{self.debug_session_id}"
+            snapshot_file = f"{debug_dir}/breakpoint_{breakpoint_type}_{checkpoint_data['id']}.json"
+
+            # Datos completos del snapshot
+            snapshot = {
+                "breakpoint_type": breakpoint_type,
+                "checkpoint": checkpoint_data,
+                "session_info": {
+                    "session_id": self.debug_session_id,
+                    "merchant": self.current_merchant,
+                    "total_checkpoints": self.checkpoint_counter
+                },
+                "browser_state": {
+                    "window_handles": len(self.driver.window_handles) if self.driver else 0,
+                    "current_window": self.driver.current_window_handle if self.driver else None
+                }
+            }
+
+            # Guardar snapshot
+            with open(snapshot_file, 'w', encoding='utf-8') as f:
+                json.dump(snapshot, f, indent=2, ensure_ascii=False)
+
+            logger.info(f"💾 Debug snapshot guardado: {snapshot_file}")
+
+        except Exception as e:
+            logger.error(f"❌ Error guardando snapshot: {e}")
+
+    def get_debug_session_info(self) -> Dict:
+        """
+        Obtiene información de la sesión de debugging actual para el viewer
+        """
+        return {
+            "session_id": self.debug_session_id,
+            "merchant": self.current_merchant,
+            "current_step": self.current_step,
+            "checkpoint_count": self.checkpoint_counter,
+            "debugging_enabled": self.debugging_enabled,
+            "breakpoints": self.breakpoints,
+            "debug_url": f"/invoicing/debug-checkpoints/{self.debug_session_id}"
+        }
+
+    def export_debug_summary(self) -> Dict:
+        """
+        Exporta resumen completo de la sesión para análisis posterior
+        """
+        try:
+            summary = {
+                "session_info": self.get_debug_session_info(),
+                "checkpoints": self.checkpoints,
+                "total_checkpoints": len(self.checkpoints),
+                "errors_detected": sum(1 for cp in self.checkpoints if cp.get("errors")),
+                "breakpoints_triggered": sum(1 for cp in self.checkpoints
+                                           if any("BREAKPOINT" in str(cp).upper() for cp in self.checkpoints))
+            }
+
+            # Guardar resumen
+            debug_dir = f"{self.screenshots_dir}/debug_{self.debug_session_id}"
+            summary_file = f"{debug_dir}/session_summary.json"
+
+            if os.path.exists(debug_dir):
+                with open(summary_file, 'w', encoding='utf-8') as f:
+                    json.dump(summary, f, indent=2, ensure_ascii=False)
+
+            return summary
+
+        except Exception as e:
+            logger.error(f"❌ Error exportando resumen: {e}")
+            return {}
+
+    def _persist_logs_to_json(self, log_data: Dict):
+        """
+        Persiste logs en archivo JSON para trazabilidad
+
+        Args:
+            log_data: Datos a persistir
+        """
+        try:
+            # Cargar logs existentes
+            existing_logs = []
+            if os.path.exists(self.logs_file):
+                with open(self.logs_file, 'r', encoding='utf-8') as f:
+                    existing_logs = json.load(f)
+
+            # Añadir nuevo log
+            log_entry = {
+                "timestamp": datetime.now().isoformat(),
+                "session_id": id(self),
+                **log_data
+            }
+
+            existing_logs.append(log_entry)
+
+            # Mantener solo últimos 1000 logs
+            if len(existing_logs) > 1000:
+                existing_logs = existing_logs[-1000:]
+
+            # Guardar
+            with open(self.logs_file, 'w', encoding='utf-8') as f:
+                json.dump(existing_logs, f, indent=2, ensure_ascii=False)
+
+            logger.debug(f"💾 Log persistido en {self.logs_file}")
+
+        except Exception as e:
+            logger.error(f"❌ Error persistiendo log: {e}")
+
+    def _find_and_fill_form(self, ticket_data: Dict) -> Dict:
+        """
+        Busca y llena formularios con validación dinámica de elementos DOM
+
+        Args:
+            ticket_data: Datos del ticket a procesar
+
+        Returns:
+            Resultado de la búsqueda y llenado del formulario
+        """
+        try:
+            logger.info("🔍 Buscando formularios de facturación...")
+
+            # Buscar formularios en orden de prioridad
+            forms = self._find_forms_with_dynamic_validation()
+
+            if not forms:
+                return {
+                    "success": False,
+                    "error": "No se encontraron formularios de facturación válidos"
+                }
+
+            # Intentar llenar cada formulario
+            for i, form_info in enumerate(forms):
+                logger.info(f"📝 Intentando formulario {i+1}/{len(forms)}")
+
+                result = self._fill_form_with_retry(form_info, ticket_data)
+
+                if result.get("success"):
+                    logger.info(f"✅ Formulario {i+1} completado exitosamente")
+                    return result
+
+                logger.warning(f"⚠️ Formulario {i+1} falló: {result.get('error')}")
+
+            return {
+                "success": False,
+                "error": "Ningún formulario pudo ser completado exitosamente"
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Error buscando formularios: {e}"
+            }
+
+    def _find_forms_with_dynamic_validation(self) -> List[Dict]:
+        """
+        Encuentra formularios usando múltiples estrategias de búsqueda
+
+        Returns:
+            Lista de información de formularios encontrados
+        """
+        forms_found = []
+
+        # Estrategia 1: Formularios explícitos
+        try:
+            form_elements = self.driver.find_elements(By.TAG_NAME, "form")
+            for form in form_elements:
+                if self._is_form_relevant(form):
+                    forms_found.append({
+                        "type": "explicit_form",
+                        "element": form,
+                        "inputs": form.find_elements(By.TAG_NAME, "input"),
+                        "score": self._calculate_form_score(form)
+                    })
+        except Exception as e:
+            logger.error(f"❌ Error buscando formularios explícitos: {e}")
+
+        # Estrategia 2: Grupos de inputs sin form
+        try:
+            input_groups = self._find_input_groups()
+            for group in input_groups:
+                forms_found.append({
+                    "type": "input_group",
+                    "inputs": group["inputs"],
+                    "container": group["container"],
+                    "score": group["score"]
+                })
+        except Exception as e:
+            logger.error(f"❌ Error buscando grupos de inputs: {e}")
+
+        # Estrategia 3: Elementos por palabras clave
+        try:
+            keyword_elements = self._find_elements_by_keywords()
+            if keyword_elements:
+                forms_found.append({
+                    "type": "keyword_based",
+                    "elements": keyword_elements,
+                    "score": len(keyword_elements) * 2
+                })
+        except Exception as e:
+            logger.error(f"❌ Error buscando por palabras clave: {e}")
+
+        # Ordenar por puntuación
+        forms_found.sort(key=lambda x: x.get("score", 0), reverse=True)
+
+        logger.info(f"🎯 Encontrados {len(forms_found)} formularios candidatos")
+        return forms_found
+
+    def _is_form_relevant(self, form_element) -> bool:
+        """
+        Valida si un formulario es relevante para facturación
+
+        Args:
+            form_element: Elemento form a validar
+
+        Returns:
+            True si el formulario parece relevante
+        """
+        try:
+            # Verificar que esté visible
+            if not form_element.is_displayed():
+                return False
+
+            # Buscar inputs relevantes
+            inputs = form_element.find_elements(By.TAG_NAME, "input")
+            if len(inputs) < 2:  # Mínimo 2 campos
+                return False
+
+            # Buscar palabras clave en el formulario
+            form_html = form_element.get_attribute("outerHTML").lower()
+            relevant_keywords = [
+                "rfc", "factura", "cfdi", "comprobante", "ticket",
+                "folio", "total", "importe", "email"
+            ]
+
+            keyword_count = sum(1 for keyword in relevant_keywords if keyword in form_html)
+
+            return keyword_count >= 2
+
+        except Exception as e:
+            logger.error(f"❌ Error validando formulario: {e}")
+            return False
+
+    def _calculate_form_score(self, form_element) -> int:
+        """
+        Calcula puntuación de relevancia para un formulario
+
+        Args:
+            form_element: Elemento del formulario
+
+        Returns:
+            Puntuación (mayor = más relevante)
+        """
+        score = 0
+
+        try:
+            # Puntos por número de inputs
+            inputs = form_element.find_elements(By.TAG_NAME, "input")
+            score += min(len(inputs), 10)  # Max 10 puntos
+
+            # Puntos por tipos de input relevantes
+            input_types = [inp.get_attribute("type") for inp in inputs]
+            if "email" in input_types:
+                score += 5
+            if "tel" in input_types:
+                score += 3
+
+            # Puntos por palabras clave
+            form_html = form_element.get_attribute("outerHTML").lower()
+            keywords = {
+                "rfc": 10, "factura": 8, "cfdi": 8, "comprobante": 6,
+                "ticket": 5, "folio": 4, "total": 3, "importe": 3
+            }
+
+            for keyword, points in keywords.items():
+                if keyword in form_html:
+                    score += points
+
+            # Puntos por ubicación (formularios centrales son mejores)
+            location = form_element.location
+            size = form_element.size
+            if 100 < location.get("y", 0) < 800:  # Zona central
+                score += 5
+
+        except Exception as e:
+            logger.error(f"❌ Error calculando score del formulario: {e}")
+
+        return score
+
+    def _find_input_groups(self) -> List[Dict]:
+        """
+        Busca grupos de inputs que podrían formar un formulario implícito
+
+        Returns:
+            Lista de grupos de inputs encontrados
+        """
+        groups = []
+
+        try:
+            # Buscar todos los inputs
+            all_inputs = self.driver.find_elements(By.TAG_NAME, "input")
+
+            # Agrupar por contenedor padre
+            containers = {}
+            for inp in all_inputs:
+                try:
+                    # Buscar contenedor padre común
+                    parent = inp.find_element(By.XPATH, "./..")
+                    container_key = parent.get_attribute("outerHTML")[:100]
+
+                    if container_key not in containers:
+                        containers[container_key] = {
+                            "container": parent,
+                            "inputs": [],
+                            "score": 0
+                        }
+
+                    containers[container_key]["inputs"].append(inp)
+
+                except Exception:
+                    continue
+
+            # Filtrar grupos relevantes
+            for container_info in containers.values():
+                if len(container_info["inputs"]) >= 2:
+                    # Calcular score basado en inputs
+                    score = len(container_info["inputs"]) * 2
+
+                    # Bonus por tipos relevantes
+                    input_types = [inp.get_attribute("type") for inp in container_info["inputs"]]
+                    if "email" in input_types:
+                        score += 5
+
+                    container_info["score"] = score
+                    groups.append(container_info)
+
+        except Exception as e:
+            logger.error(f"❌ Error agrupando inputs: {e}")
+
+        return groups
+
+    def _find_elements_by_keywords(self) -> List:
+        """
+        Busca elementos por palabras clave específicas
+
+        Returns:
+            Lista de elementos encontrados
+        """
+        elements = []
+
+        keywords = ["rfc", "factura", "cfdi", "comprobante"]
+
+        for keyword in keywords:
+            try:
+                # Buscar por diferentes atributos
+                selectors = [
+                    f"//input[contains(@placeholder, '{keyword}')]",
+                    f"//input[contains(@name, '{keyword}')]",
+                    f"//input[contains(@id, '{keyword}')]",
+                    f"//*[contains(text(), '{keyword.upper()}')]//input"
+                ]
+
+                for selector in selectors:
+                    found = self.driver.find_elements(By.XPATH, selector)
+                    elements.extend(found)
+
+            except Exception:
+                continue
+
+        return list(set(elements))  # Remover duplicados
+
+    def _fill_form_with_retry(self, form_info: Dict, ticket_data: Dict) -> Dict:
+        """
+        Llena un formulario con sistema de reintentos
+
+        Args:
+            form_info: Información del formulario
+            ticket_data: Datos del ticket
+
+        Returns:
+            Resultado del llenado
+        """
+        max_attempts = 3
+
+        for attempt in range(max_attempts):
+            try:
+                logger.info(f"🔄 Intento {attempt + 1}/{max_attempts} de llenado")
+
+                # Obtener elementos del formulario
+                if form_info["type"] == "explicit_form":
+                    inputs = form_info["inputs"]
+                elif form_info["type"] == "input_group":
+                    inputs = form_info["inputs"]
+                else:
+                    inputs = form_info["elements"]
+
+                # Mapear campos inteligentemente
+                field_mapping = self._map_form_fields(inputs, ticket_data)
+
+                if not field_mapping:
+                    return {
+                        "success": False,
+                        "error": "No se pudo mapear ningún campo del formulario"
+                    }
+
+                # Llenar campos
+                filled_count = 0
+                for field_info in field_mapping:
+                    if self._fill_single_field(field_info):
+                        filled_count += 1
+
+                if filled_count == 0:
+                    raise Exception("No se pudo llenar ningún campo")
+
+                logger.info(f"✅ Llenados {filled_count}/{len(field_mapping)} campos")
+
+                return {
+                    "success": True,
+                    "filled_fields": filled_count,
+                    "total_fields": len(field_mapping)
+                }
+
+            except Exception as e:
+                logger.warning(f"⚠️ Intento {attempt + 1} falló: {e}")
+
+                if attempt < max_attempts - 1:
+                    time.sleep(2)  # Esperar antes del siguiente intento
+                else:
+                    return {
+                        "success": False,
+                        "error": f"Falló después de {max_attempts} intentos: {e}"
+                    }
+
+    def _complete_invoice_process(self) -> Dict:
+        """
+        Completa el proceso de generación de factura
+
+        Returns:
+            Resultado del proceso
+        """
+        try:
+            # Buscar botón de envío/generar
+            submit_buttons = self._find_submit_buttons()
+
+            if not submit_buttons:
+                return {
+                    "success": False,
+                    "error": "No se encontró botón para completar el proceso"
+                }
+
+            # Intentar cada botón
+            for button in submit_buttons:
+                try:
+                    logger.info("🔘 Haciendo clic en botón de envío...")
+
+                    # Verificar si hay CAPTCHA antes del envío
+                    captcha_result = self._handle_captcha_if_present()
+
+                    if captcha_result and not captcha_result.get("success"):
+                        logger.warning(f"⚠️ CAPTCHA falló: {captcha_result.get('error')}")
+                        continue
+
+                    # Hacer clic en el botón
+                    self.driver.execute_script("arguments[0].click();", button)
+
+                    # Esperar respuesta
+                    time.sleep(5)
+
+                    # Verificar resultado
+                    result = self._verify_invoice_completion()
+
+                    if result.get("success"):
+                        return result
+
+                except Exception as e:
+                    logger.error(f"❌ Error con botón: {e}")
+                    continue
+
+            return {
+                "success": False,
+                "error": "Ningún botón de envío funcionó"
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Error completando proceso: {e}"
+            }
+
+    def _handle_captcha_if_present(self) -> Optional[Dict]:
+        """
+        Maneja CAPTCHA si está presente
+
+        Returns:
+            Resultado del manejo de CAPTCHA o None si no hay
+        """
+        try:
+            # Buscar elementos de CAPTCHA
+            captcha_selectors = [
+                "iframe[src*='captcha']",
+                "iframe[src*='recaptcha']",
+                ".captcha",
+                "#captcha",
+                "[class*='captcha']"
+            ]
+
+            captcha_element = None
+            for selector in captcha_selectors:
+                try:
+                    captcha_element = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    if captcha_element.is_displayed():
+                        break
+                except NoSuchElementException:
+                    continue
+
+            if not captcha_element:
+                return None  # No hay CAPTCHA
+
+            logger.info("🔒 CAPTCHA detectado, resolviendo...")
+
+            # Resolver CAPTCHA con 2Captcha
+            return self._solve_captcha_with_2captcha(captcha_element)
+
+        except Exception as e:
+            logger.error(f"❌ Error manejando CAPTCHA: {e}")
+            return {"success": False, "error": f"Error en CAPTCHA: {e}"}
+
+    def _find_submit_buttons(self) -> List:
+        """Encuentra botones de envío/submit"""
+        buttons = []
+
+        selectors = [
+            "input[type='submit']",
+            "button[type='submit']",
+            "button:contains('Generar')",
+            "button:contains('Enviar')",
+            "button:contains('Solicitar')",
+            "*[onclick*='submit']"
+        ]
+
+        for selector in selectors:
+            try:
+                found = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                buttons.extend([b for b in found if b.is_displayed()])
+            except Exception:
+                continue
+
+        return buttons
+
+    def _verify_invoice_completion(self) -> Dict:
+        """Verifica si el proceso de facturación se completó"""
+        try:
+            # Buscar indicadores de éxito
+            success_indicators = [
+                "factura generada",
+                "cfdi emitido",
+                "comprobante generado",
+                "proceso completado",
+                "éxito"
+            ]
+
+            page_text = self.driver.page_source.lower()
+
+            for indicator in success_indicators:
+                if indicator in page_text:
+                    return {
+                        "success": True,
+                        "message": f"Proceso completado: {indicator}",
+                        "invoice_data": self._extract_invoice_data()
+                    }
+
+            # Si no hay indicadores claros, verificar URL
+            current_url = self.driver.current_url
+            if any(word in current_url.lower() for word in ["success", "complete", "done"]):
+                return {
+                    "success": True,
+                    "message": "Proceso aparentemente completado (URL indica éxito)"
+                }
+
+            return {
+                "success": False,
+                "error": "No se detectaron indicadores de éxito"
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Error verificando completación: {e}"
+            }
 
     async def process_merchant_invoice(
         self,
@@ -1295,31 +2522,28 @@ class WebAutomationWorker:
             prompt = self._generate_extraction_prompt(form_fields, ticket_text)
             logger.info(f"📝 Prompt generado: {len(prompt)} caracteres")
 
-            # Configurar cliente OpenAI
-            client = openai.OpenAI(
-                api_key=os.getenv("OPENAI_API_KEY")
+            # Configurar cliente Claude
+            client = anthropic.Anthropic(
+                api_key=os.getenv("ANTHROPIC_API_KEY")
             )
 
-            logger.info("🤖 Enviando petición a OpenAI...")
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
+            logger.info("🤖 Enviando petición a Claude...")
+            response = client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=500,
+                temperature=0.1,
+                system="Eres un experto en extracción de datos de tickets de compra mexicanos. Extrae exactamente los campos solicitados del texto del ticket. Responde solo en formato JSON válido.",
                 messages=[
-                    {
-                        "role": "system",
-                        "content": "Eres un experto en extracción de datos de tickets de compra mexicanos. Extrae exactamente los campos solicitados del texto del ticket. Responde solo en formato JSON válido."
-                    },
                     {
                         "role": "user",
                         "content": prompt
                     }
-                ],
-                temperature=0.1,
-                max_tokens=500
+                ]
             )
 
             # Parsear respuesta JSON
-            content = response.choices[0].message.content.strip()
-            logger.info(f"🤖 Respuesta OpenAI recibida: {len(content)} caracteres")
+            content = response.content[0].text.strip()
+            logger.info(f"🤖 Respuesta Claude recibida: {len(content)} caracteres")
 
             # Limpiar respuesta si tiene markdown
             if content.startswith("```json"):
@@ -1332,7 +2556,7 @@ class WebAutomationWorker:
             return extracted_data
 
         except json.JSONDecodeError as e:
-            logger.error(f"❌ Error parseando JSON de OpenAI: {e}")
+            logger.error(f"❌ Error parseando JSON de Claude: {e}")
             logger.error(f"📄 Contenido problemático: {content[:500]}")
             return self._extract_fields_basic(form_fields, ticket_text)
         except Exception as e:
@@ -2291,50 +3515,46 @@ Formato de respuesta:
                 screenshot = captcha_image_element.screenshot_as_png
                 image_data = screenshot
 
-            # Convertir a base64 para enviar a GPT-4 Vision
-            image_b64 = base64.b64encode(image_data).decode('utf-8')
+            # Usar 2Captcha para resolver el CAPTCHA
+            if ANTICAPTCHA_AVAILABLE:
+                try:
+                    # Configurar AntiCaptcha (2Captcha)
+                    api_key = os.getenv("TWOCAPTCHA_API_KEY")
+                    if not api_key:
+                        logger.error("TWOCAPTCHA_API_KEY no configurada")
+                        return None
 
-            # Usar GPT-4 Vision para leer el CAPTCHA
-            client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+                    user_agent = AntiCaptchaControl.AntiCaptchaControl(api_key)
+                    task = ImageToTextTask.ImageToTextTask(
+                        file_path=None,
+                        body=base64.b64encode(image_data).decode('utf-8')
+                    )
 
-            response = client.chat.completions.create(
-                model="gpt-4o",  # GPT-4 Vision
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "Lee EXACTAMENTE los caracteres alfanuméricos que aparecen en la imagen. No interpretes, solo transcribe lo que ves. Responde únicamente con los caracteres, sin espacios ni explicaciones."
-                    },
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": "¿Qué letras y números aparecen en esta imagen? Responde solo con los caracteres que ves:"
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/png;base64,{image_b64}"
-                                }
-                            }
-                        ]
-                    }
-                ],
-                max_tokens=20,
-                temperature=0
-            )
+                    job = user_agent.createTask(task)
+                    job.join()
 
-            captcha_code = response.choices[0].message.content.strip()
+                    captcha_code = job.get_captcha_text()
+                    if captcha_code:
+                        logger.info(f"2Captcha resolvió CAPTCHA: '{captcha_code}'")
+                    else:
+                        logger.warning("2Captcha no pudo resolver el CAPTCHA")
+                        return None
+
+                except Exception as e:
+                    logger.error(f"Error usando 2Captcha: {e}")
+                    return None
+            else:
+                logger.error("python-anticaptcha no disponible")
+                return None
 
             # Limpiar el código (solo letras y números)
             import re
             captcha_code = re.sub(r'[^A-Za-z0-9]', '', captcha_code)
 
             if captcha_code:
-                logger.info(f"GPT-4 Vision resolvió CAPTCHA: '{captcha_code}'")
                 return captcha_code
             else:
-                logger.warning("GPT-4 Vision no pudo resolver el CAPTCHA")
+                logger.warning("No se pudo resolver el CAPTCHA")
                 return ""
 
         except Exception as e:
@@ -2477,29 +3697,26 @@ Formato de respuesta:
             # Generar prompt para LLM
             prompt = self._generate_navigation_prompt(current_url, page_text, clickable_elements)
 
-            # Configurar cliente OpenAI
-            client = openai.OpenAI(
-                api_key=os.getenv("OPENAI_API_KEY")
+            # Configurar cliente Claude
+            client = anthropic.Anthropic(
+                api_key=os.getenv("ANTHROPIC_API_KEY")
             )
 
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
+            response = client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=300,
+                temperature=0.1,
+                system="Eres un experto en navegación web para encontrar formularios de facturación. Analiza la página y decide qué elemento hacer clic para llegar a un formulario de facturación. Responde solo en formato JSON.",
                 messages=[
-                    {
-                        "role": "system",
-                        "content": "Eres un experto en navegación web para encontrar formularios de facturación. Analiza la página y decide qué elemento hacer clic para llegar a un formulario de facturación. Responde solo en formato JSON."
-                    },
                     {
                         "role": "user",
                         "content": prompt
                     }
-                ],
-                temperature=0.1,
-                max_tokens=300
+                ]
             )
 
             # Parsear respuesta
-            content = response.choices[0].message.content.strip()
+            content = response.content[0].text.strip()
             if content.startswith("```json"):
                 content = content.replace("```json", "").replace("```", "").strip()
 
@@ -2725,13 +3942,26 @@ Formato de respuesta:
     def _robust_click(self, element) -> bool:
         """Hace clic en un elemento usando múltiples estrategias."""
         try:
+            # Checkpoint antes del click
+            element_text = getattr(element, 'text', '')[:50]
+            self.debug_checkpoint("Click Attempt", {
+                "element_text": element_text,
+                "element_tag": getattr(element, 'tag_name', 'unknown')
+            })
+
+            # Guardar ventanas antes del click para detectar pop-ups
+            old_windows = set(self.driver.window_handles)
+
             # Estrategia 1: Click normal
             try:
                 element.click()
                 logger.info("Click normal exitoso")
+                self.debug_checkpoint("Click Success - Normal", {"element_text": element_text})
+                self._handle_potential_new_windows(old_windows)
                 return True
             except Exception as e:
                 logger.warning(f"Click normal falló: {e}")
+                self.debug_checkpoint("Click Failed - Normal", {"error": str(e), "element_text": element_text})
 
             # Estrategia 2: Scroll al elemento y luego click
             try:
@@ -2739,6 +3969,8 @@ Formato de respuesta:
                 time.sleep(0.5)
                 element.click()
                 logger.info("Click después de scroll exitoso")
+                self.debug_checkpoint("Click Success - Scroll", {"element_text": element_text})
+                self._handle_potential_new_windows(old_windows)
                 return True
             except Exception as e:
                 logger.warning(f"Click después de scroll falló: {e}")
@@ -2747,6 +3979,8 @@ Formato de respuesta:
             try:
                 self.driver.execute_script("arguments[0].click();", element)
                 logger.info("JavaScript click exitoso")
+                self.debug_checkpoint("Click Success - JavaScript", {"element_text": element_text})
+                self._handle_potential_new_windows(old_windows)
                 return True
             except Exception as e:
                 logger.warning(f"JavaScript click falló: {e}")
@@ -2757,15 +3991,132 @@ Formato de respuesta:
                 actions = ActionChains(self.driver)
                 actions.move_to_element(element).click().perform()
                 logger.info("ActionChains click exitoso")
+                self.debug_checkpoint("Click Success - ActionChains", {"element_text": element_text})
+                self._handle_potential_new_windows(old_windows)
                 return True
             except Exception as e:
                 logger.warning(f"ActionChains click falló: {e}")
 
+            # Todas las estrategias fallaron
+            self.debug_checkpoint("Click Failed - All Strategies", {
+                "element_text": element_text,
+                "final_error": "All click strategies failed"
+            }, force_screenshot=True)
             return False
 
         except Exception as e:
             logger.error(f"Error en robust_click: {e}")
             return False
+
+    def _handle_potential_new_windows(self, old_windows: set, timeout: int = 5) -> bool:
+        """
+        Maneja posibles nuevas ventanas después de un click con wait robusto
+
+        Args:
+            old_windows: Set de handles de ventanas antes del click
+            timeout: Tiempo máximo de espera para detectar nuevas ventanas
+
+        Returns:
+            True si se detectaron y manejaron nuevas ventanas
+        """
+        try:
+            # Detectar nuevas ventanas con wait robusto
+            new_windows = self._wait_for_new_windows(old_windows, timeout)
+
+            if new_windows:
+                logger.info(f"🪟 Click generó {len(new_windows)} nuevas ventanas")
+
+                # Evaluar y cambiar a la mejor ventana
+                # Usar keywords genéricos de facturación para evaluación
+                billing_keywords = ["factur", "cfdi", "invoice", "bill", "tax"]
+                best_window = self._choose_best_window(new_windows, billing_keywords)
+
+                if best_window:
+                    self.driver.switch_to.window(best_window)
+                    self._register_window_info(best_window)
+                    logger.info(f"✅ Cambiado automáticamente a nueva ventana relevante")
+
+                    # Esperar que cargue completamente la nueva ventana
+                    WebDriverWait(self.driver, 10).until(
+                        lambda d: d.execute_script("return document.readyState") == "complete"
+                    )
+
+                    return True
+                else:
+                    logger.warning("⚠️ Nueva ventana detectada pero no parece relevante")
+
+            return False
+
+        except Exception as e:
+            logger.error(f"❌ Error manejando nuevas ventanas: {e}")
+            return False
+
+    def _wait_for_window_content_loaded(self, window_handle: str, timeout: int = 15) -> bool:
+        """
+        Espera robusta a que el contenido de una ventana específica esté completamente cargado
+
+        Args:
+            window_handle: Handle de la ventana a verificar
+            timeout: Tiempo máximo de espera
+
+        Returns:
+            True si la ventana cargó correctamente
+        """
+        try:
+            # Cambiar a la ventana target
+            original_window = self.driver.current_window_handle
+            self.driver.switch_to.window(window_handle)
+
+            # Múltiples condiciones de carga completa
+            def content_loaded(driver):
+                try:
+                    # 1. Document ready state
+                    if driver.execute_script("return document.readyState") != "complete":
+                        return False
+
+                    # 2. No hay spinners o loaders activos
+                    loaders = driver.find_elements(By.CSS_SELECTOR,
+                        ".loading, .spinner, .loader, [class*='loading'], [class*='spinner']")
+                    active_loaders = [l for l in loaders if l.is_displayed()]
+                    if active_loaders:
+                        return False
+
+                    # 3. Hay contenido relevante visible
+                    body = driver.find_element(By.TAG_NAME, "body")
+                    body_text = body.text.strip()
+                    if len(body_text) < 50:  # Muy poco contenido
+                        return False
+
+                    # 4. No hay mensajes de "cargando" visibles
+                    loading_texts = ["cargando", "loading", "espere", "wait", "procesando"]
+                    page_text_lower = body_text.lower()
+                    if any(text in page_text_lower for text in loading_texts):
+                        return False
+
+                    return True
+
+                except Exception:
+                    return False
+
+            # Esperar con todas las condiciones
+            WebDriverWait(self.driver, timeout).until(content_loaded)
+
+            logger.info(f"✅ Ventana {window_handle[:8]}... cargada completamente")
+            return True
+
+        except TimeoutException:
+            logger.warning(f"⏰ Timeout esperando carga completa de ventana {window_handle[:8]}...")
+            return False
+        except Exception as e:
+            logger.error(f"❌ Error verificando carga de ventana: {e}")
+            return False
+        finally:
+            # Volver a ventana original si es diferente
+            try:
+                if self.driver.current_window_handle != original_window:
+                    self.driver.switch_to.window(original_window)
+            except:
+                pass
 
     def _generate_navigation_prompt(self, current_url: str, page_text: str, clickable_elements: List[Dict[str, Any]]) -> str:
         """Generar prompt para que LLM decida dónde hacer clic."""

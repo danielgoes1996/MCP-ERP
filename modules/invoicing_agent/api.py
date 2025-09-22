@@ -14,7 +14,9 @@ Endpoints disponibles:
 import base64
 import json
 import logging
+import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Request
 from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
@@ -1922,6 +1924,94 @@ async def automation_viewer(request: Request):
         return HTMLResponse(content=html_path.read_text(), status_code=200)
     else:
         return HTMLResponse(content="<h1>Automation Viewer no encontrado</h1>", status_code=404)
+
+
+@router.get("/debug-checkpoints/{session_id}")
+async def get_debug_checkpoints(session_id: str):
+    """
+    API para obtener checkpoints de debugging de una sesión específica
+    """
+    try:
+        debug_dir = Path(f"screenshots/debug_{session_id}")
+        if not debug_dir.exists():
+            return {"checkpoints": [], "session_info": {"status": "not_found"}}
+
+        checkpoints = []
+
+        # Buscar archivos de checkpoints JSON
+        for checkpoint_file in debug_dir.glob("*.json"):
+            try:
+                with open(checkpoint_file, 'r', encoding='utf-8') as f:
+                    checkpoint_data = json.load(f)
+                    checkpoints.append(checkpoint_data)
+            except Exception as e:
+                logger.warning(f"Error leyendo checkpoint {checkpoint_file}: {e}")
+
+        # Ordenar por timestamp
+        checkpoints.sort(key=lambda x: x.get("checkpoint", {}).get("timestamp", ""))
+
+        return {
+            "session_id": session_id,
+            "checkpoints": checkpoints,
+            "total_count": len(checkpoints),
+            "session_info": {
+                "status": "active" if checkpoints else "empty",
+                "last_checkpoint": checkpoints[-1]["checkpoint"]["timestamp"] if checkpoints else None
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Error obteniendo checkpoints para sesión {session_id}: {e}")
+        return {"error": str(e), "checkpoints": []}
+
+
+@router.get("/debug-sessions")
+async def get_debug_sessions():
+    """
+    API para obtener todas las sesiones de debugging disponibles
+    """
+    try:
+        screenshots_dir = Path("screenshots")
+        if not screenshots_dir.exists():
+            return {"sessions": []}
+
+        sessions = []
+        for debug_dir in screenshots_dir.glob("debug_*"):
+            if debug_dir.is_dir():
+                session_id = debug_dir.name.replace("debug_", "")
+
+                # Contar checkpoints en la sesión
+                checkpoint_count = len(list(debug_dir.glob("*.json")))
+                screenshot_count = len(list(debug_dir.glob("*.png")))
+
+                # Obtener timestamp de último checkpoint
+                latest_checkpoint = None
+                for checkpoint_file in debug_dir.glob("*.json"):
+                    try:
+                        with open(checkpoint_file, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                            timestamp = data.get("checkpoint", {}).get("timestamp")
+                            if timestamp and (not latest_checkpoint or timestamp > latest_checkpoint):
+                                latest_checkpoint = timestamp
+                    except:
+                        continue
+
+                sessions.append({
+                    "session_id": session_id,
+                    "checkpoint_count": checkpoint_count,
+                    "screenshot_count": screenshot_count,
+                    "last_activity": latest_checkpoint,
+                    "status": "active" if checkpoint_count > 0 else "empty"
+                })
+
+        # Ordenar por última actividad
+        sessions.sort(key=lambda x: x.get("last_activity", ""), reverse=True)
+
+        return {"sessions": sessions}
+
+    except Exception as e:
+        logger.error(f"Error obteniendo sesiones de debugging: {e}")
+        return {"error": str(e), "sessions": []}
 
 
 @router.get("/screenshots/{filename}")
