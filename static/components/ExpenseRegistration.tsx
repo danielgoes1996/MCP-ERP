@@ -309,10 +309,10 @@ export const ExpenseRegistration: React.FC<ExpenseRegistrationProps> = ({
       {/* Header con controles principales */}
       <div className="text-center space-y-4">
         <h1 className="text-3xl font-bold text-gray-900">
-          Registro de Gastos con Voz
+          Centro de Control de Gastos
         </h1>
         <p className="text-lg text-gray-600">
-          Dicta la información de tu gasto y revisa los campos detectados
+          Captura, vincula facturas y concilia contra banco desde un mismo lugar
         </p>
 
         <button

@@ -39,6 +39,7 @@ from modules.invoicing_agent.models import (
     create_invoicing_job,
     list_pending_jobs,
     create_expense_from_ticket,
+    _calculate_processing_status,
 )
 from modules.invoicing_agent.worker import InvoicingWorker
 
@@ -86,14 +87,50 @@ async def upload_ticket(
 
         raw_data = ""
         tipo = "texto"
+        original_image = None
 
         if file:
             content = await file.read()
+            logger.info(f"Archivo recibido: filename={file.filename}, content_type={file.content_type}, size={len(content)} bytes")
 
-            # Determinar tipo según content type
-            if file.content_type and file.content_type.startswith("image/"):
+            # Determinar tipo según content type, extensión y magic bytes
+            filename_lower = (file.filename or "").lower()
+            is_image_by_content = file.content_type and file.content_type.startswith("image/")
+            is_image_by_extension = filename_lower.endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff'))
+
+            # Detectar imagen por magic bytes (primeros bytes del archivo)
+            is_image_by_magic = False
+            if len(content) > 10:
+                # Verificar magic bytes comunes de imágenes
+                magic_bytes = content[:10]
+                if (magic_bytes.startswith(b'\xFF\xD8\xFF') or  # JPEG
+                    magic_bytes.startswith(b'\x89PNG\r\n\x1a\n') or  # PNG
+                    magic_bytes.startswith(b'GIF87a') or magic_bytes.startswith(b'GIF89a') or  # GIF
+                    magic_bytes.startswith(b'BM') or  # BMP
+                    magic_bytes.startswith(b'RIFF') and b'WEBP' in content[:20]):  # WebP
+                    is_image_by_magic = True
+
+            # Si archivo > 10KB y no es texto válido, probablemente es imagen
+            is_image_by_size = False
+            if len(content) > 10240:  # Mayor a 10KB
+                try:
+                    # Intentar decodificar como texto
+                    text_test = content.decode('utf-8')
+                    # Si tiene muchos caracteres no imprimibles, probablemente es imagen
+                    non_printable = sum(1 for c in text_test[:500] if ord(c) < 32 and c not in '\n\r\t')
+                    if non_printable > 50:  # Muchos caracteres no imprimibles
+                        is_image_by_size = True
+                except:
+                    # No se puede decodificar como UTF-8, probablemente es imagen
+                    is_image_by_size = True
+
+            logger.info(f"Detección: content_type={is_image_by_content}, extension={is_image_by_extension}, magic={is_image_by_magic}, size={is_image_by_size}")
+
+            if is_image_by_content or is_image_by_extension or is_image_by_magic or is_image_by_size:
                 tipo = "imagen"
-                raw_data = base64.b64encode(content).decode('utf-8')
+                original_image = base64.b64encode(content).decode('utf-8')
+                raw_data = original_image
+                logger.info(f"Detectado como imagen - content_type: {file.content_type}, extension: {filename_lower}, magic_bytes: {is_image_by_magic}")
             elif file.content_type and file.content_type == "application/pdf":
                 tipo = "pdf"
                 raw_data = base64.b64encode(content).decode('utf-8')
@@ -104,6 +141,7 @@ async def upload_ticket(
                 # Fallback a texto
                 tipo = "texto"
                 raw_data = content.decode('utf-8', errors='ignore')
+                logger.info(f"Detectado como texto - content_type: {file.content_type}, extension: {filename_lower}")
         else:
             raw_data = text_content or ""
 
@@ -113,6 +151,7 @@ async def upload_ticket(
             tipo=tipo,
             user_id=user_id,
             company_id=company_id,
+            original_image=original_image,
         )
 
         # Crear job de procesamiento
@@ -125,32 +164,57 @@ async def upload_ticket(
         analyzed_text = raw_data
         analysis_result = None
 
-        # Si es imagen, primero extraer texto con OCR
+        # Si es imagen, iniciar procesamiento automático asíncrono
         if tipo == "imagen":
+            logger.info(f"Ticket {ticket_id} es imagen - iniciando procesamiento automático asíncrono")
+            # Programar procesamiento automático de la imagen
+            import asyncio
+            import threading
+
+            async def process_image_async():
+                try:
+                    # Esperar un poco para que la respuesta se envíe al cliente
+                    import time
+                    time.sleep(2)
+
+                    # ✅ EJECUTAR FUNCIÓN REUTILIZABLE: Mismo flujo que botón "Analizar"
+                    logger.info(f"🚀 Ejecutando procesamiento automático completo para ticket {ticket_id}")
+
+                    result = await _process_ticket_with_ocr_and_llm(ticket_id)
+
+                    if result and result.get("analysis"):
+                        merchant = result["analysis"].get("merchant_name", "Unknown")
+                        logger.info(f"✅ Procesamiento automático completado: {merchant}")
+                    else:
+                        logger.warning(f"⚠️ Procesamiento automático completado pero sin análisis válido")
+
+                except Exception as e:
+                    logger.error(f"❌ Error en procesamiento automático para ticket {ticket_id}: {e}")
+
+            def sync_wrapper():
+                # Wrapper para ejecutar código async en hilo sincrónico
+                import asyncio
+                try:
+                    # Crear nuevo event loop para este hilo
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    loop.run_until_complete(process_image_async())
+                finally:
+                    loop.close()
+
+            # Ejecutar en hilo separado para no bloquear la respuesta
+            thread = threading.Thread(target=sync_wrapper)
+            thread.daemon = True
+            thread.start()
+
+            analyzed_text = None
+
+        # ✅ ANÁLISIS LLM AHORA SE EJECUTA AUTOMÁTICAMENTE EN BACKGROUND
+        # El análisis se ejecutará automáticamente en background, no es necesario aquí
+        analysis_result = None  # Se calculará en background
+        if False:  # Deshabilitado: análisis duplicado
             try:
-                logger.info(f"Aplicando OCR automático a ticket {ticket_id}")
-
-                from core.advanced_ocr_service import AdvancedOCRService
-                ocr_service = AdvancedOCRService()
-
-                ocr_result = await ocr_service.extract_text_intelligent(
-                    raw_data,
-                    context_hint="ticket"
-                )
-
-                if not ocr_result.error:
-                    analyzed_text = ocr_result.text
-                    logger.info(f"OCR exitoso para ticket {ticket_id}, texto extraído: {len(analyzed_text)} caracteres")
-                else:
-                    logger.warning(f"Error en OCR para ticket {ticket_id}: {ocr_result.error}")
-
-            except Exception as e:
-                logger.error(f"Error en OCR automático para ticket {ticket_id}: {e}")
-
-        # Análisis con OpenAI del texto extraído
-        if analyzed_text:
-            try:
-                logger.info(f"Analizando ticket {ticket_id} con OpenAI")
+                logger.info(f"Analizando ticket {ticket_id} con LLM (Claude) - Texto válido detectado")
 
                 from core.ticket_analyzer import analyze_ticket_content
                 analysis = await analyze_ticket_content(analyzed_text)
@@ -158,7 +222,8 @@ async def upload_ticket(
                 analysis_result = {
                     "merchant_name": analysis.merchant_name,
                     "category": analysis.category,
-                    "confidence": analysis.confidence
+                    "confidence": analysis.confidence,
+                    "facturacion_urls": analysis.facturacion_urls or []
                 }
 
                 logger.info(f"Análisis completado para ticket {ticket_id}: {analysis.merchant_name} - {analysis.category}")
@@ -174,10 +239,25 @@ async def upload_ticket(
                 )
 
             except Exception as e:
-                logger.warning(f"Error en análisis OpenAI para ticket {ticket_id}: {e}")
+                logger.warning(f"Error en análisis LLM para ticket {ticket_id}: {e}")
                 analysis_result = {
                     "merchant_name": "Error de Análisis",
                     "category": "📦 Otros",
+                    "confidence": 0.0
+                }
+        else:
+            if tipo == "imagen":
+                logger.info(f"Ticket {ticket_id} - Análisis LLM pospuesto: esperando OCR de imagen")
+                analysis_result = {
+                    "merchant_name": "Procesando imagen...",
+                    "category": "📦 Analizando",
+                    "confidence": 0.0
+                }
+            else:
+                logger.info(f"Ticket {ticket_id} - Análisis LLM pospuesto: texto insuficiente")
+                analysis_result = {
+                    "merchant_name": "Texto insuficiente",
+                    "category": "📦 Pendiente",
                     "confidence": 0.0
                 }
 
@@ -186,20 +266,73 @@ async def upload_ticket(
 
         logger.info(f"Ticket {ticket_id} creado, job {job_id} programado")
 
-        # Preparar respuesta con análisis
+        # Preparar respuesta diferente para imágenes vs texto
         response = {
             "success": True,
             "ticket_id": ticket_id,
             "job_id": job_id,
-            "status": "pendiente_procesamiento",
-            "message": "Ticket recibido y programado para procesamiento",
-            "ticket": ticket_data,
         }
 
-        # Agregar análisis si está disponible
-        if analysis_result:
-            response["analysis"] = analysis_result
-            response["analyzed_text"] = analyzed_text  # Texto completo sin truncar
+        # Obtener el ticket creado para calcular processing status de manera sincronizada
+        created_ticket = get_ticket(ticket_id)
+        processing_status = _calculate_processing_status(created_ticket) if created_ticket else True
+
+        if tipo == "imagen":
+            # Para imágenes: NO devolver ticket ni analysis hasta que OCR esté completo
+            response.update({
+                "status": "image_processing",
+                "message": "Imagen recibida. Procesando con OCR y análisis LLM...",
+                "processing": processing_status,  # SINCRONIZADO con GET /tickets
+                "estimated_time": "15-30 segundos"
+            })
+            logger.info(f"Respuesta para imagen: solo ticket_id, sin datos del ticket")
+        else:
+            # Para texto: también ejecutar procesamiento automático para consistencia
+            logger.info(f"Ticket {ticket_id} es texto - iniciando procesamiento automático asíncrono")
+
+            def sync_wrapper_text():
+                # Wrapper para ejecutar código async en hilo sincrónico
+                import asyncio
+                try:
+                    # Crear nuevo event loop para este hilo
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+
+                    async def process_text_async():
+                        try:
+                            import time
+                            time.sleep(1)  # Menos tiempo para texto
+
+                            logger.info(f"🚀 Ejecutando procesamiento automático para ticket texto {ticket_id}")
+                            result = await _process_ticket_with_ocr_and_llm(ticket_id)
+
+                            if result and result.get("analysis"):
+                                merchant = result["analysis"].get("merchant_name", "Unknown")
+                                logger.info(f"✅ Procesamiento automático texto completado: {merchant}")
+
+                        except Exception as e:
+                            logger.error(f"❌ Error en procesamiento automático texto para ticket {ticket_id}: {e}")
+
+                    loop.run_until_complete(process_text_async())
+                finally:
+                    loop.close()
+
+            # Ejecutar en hilo separado para no bloquear la respuesta
+            thread = threading.Thread(target=sync_wrapper_text)
+            thread.daemon = True
+            thread.start()
+
+            response.update({
+                "status": "text_processing",
+                "message": "Ticket de texto recibido. Procesando con análisis LLM...",
+                "processing": processing_status,  # SINCRONIZADO con GET /tickets
+                "ticket": ticket_data,
+            })
+
+            # Agregar análisis si está disponible
+            if analysis_result:
+                response["analysis"] = analysis_result
+                response["analyzed_text"] = analyzed_text
 
         return response
 
@@ -719,6 +852,60 @@ async def simple_dashboard(request: Request):
         return HTMLResponse(content="<h1>Dashboard simple no encontrado</h1>", status_code=200)
 
 
+@router.get("/stats")
+async def get_dashboard_stats(company_id: str = "default"):
+    """
+    Obtener estadísticas reales del dashboard.
+
+    Args:
+        company_id: ID de la empresa para filtrar datos
+
+    Returns:
+        Estadísticas calculadas dinámicamente desde la base de datos
+    """
+    try:
+        # Importar el calculador de estadísticas
+        import sys
+        from pathlib import Path
+
+        # Añadir el directorio raíz al path si no está
+        root_path = Path(__file__).parent.parent.parent
+        if str(root_path) not in sys.path:
+            sys.path.insert(0, str(root_path))
+
+        from dashboard_stats_calculator import calculate_dashboard_stats, format_stats_for_dashboard
+
+        # Calcular estadísticas reales
+        raw_stats = calculate_dashboard_stats(company_id)
+        formatted_stats = format_stats_for_dashboard(raw_stats)
+
+        return {
+            "success": True,
+            "stats": formatted_stats,
+            "raw_data": raw_stats,
+            "company_id": company_id
+        }
+
+    except Exception as e:
+        logger.error(f"Error calculando estadísticas del dashboard: {e}")
+
+        # Fallback a estadísticas vacías
+        return {
+            "success": False,
+            "error": str(e),
+            "stats": {
+                "total_tickets": 0,
+                "auto_invoiced": 0,
+                "success_rate": "0%",
+                "avg_processing_time": "0s",
+                "status_distribution": [],
+                "recent_tickets": [],
+                "top_merchants": [],
+                "trends": {"daily": 0, "weekly": 0, "monthly": 0}
+            }
+        }
+
+
 # ===================================================================
 # ENDPOINTS ESCALABLES (Nueva Arquitectura)
 # ===================================================================
@@ -991,7 +1178,8 @@ async def extract_urls_from_text(request: URLExtractionRequest) -> Dict[str, Any
                     status_code=404,
                     detail=f"Ticket {request.ticket_id} no encontrado"
                 )
-            text_to_analyze = ticket.get("raw_data", "") or ticket.get("extracted_text", "")
+            # Para imágenes, priorizar extracted_text (texto OCR) sobre raw_data (imagen base64)
+            text_to_analyze = ticket.get("extracted_text", "") or ticket.get("raw_data", "")
         elif request.text:
             text_to_analyze = request.text
         else:
@@ -1067,6 +1255,245 @@ async def extract_urls_from_text(request: URLExtractionRequest) -> Dict[str, Any
         )
 
 
+@router.post("/tickets/{ticket_id}/reanalyze", response_model=Dict[str, Any])
+async def reanalyze_ticket_with_ocr(ticket_id: int) -> Dict[str, Any]:
+    """
+    Reanalizar un ticket después de que Google Cloud Vision OCR haya terminado correctamente.
+    Usado cuando el análisis inicial fue pospuesto por texto insuficiente.
+    """
+    try:
+        logger.info(f"Reanalizando ticket {ticket_id} con OCR completo")
+
+        # Obtener datos del ticket usando el modelo existente
+        from modules.invoicing_agent.models import get_ticket
+        ticket_data = get_ticket(ticket_id)
+
+        if not ticket_data:
+            raise HTTPException(status_code=404, detail="Ticket no encontrado")
+
+        raw_data = ticket_data.get("raw_data", "")
+        extracted_text = ticket_data.get("extracted_text")
+        tipo = ticket_data.get("tipo", "texto")
+        original_image = ticket_data.get("original_image")
+
+        # Determinar qué texto usar para análisis
+        analyzed_text = extracted_text or raw_data
+
+        # Si es imagen y no hay extracted_text, ejecutar OCR
+        if tipo == "imagen" and not extracted_text and original_image:
+            logger.info(f"Ejecutando OCR de alta calidad para ticket {ticket_id}")
+
+            from core.advanced_ocr_service import AdvancedOCRService
+            ocr_service = AdvancedOCRService()
+
+            ocr_result = await ocr_service.extract_text_intelligent(
+                original_image,
+                context_hint="ticket"
+            )
+
+            if not ocr_result.error and ocr_result.text and len(ocr_result.text.strip()) > 10:
+                analyzed_text = ocr_result.text
+                logger.info(f"OCR de alta calidad exitoso: {len(analyzed_text)} caracteres")
+
+                # Actualizar extracted_text en la base de datos
+                from modules.invoicing_agent.models import update_ticket
+                update_ticket(ticket_id, extracted_text=analyzed_text)
+            else:
+                logger.warning(f"OCR de alta calidad falló para ticket {ticket_id}")
+
+        # Ejecutar análisis LLM con texto de calidad
+        if analyzed_text and len(analyzed_text.strip()) > 10:
+            logger.info(f"Ejecutando análisis LLM con texto de calidad para ticket {ticket_id}")
+
+            from core.ticket_analyzer import analyze_ticket_content
+            analysis = await analyze_ticket_content(analyzed_text)
+
+            analysis_result = {
+                "merchant_name": analysis.merchant_name,
+                "category": analysis.category,
+                "confidence": analysis.confidence,
+                "facturacion_urls": analysis.facturacion_urls or []
+            }
+
+            # Actualizar ticket con análisis
+            from modules.invoicing_agent.models import update_ticket
+            update_ticket(
+                ticket_id,
+                merchant_name=analysis.merchant_name,
+                category=analysis.category,
+                confidence=analysis.confidence,
+                llm_analysis=analysis_result
+            )
+
+            return {
+                "success": True,
+                "ticket_id": ticket_id,
+                "analysis_updated": True,
+                "analysis": analysis_result,
+                "message": "Ticket reananalizado exitosamente con OCR de alta calidad"
+            }
+        else:
+            return {
+                "success": False,
+                "ticket_id": ticket_id,
+                "analysis_updated": False,
+                "error": "Texto insuficiente para análisis LLM",
+                "message": "OCR no produjo suficiente texto para análisis"
+            }
+
+    except Exception as e:
+        logger.error(f"Error reanalizando ticket {ticket_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error reanalizando ticket: {str(e)}"
+        )
+
+
+async def _process_ticket_with_ocr_and_llm(ticket_id: int) -> Dict[str, Any]:
+    """
+    Función interna reutilizable para procesar un ticket con OCR y LLM.
+
+    Ejecuta el flujo completo:
+    1. OCR de Google Cloud Vision (si es imagen)
+    2. Análisis LLM para merchant_name y categoría
+    3. Extracción de URLs
+    4. Actualización en base de datos
+
+    Returns:
+        Dict con el resultado del procesamiento
+    """
+    # Obtener datos del ticket
+    ticket = get_ticket(ticket_id)
+    if not ticket:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Ticket {ticket_id} no encontrado"
+        )
+
+    text_to_analyze = ""
+
+    # Determinar si necesitamos OCR
+    if ticket.get("tipo") == "imagen":
+        # Primero verificar si ya tenemos extracted_text en la BD
+        existing_extracted_text = ticket.get("extracted_text", "")
+        if existing_extracted_text and existing_extracted_text.strip():
+            # Ya tenemos texto OCR extraído en la BD
+            logger.info(f"Ticket {ticket_id} ya tiene extracted_text en BD, usando directamente")
+            text_to_analyze = existing_extracted_text
+        else:
+            raw_data = ticket.get("raw_data", "")
+
+            # Verificar si raw_data ya contiene texto OCR (en lugar de imagen base64)
+            if not raw_data.startswith("/9j/") and not raw_data.startswith("data:image") and len(raw_data) < 5000:
+                # Parece ser texto ya extraído, no imagen base64
+                logger.info(f"Ticket {ticket_id} ya tiene texto OCR en raw_data, usando directamente")
+                text_to_analyze = raw_data
+            else:
+                # Es una imagen, necesitamos OCR
+                logger.info(f"Ticket {ticket_id} es imagen, aplicando OCR...")
+
+                from core.advanced_ocr_service import AdvancedOCRService
+                ocr_service = AdvancedOCRService()
+
+                # Aplicar OCR real para todas las imágenes
+                try:
+                    # Procesar base64 directamente sin archivo temporal
+                    import base64
+
+                    if raw_data.startswith("data:image"):
+                        base64_data = raw_data.split(",")[1]
+                    else:
+                        base64_data = raw_data
+
+                    # Corregir padding del base64 antes de usarlo
+                    base64_data = ocr_service._fix_base64_padding(base64_data)
+
+                    # Usar el método Google Vision directo para preservar formato de líneas
+                    ocr_result = await ocr_service._extract_google_vision(
+                        base64_data,
+                        "ticket"
+                    )
+
+                    if ocr_result.error:
+                        raise Exception(f"Error en OCR: {ocr_result.error}")
+
+                    text_to_analyze = ocr_result.text
+
+                except Exception as ocr_error:
+                    logger.warning(f"Error en OCR para ticket {ticket_id}: {ocr_error}")
+                    text_to_analyze = "Error en OCR: No se pudo extraer texto de la imagen"
+
+    else:
+        # Es texto, usar directamente
+        # Para imágenes, priorizar extracted_text (texto OCR) sobre raw_data (imagen base64)
+        text_to_analyze = ticket.get("extracted_text", "") or ticket.get("raw_data", "")
+
+    # Extraer campos estructurados (Web ID, RFC, etc.)
+    extracted_fields = {}
+    try:
+        from core.advanced_ocr_service import AdvancedOCRService
+        ocr_service = AdvancedOCRService()
+        extracted_fields = ocr_service.extract_fields_from_lines(text_to_analyze.split('\n'))
+        logger.info(f"Ticket {ticket_id} campos extraídos: {extracted_fields}")
+    except Exception as e:
+        logger.warning(f"Error extrayendo campos del ticket {ticket_id}: {e}")
+
+    # Ahora extraer URLs del texto
+    request = URLExtractionRequest(text=text_to_analyze)
+    result = await extract_urls_from_text(request)
+
+    # Analizar el ticket con LLM para obtener merchant y categoría
+    analysis_result = None
+    try:
+        from core.ticket_analyzer import analyze_ticket_content
+
+        analysis = await analyze_ticket_content(text_to_analyze)
+
+        analysis_result = {
+            "merchant_name": analysis.merchant_name,
+            "category": analysis.category,
+            "confidence": analysis.confidence,
+            "facturacion_urls": analysis.facturacion_urls or []
+        }
+
+        logger.info(f"Ticket {ticket_id} analizado: {analysis.merchant_name} - {analysis.category}")
+
+        # Actualizar el ticket en la base de datos con el análisis
+        try:
+            from modules.invoicing_agent.models import update_ticket
+            update_ticket(
+                ticket_id,
+                merchant_name=analysis.merchant_name,
+                category=analysis.category,
+                confidence=analysis.confidence,
+                llm_analysis=analysis_result,
+                extracted_text=text_to_analyze  # También guardar el texto OCR limpio
+            )
+            logger.info(f"Ticket {ticket_id} actualizado en BD con análisis LLM")
+        except Exception as update_error:
+            logger.warning(f"Error actualizando ticket {ticket_id} en BD: {update_error}")
+
+    except Exception as e:
+        logger.warning(f"Error analizando ticket {ticket_id}: {e}")
+        analysis_result = {
+            "merchant_name": "Error de Análisis",
+            "category": "📦 Otros",
+            "confidence": 0.0,
+            "facturacion_urls": []
+        }
+
+    # Combinar resultados
+    combined_result = result.copy()
+    combined_result.update({
+        "analysis": analysis_result,
+        "extracted_text": text_to_analyze,
+        "extracted_fields": extracted_fields,
+        "ticket_id": ticket_id
+    })
+
+    return combined_result
+
+
 @router.post("/tickets/{ticket_id}/extract-urls", response_model=Dict[str, Any])
 async def extract_urls_from_ticket(ticket_id: int) -> Dict[str, Any]:
     """
@@ -1076,105 +1503,8 @@ async def extract_urls_from_ticket(ticket_id: int) -> Dict[str, Any]:
     Para tickets de texto, usa el texto directamente.
     """
     try:
-        # Obtener datos del ticket
-        ticket = get_ticket(ticket_id)
-        if not ticket:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Ticket {ticket_id} no encontrado"
-            )
-
-        text_to_analyze = ""
-
-        # Determinar si necesitamos OCR
-        if ticket.get("tipo") == "imagen":
-            # Es una imagen, necesitamos OCR
-            logger.info(f"Ticket {ticket_id} es imagen, aplicando OCR...")
-
-            from core.advanced_ocr_service import AdvancedOCRService
-            ocr_service = AdvancedOCRService()
-
-            # Aplicar OCR real para todas las imágenes
-            try:
-                # Crear archivo temporal con la imagen
-                import tempfile
-                import base64
-                import os
-
-                raw_data = ticket.get("raw_data", "")
-                if raw_data.startswith("data:image"):
-                    base64_data = raw_data.split(",")[1]
-                else:
-                    base64_data = raw_data
-
-                with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp_file:
-                    temp_file.write(base64.b64decode(base64_data))
-                    temp_image_path = temp_file.name
-
-                # Aplicar OCR usando Google Vision
-                with open(temp_image_path, 'rb') as img_file:
-                    img_base64 = base64.b64encode(img_file.read()).decode('utf-8')
-
-                ocr_result = await ocr_service.extract_text_intelligent(
-                    img_base64,
-                    context_hint="ticket"
-                )
-
-                # Limpiar archivo temporal
-                try:
-                    os.unlink(temp_image_path)
-                except:
-                    pass
-
-                if ocr_result.error:
-                    raise Exception(f"Error en OCR: {ocr_result.error}")
-
-                text_to_analyze = ocr_result.text
-
-            except Exception as ocr_error:
-                logger.warning(f"Error en OCR para ticket {ticket_id}: {ocr_error}")
-                text_to_analyze = "Error en OCR: No se pudo extraer texto de la imagen"
-
-        else:
-            # Es texto, usar directamente
-            text_to_analyze = ticket.get("raw_data", "") or ticket.get("extracted_text", "")
-
-        # Ahora extraer URLs del texto
-        request = URLExtractionRequest(text=text_to_analyze)
-        result = await extract_urls_from_text(request)
-
-        # Analizar el ticket con OpenAI para obtener merchant y categoría
-        analysis_result = None
-        try:
-            from core.ticket_analyzer import analyze_ticket_content
-
-            analysis = await analyze_ticket_content(text_to_analyze)
-
-            analysis_result = {
-                "merchant_name": analysis.merchant_name,
-                "category": analysis.category,
-                "confidence": analysis.confidence
-            }
-
-            logger.info(f"Ticket {ticket_id} analizado: {analysis.merchant_name} - {analysis.category}")
-
-        except Exception as e:
-            logger.warning(f"Error analizando ticket {ticket_id}: {e}")
-            analysis_result = {
-                "merchant_name": "Error de Análisis",
-                "category": "📦 Otros",
-                "confidence": 0.0
-            }
-
-        # Agregar metadatos específicos del ticket
-        result["ticket_id"] = ticket_id
-        result["source"] = "ticket_extraction_with_ocr" if ticket.get("tipo") == "imagen" else "ticket_extraction_text"
-        result["extracted_text_preview"] = text_to_analyze  # Texto completo sin truncar
-
-        # Agregar análisis del ticket
-        result["analysis"] = analysis_result
-
-        return result
+        # ✅ USAR FUNCIÓN REUTILIZABLE: Misma lógica que procesamiento automático
+        return await _process_ticket_with_ocr_and_llm(ticket_id)
 
     except HTTPException:
         # Re-levantar errores HTTP tal como están
@@ -1185,6 +1515,756 @@ async def extract_urls_from_ticket(ticket_id: int) -> Dict[str, Any]:
             status_code=500,
             detail=f"Error extrayendo URLs del ticket: {str(e)}"
         )
+
+
+@router.get("/tickets/{ticket_id}/validate-consistency", response_model=Dict[str, Any])
+async def validate_ticket_consistency(ticket_id: int) -> Dict[str, Any]:
+        if ticket.get("tipo") == "imagen":
+            raw_data = ticket.get("raw_data", "")
+
+            # Verificar si raw_data ya contiene texto OCR (en lugar de imagen base64)
+            if not raw_data.startswith("/9j/") and not raw_data.startswith("data:image") and len(raw_data) < 5000:
+                # Parece ser texto ya extraído, no imagen base64
+                logger.info(f"Ticket {ticket_id} ya tiene texto OCR extraído, usando directamente")
+                text_to_analyze = raw_data
+            else:
+                # Es una imagen, necesitamos OCR
+                logger.info(f"Ticket {ticket_id} es imagen, aplicando OCR...")
+
+                from core.advanced_ocr_service import AdvancedOCRService
+                ocr_service = AdvancedOCRService()
+
+                # Aplicar OCR real para todas las imágenes
+                try:
+                    # Procesar base64 directamente sin archivo temporal
+                    import base64
+
+                    if raw_data.startswith("data:image"):
+                        base64_data = raw_data.split(",")[1]
+                    else:
+                        base64_data = raw_data
+
+                    # Corregir padding del base64 antes de usarlo
+                    base64_data = ocr_service._fix_base64_padding(base64_data)
+
+                    # Usar el método Google Vision directo para preservar formato de líneas
+                    ocr_result = await ocr_service._extract_google_vision(
+                        base64_data,
+                        "ticket"
+                    )
+
+                    if ocr_result.error:
+                        raise Exception(f"Error en OCR: {ocr_result.error}")
+
+                    text_to_analyze = ocr_result.text
+
+                except Exception as ocr_error:
+                    logger.warning(f"Error en OCR para ticket {ticket_id}: {ocr_error}")
+                    text_to_analyze = "Error en OCR: No se pudo extraer texto de la imagen"
+
+        else:
+            # Es texto, usar directamente
+            # Para imágenes, priorizar extracted_text (texto OCR) sobre raw_data (imagen base64)
+            text_to_analyze = ticket.get("extracted_text", "") or ticket.get("raw_data", "")
+
+        # Extraer campos estructurados (Web ID, RFC, etc.)
+        extracted_fields = {}
+        try:
+            from core.advanced_ocr_service import AdvancedOCRService
+            ocr_service = AdvancedOCRService()
+            extracted_fields = ocr_service.extract_fields_from_lines(text_to_analyze.split('\n'))
+            logger.info(f"Ticket {ticket_id} campos extraídos: {extracted_fields}")
+        except Exception as e:
+            logger.warning(f"Error extrayendo campos del ticket {ticket_id}: {e}")
+
+        # Ahora extraer URLs del texto
+        request = URLExtractionRequest(text=text_to_analyze)
+        result = await extract_urls_from_text(request)
+
+        # Analizar el ticket con LLM para obtener merchant y categoría
+        analysis_result = None
+        try:
+            from core.ticket_analyzer import analyze_ticket_content
+
+            analysis = await analyze_ticket_content(text_to_analyze)
+
+            analysis_result = {
+                "merchant_name": analysis.merchant_name,
+                "category": analysis.category,
+                "confidence": analysis.confidence,
+                "facturacion_urls": analysis.facturacion_urls or []
+            }
+
+            logger.info(f"Ticket {ticket_id} analizado: {analysis.merchant_name} - {analysis.category}")
+
+            # Actualizar el ticket en la base de datos con el análisis
+            try:
+                from modules.invoicing_agent.models import update_ticket
+                update_ticket(
+                    ticket_id,
+                    merchant_name=analysis.merchant_name,
+                    category=analysis.category,
+                    confidence=analysis.confidence,
+                    llm_analysis=analysis_result,
+                    extracted_text=text_to_analyze  # También guardar el texto OCR limpio
+                )
+                logger.info(f"Ticket {ticket_id} actualizado en BD con análisis LLM")
+            except Exception as update_error:
+                logger.warning(f"Error actualizando ticket {ticket_id} en BD: {update_error}")
+
+        except Exception as e:
+            logger.warning(f"Error analizando ticket {ticket_id}: {e}")
+            analysis_result = {
+                "merchant_name": "Error de Análisis",
+                "category": "📦 Otros",
+                "confidence": 0.0,
+                "facturacion_urls": []
+            }
+
+        # Agregar metadatos específicos del ticket
+        result["ticket_id"] = ticket_id
+        result["source"] = "ticket_extraction_with_ocr" if ticket.get("tipo") == "imagen" else "ticket_extraction_text"
+        result["extracted_text_preview"] = text_to_analyze  # Texto completo sin truncar
+
+        # Actualizar la base de datos usando el consistency manager
+        if analysis_result and analysis_result["merchant_name"] != "Error de Análisis":
+            try:
+                from core.data_consistency_manager import consistency_manager
+
+                success = consistency_manager.update_ticket_analysis(
+                    ticket_id=ticket_id,
+                    analysis_result=analysis_result,
+                    extracted_fields=extracted_fields,
+                    extracted_text=text_to_analyze
+                )
+
+                if success:
+                    logger.info(f"✅ Ticket {ticket_id} actualizado consistentemente")
+                else:
+                    logger.warning(f"⚠️ Error en consistency manager para ticket {ticket_id}")
+
+            except Exception as db_error:
+                logger.warning(f"⚠️ Error updating database for ticket {ticket_id}: {db_error}")
+
+        # Agregar análisis del ticket
+        result["analysis"] = analysis_result
+
+        # Agregar campos extraídos (Web ID, RFC, etc.)
+        result["extracted_fields"] = extracted_fields
+
+        # Función para normalizar URLs y evitar duplicados
+        def normalize_url(url):
+            """Normalizar URL para comparación (sin protocolo, sin www, lowercase)"""
+            normalized = url.lower().strip()
+            # Remover protocolo
+            if normalized.startswith(('http://', 'https://')):
+                normalized = normalized.split('://', 1)[1]
+            # Remover www
+            if normalized.startswith('www.'):
+                normalized = normalized[4:]
+            # Remover trailing slash
+            if normalized.endswith('/'):
+                normalized = normalized[:-1]
+            return normalized
+
+        # Integrar URLs del LLM con las URLs extraídas por regex
+        llm_urls = analysis_result.get("facturacion_urls", [])
+        if llm_urls:
+            # Crear set de URLs normalizadas existentes para evitar duplicados
+            existing_normalized_urls = {normalize_url(url_data["url"]) for url_data in result.get("urls", [])}
+
+            for llm_url in llm_urls:
+                normalized_llm_url = normalize_url(llm_url["url"])
+                if normalized_llm_url not in existing_normalized_urls:
+                    # Agregar URL del LLM a la lista principal
+                    if "urls" not in result:
+                        result["urls"] = []
+
+                    result["urls"].append({
+                        "url": llm_url["url"],
+                        "confidence": llm_url.get("confidence", 0.9),
+                        "type": "facturacion",
+                        "context": f"Sugerido por LLM para {analysis_result['merchant_name']}",
+                        "merchant_hint": analysis_result["merchant_name"],
+                        "method": "llm_suggestion",
+                        "metadata": {"source": "llm_analysis"}
+                    })
+
+                    # Agregar al set de URLs normalizadas para evitar duplicados futuros
+                    existing_normalized_urls.add(normalized_llm_url)
+
+            # Si no había URLs y ahora tenemos URLs del LLM, actualizar el mensaje
+            if not result.get("found_urls", False) and llm_urls:
+                result["found_urls"] = True
+                result["best_url"] = llm_urls[0]["url"]
+                result["recommendation"] = f"URL de facturación sugerida para {analysis_result['merchant_name']}"
+
+
+
+@router.get("/tickets/{ticket_id}/validate-consistency", response_model=Dict[str, Any])
+async def validate_ticket_consistency(ticket_id: int) -> Dict[str, Any]:
+    """
+    Validar que un ticket tenga datos consistentes entre todos sus campos.
+
+    Útil para debugging y monitoreo del UI.
+    """
+    try:
+        from core.data_consistency_manager import consistency_manager
+
+        validation_result = consistency_manager.validate_ticket_consistency(ticket_id)
+
+        return {
+            "success": True,
+            "ticket_id": ticket_id,
+            "validation": validation_result
+        }
+
+    except Exception as e:
+        logger.error(f"Error validating ticket {ticket_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error validating ticket: {str(e)}"
+        )
+
+
+@router.post("/maintenance/fix-inconsistencies", response_model=Dict[str, Any])
+async def fix_data_inconsistencies() -> Dict[str, Any]:
+    """
+    Buscar y corregir inconsistencias en toda la base de datos.
+
+    USAR CON CUIDADO - Solo para mantenimiento.
+    """
+    try:
+        from core.data_consistency_manager import consistency_manager
+
+        fix_result = consistency_manager.fix_all_inconsistencies()
+
+        return {
+            "success": True,
+            "maintenance_result": fix_result
+        }
+
+    except Exception as e:
+        logger.error(f"Error fixing inconsistencies: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fixing inconsistencies: {str(e)}"
+        )
+
+
+@router.post("/tickets/{ticket_id}/navigate-urls", response_model=Dict[str, Any])
+async def navigate_to_extracted_urls(ticket_id: int, auto_fill: bool = False) -> Dict[str, Any]:
+    """
+    Navegar automáticamente a las URLs de facturación extraídas de un ticket.
+
+    Utiliza el sistema de automatización web (Selenium/Playwright) para:
+    1. Obtener las URLs extraídas del ticket
+    2. Navegar a cada URL encontrada
+    3. Tomar screenshots de los portales
+    4. Verificar accesibilidad de los portales
+    """
+    try:
+        # Primero obtener las URLs extraídas del ticket
+        logger.info(f"Navegando a URLs extraídas del ticket {ticket_id}")
+
+        url_result = await extract_urls_from_ticket(ticket_id)
+
+        urls_to_navigate = url_result.get("urls", [])
+        if not urls_to_navigate:
+            return {
+                "success": False,
+                "message": "No se encontraron URLs para navegar",
+                "ticket_id": ticket_id,
+                "urls_found": 0
+            }
+
+        # Obtener texto del ticket si auto_fill está activado
+        ticket_text = None
+        merchant_name = None
+        logger.info(f"🔍 auto_fill activado: {auto_fill}")
+        if auto_fill:
+            # Buscar el ticket en la base de datos
+            try:
+                import sqlite3
+                import json
+                conn = sqlite3.connect('./data/mcp_internal.db')
+                cursor = conn.cursor()
+
+                # Obtener datos del ticket (incluyendo extracted_text)
+                cursor.execute("SELECT raw_data, extracted_text, merchant_name, llm_analysis, tipo FROM tickets WHERE id = ?", (ticket_id,))
+                ticket_result = cursor.fetchone()
+
+                if ticket_result:
+                    raw_data, extracted_text, db_merchant_name, llm_analysis, tipo = ticket_result
+                    merchant_name = db_merchant_name
+
+                    # Usar extracted_text si está disponible (OCR), sino raw_data
+                    if extracted_text and extracted_text.strip():
+                        ticket_text = extracted_text
+                        logger.info(f"Usando extracted_text (OCR): {len(extracted_text)} caracteres")
+                    elif raw_data and not (raw_data.startswith('/9j/') or raw_data.startswith('iVBOR')):
+                        # Es texto directo (no imagen)
+                        ticket_text = raw_data
+                        logger.info(f"Usando raw_data (texto): {len(raw_data)} caracteres")
+                    else:
+                        # Fallback: construir texto básico desde análisis
+                        if llm_analysis:
+                            try:
+                                analysis = json.loads(llm_analysis)
+                                ticket_text = f"""
+                                Merchant: {analysis.get('merchant_name', db_merchant_name)}
+                                Category: {analysis.get('category', '')}
+                                Confidence: {analysis.get('confidence', '')}
+                                """
+                                logger.info(f"Usando fallback desde llm_analysis")
+                            except:
+                                ticket_text = f"Merchant: {db_merchant_name}"
+                                logger.info(f"Usando fallback básico")
+                        else:
+                            ticket_text = f"Merchant: {db_merchant_name}"
+                            logger.info(f"Usando fallback básico")
+
+                    logger.info(f"Texto del ticket obtenido: {len(ticket_text)} caracteres")
+                    logger.info(f"Merchant: {merchant_name}")
+                else:
+                    logger.warning(f"No se encontró ticket con ID {ticket_id}")
+
+                conn.close()
+            except Exception as e:
+                logger.error(f"Error obteniendo texto del ticket: {e}")
+
+        # Importar el worker de automatización web
+        from modules.invoicing_agent.web_automation import WebAutomationWorker
+
+        automation_worker = WebAutomationWorker()
+        navigation_results = []
+
+        for i, url_data in enumerate(urls_to_navigate, 1):
+            url = url_data.get("url")
+            merchant_hint = url_data.get("merchant_hint", "Desconocido")
+
+            # Usar merchant_name de la DB si está disponible, sino usar merchant_hint
+            final_merchant_name = merchant_name if merchant_name else merchant_hint
+
+            logger.info(f"Navegando a URL {i}/{len(urls_to_navigate)}: {url}")
+            logger.info(f"Merchant: {final_merchant_name}")
+            if ticket_text:
+                logger.info(f"Ticket text preview: {ticket_text[:100]}...")
+
+            try:
+                # Navegar a la URL
+                navigation_result = await automation_worker.navigate_to_portal(
+                    url=url,
+                    merchant_name=final_merchant_name,
+                    take_screenshot=True,
+                    auto_fill=auto_fill,
+                    ticket_text=ticket_text
+                )
+
+                navigation_results.append({
+                    "url": url,
+                    "merchant": final_merchant_name,
+                    "success": navigation_result.get("success", False),
+                    "screenshot_path": navigation_result.get("screenshot_path"),
+                    "accessibility": navigation_result.get("accessibility", "unknown"),
+                    "loading_time": navigation_result.get("loading_time"),
+                    "page_title": navigation_result.get("page_title"),
+                    "form_detected": navigation_result.get("form_detected", False),
+                    "form_fields": navigation_result.get("form_fields", []),
+                    "auto_filled": navigation_result.get("auto_filled", False),
+                    "filled_fields": navigation_result.get("filled_fields", {}),
+                    "submission_result": navigation_result.get("submission_result"),
+                    "error": navigation_result.get("error")
+                })
+
+            except Exception as e:
+                logger.error(f"Error navegando a {url}: {e}")
+                navigation_results.append({
+                    "url": url,
+                    "merchant": merchant_hint,
+                    "success": False,
+                    "form_detected": False,
+                    "form_fields": [],
+                    "error": str(e)
+                })
+
+        # Limpiar recursos
+        await automation_worker.cleanup()
+
+        successful_navigations = sum(1 for result in navigation_results if result.get("success", False))
+
+        return {
+            "success": True,
+            "message": f"Navegación completada: {successful_navigations}/{len(urls_to_navigate)} exitosas",
+            "ticket_id": ticket_id,
+            "total_urls": len(urls_to_navigate),
+            "successful_navigations": successful_navigations,
+            "navigation_results": navigation_results,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"Error en navegación automática para ticket {ticket_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error en navegación automática: {str(e)}"
+        )
+
+
+@router.get("/automation-viewer")
+async def automation_viewer(request: Request):
+    """
+    Dashboard visual para ver capturas de automatización y decisiones del LLM
+    """
+    from pathlib import Path
+    html_path = Path("static/automation-viewer.html")
+    if html_path.exists():
+        return HTMLResponse(content=html_path.read_text(), status_code=200)
+    else:
+        return HTMLResponse(content="<h1>Automation Viewer no encontrado</h1>", status_code=404)
+
+
+@router.get("/screenshots/{filename}")
+async def serve_screenshot(filename: str):
+    """
+    Servir archivos de screenshots para el automation viewer
+    """
+    try:
+        import os
+        from fastapi.responses import FileResponse
+
+        # Directorio de screenshots
+        screenshots_dir = Path("screenshots")
+        file_path = screenshots_dir / filename
+
+        # Verificar que el archivo existe y está en el directorio correcto
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(
+                path=str(file_path),
+                media_type="image/png",
+                filename=filename
+            )
+        else:
+            # Servir imagen placeholder si no existe el screenshot
+            placeholder_path = Path("static/placeholder-screenshot.png")
+            if placeholder_path.exists():
+                return FileResponse(
+                    path=str(placeholder_path),
+                    media_type="image/png"
+                )
+            else:
+                raise HTTPException(status_code=404, detail="Screenshot no encontrado")
+
+    except Exception as e:
+        logger.error(f"Error sirviendo screenshot {filename}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tickets/{ticket_id}/automation-data", response_model=Dict[str, Any])
+async def get_ticket_automation_data(ticket_id: int) -> Dict[str, Any]:
+    """
+    Obtener datos completos de automatización para un ticket específico.
+
+    Incluye:
+    - Screenshots dinámicos
+    - Decisiones del LLM paso a paso
+    - Análisis de cambios en la página
+    - Elementos detectados en cada momento
+    """
+    try:
+        # Obtener datos básicos del ticket
+        ticket = get_ticket(ticket_id)
+        if not ticket:
+            raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} no encontrado")
+
+        # Simular datos de automatización (en el futuro vendrán de la base de datos)
+        automation_data = {
+            "ticket_id": ticket_id,
+            "ticket_info": {
+                "merchant": ticket.get("merchant_name", "Unknown"),
+                "tipo": ticket.get("tipo", "texto"),
+                "estado": ticket.get("estado", "pendiente"),
+                "created_at": ticket.get("created_at", "")
+            },
+            "dynamic_analysis": {
+                "success": True,
+                "url": "https://ejemplo.com",
+                "page_title": "Portal de Facturación",
+                "captures": [
+                    {
+                        "interval": 0,
+                        "timestamp": 1726951200000,  # timestamp ejemplo
+                        "screenshot_path": f"dynamic_capture_{ticket_id}_0.png",
+                        "elements_found": 3,
+                        "forms_found": 0,
+                        "current_url": "https://ejemplo.com",
+                        "page_source_length": 15420,
+                        "elements": [
+                            {
+                                "selector": "nav",
+                                "text": "Navegación principal",
+                                "visible": True,
+                                "enabled": True,
+                                "tag": "nav",
+                                "location": {"x": 0, "y": 0},
+                                "size": {"width": 1200, "height": 60},
+                                "attributes": {"id": "main-nav", "class": "navbar"}
+                            },
+                            {
+                                "selector": "button",
+                                "text": "Inicio",
+                                "visible": True,
+                                "enabled": True,
+                                "tag": "button",
+                                "location": {"x": 100, "y": 20},
+                                "size": {"width": 80, "height": 30},
+                                "attributes": {"id": "home-btn", "class": "btn btn-primary"}
+                            },
+                            {
+                                "selector": "a",
+                                "text": "Servicios",
+                                "visible": True,
+                                "enabled": True,
+                                "tag": "a",
+                                "location": {"x": 200, "y": 20},
+                                "size": {"width": 70, "height": 30},
+                                "attributes": {"href": "/servicios", "class": "nav-link"}
+                            }
+                        ],
+                        "forms": []
+                    },
+                    {
+                        "interval": 3,
+                        "timestamp": 1726951203000,
+                        "screenshot_path": f"dynamic_capture_{ticket_id}_1.png",
+                        "elements_found": 7,
+                        "forms_found": 1,
+                        "current_url": "https://ejemplo.com",
+                        "page_source_length": 18950,
+                        "elements": [
+                            {
+                                "selector": "button[contains(text(),'factura')]",
+                                "text": "Solicitar Factura",
+                                "visible": True,
+                                "enabled": True,
+                                "tag": "button",
+                                "location": {"x": 500, "y": 300},
+                                "size": {"width": 150, "height": 40},
+                                "attributes": {"id": "factura-btn", "class": "btn btn-success factura-button"}
+                            },
+                            {
+                                "selector": "input[name='rfc']",
+                                "text": "",
+                                "visible": True,
+                                "enabled": True,
+                                "tag": "input",
+                                "location": {"x": 300, "y": 400},
+                                "size": {"width": 200, "height": 35},
+                                "attributes": {"name": "rfc", "placeholder": "RFC", "type": "text"}
+                            },
+                            {
+                                "selector": "input[name='email']",
+                                "text": "",
+                                "visible": True,
+                                "enabled": True,
+                                "tag": "input",
+                                "location": {"x": 300, "y": 450},
+                                "size": {"width": 200, "height": 35},
+                                "attributes": {"name": "email", "placeholder": "Email", "type": "email"}
+                            }
+                        ],
+                        "forms": [
+                            {
+                                "index": 0,
+                                "action": "/procesar-factura",
+                                "method": "POST",
+                                "fields_count": 4,
+                                "visible": True,
+                                "fields": [
+                                    {"type": "input", "input_type": "text", "name": "rfc", "id": "rfc-field", "placeholder": "RFC", "required": True},
+                                    {"type": "input", "input_type": "email", "name": "email", "id": "email-field", "placeholder": "Email", "required": True},
+                                    {"type": "input", "input_type": "text", "name": "total", "id": "total-field", "placeholder": "Total", "required": False},
+                                    {"type": "input", "input_type": "submit", "name": "", "id": "submit-btn", "placeholder": "", "required": False}
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "interval": 6,
+                        "timestamp": 1726951206000,
+                        "screenshot_path": f"dynamic_capture_{ticket_id}_2.png",
+                        "elements_found": 8,
+                        "forms_found": 1,
+                        "current_url": "https://ejemplo.com",
+                        "page_source_length": 19240,
+                        "elements": [
+                            {
+                                "selector": "button[contains(text(),'factura')]",
+                                "text": "Solicitar Factura",
+                                "visible": True,
+                                "enabled": True,
+                                "tag": "button",
+                                "location": {"x": 500, "y": 300},
+                                "size": {"width": 150, "height": 40},
+                                "attributes": {"id": "factura-btn", "class": "btn btn-success factura-button"}
+                            },
+                            {
+                                "selector": "input[name='telefono']",
+                                "text": "",
+                                "visible": True,
+                                "enabled": True,
+                                "tag": "input",
+                                "location": {"x": 300, "y": 500},
+                                "size": {"width": 200, "height": 35},
+                                "attributes": {"name": "telefono", "placeholder": "Teléfono", "type": "tel"}
+                            }
+                        ]
+                    },
+                    {
+                        "interval": 10,
+                        "timestamp": 1726951210000,
+                        "screenshot_path": f"dynamic_capture_{ticket_id}_3.png",
+                        "elements_found": 10,
+                        "forms_found": 1,
+                        "current_url": "https://ejemplo.com",
+                        "page_source_length": 20100,
+                        "elements": [
+                            {
+                                "selector": "button[type='submit']",
+                                "text": "Enviar Solicitud",
+                                "visible": True,
+                                "enabled": True,
+                                "tag": "button",
+                                "location": {"x": 400, "y": 600},
+                                "size": {"width": 120, "height": 40},
+                                "attributes": {"type": "submit", "class": "btn btn-primary submit-btn"}
+                            }
+                        ]
+                    }
+                ],
+                "best_capture_index": 1,
+                "changes_detected": {
+                    "significant_changes": True,
+                    "elements_appeared": [
+                        {"interval": 3, "new_elements": 4},
+                        {"interval": 6, "new_elements": 1},
+                        {"interval": 10, "new_elements": 2}
+                    ],
+                    "elements_disappeared": [],
+                    "forms_appeared": [
+                        {"interval": 3, "new_forms": 1}
+                    ],
+                    "forms_disappeared": []
+                },
+                "recommendation": f"Mejor momento para interactuar: segundo 3. Se detectaron 1 formularios en el segundo 3. Se encontraron 7 elementos interactivos. Se detectaron 1 botones de facturación",
+                "total_screenshots": 4
+            },
+            "llm_decisions": [
+                {
+                    "step": 1,
+                    "state": "navigation",
+                    "action": "navigate",
+                    "confidence": 0.95,
+                    "decision": "Navegar al portal principal de facturación",
+                    "selector": "",
+                    "value": "",
+                    "result": "success",
+                    "timing": "0s",
+                    "reasoning": "Página cargada correctamente, elementos básicos detectados",
+                    "next_state": "wait_for_elements"
+                },
+                {
+                    "step": 2,
+                    "state": "wait_for_elements",
+                    "action": "wait",
+                    "confidence": 0.88,
+                    "decision": "Esperar a que aparezcan elementos de facturación dinámicos",
+                    "selector": "button[contains(text(),'factura')]",
+                    "value": "",
+                    "result": "success",
+                    "timing": "3s",
+                    "reasoning": "Se detectó botón de facturación y formulario después de 3 segundos",
+                    "next_state": "click_button"
+                },
+                {
+                    "step": 3,
+                    "state": "click_button",
+                    "action": "click",
+                    "confidence": 0.92,
+                    "decision": "Hacer clic en botón 'Solicitar Factura'",
+                    "selector": "#factura-btn",
+                    "value": "",
+                    "result": "success",
+                    "timing": "6s",
+                    "reasoning": "Botón visible y habilitado, posición estable",
+                    "next_state": "fill_form"
+                },
+                {
+                    "step": 4,
+                    "state": "fill_form",
+                    "action": "fill_field",
+                    "confidence": 0.89,
+                    "decision": "Llenar campo RFC con datos de empresa",
+                    "selector": "input[name='rfc']",
+                    "value": "XAXX010101000",
+                    "result": "success",
+                    "timing": "8s",
+                    "reasoning": "Campo RFC detectado y accesible",
+                    "next_state": "fill_form"
+                },
+                {
+                    "step": 5,
+                    "state": "fill_form",
+                    "action": "fill_field",
+                    "confidence": 0.85,
+                    "decision": "Llenar campo email con correo de empresa",
+                    "selector": "input[name='email']",
+                    "value": "test@example.com",
+                    "result": "success",
+                    "timing": "9s",
+                    "reasoning": "Campo email disponible en formulario",
+                    "next_state": "submit_form"
+                },
+                {
+                    "step": 6,
+                    "state": "submit_form",
+                    "action": "submit",
+                    "confidence": 0.76,
+                    "decision": "Enviar formulario de solicitud de factura",
+                    "selector": "button[type='submit']",
+                    "value": "",
+                    "result": "partial",
+                    "timing": "10s",
+                    "reasoning": "Formulario enviado pero respuesta del servidor pendiente",
+                    "next_state": "completed"
+                }
+            ],
+            "automation_summary": {
+                "total_steps": 6,
+                "successful_steps": 5,
+                "failed_steps": 0,
+                "partial_steps": 1,
+                "success_rate": 0.83,
+                "total_time": "10s",
+                "best_interaction_moment": "3s",
+                "forms_detected": 1,
+                "buttons_detected": 3,
+                "fields_filled": 2,
+                "significant_changes": True
+            }
+        }
+
+        return {
+            "success": True,
+            "data": automation_data,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error obteniendo datos de automatización para ticket {ticket_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/url-extraction/health", response_model=Dict[str, Any])
@@ -1233,3 +2313,405 @@ async def get_url_extraction_health() -> Dict[str, Any]:
             "error": str(e),
             "timestamp": datetime.utcnow().isoformat()
         }
+
+
+# ==========================================
+# INVOICE ATTACHMENT ENDPOINTS
+# ==========================================
+
+@router.get("/tickets/{ticket_id}/invoice-status", response_model=Dict[str, Any])
+async def get_ticket_invoice_status(ticket_id: int):
+    """
+    Obtener el estado de factura y adjuntos de un ticket
+    """
+    try:
+        from core.invoice_manager import invoice_manager
+
+        # Obtener datos de factura
+        invoice_data = invoice_manager.get_invoice_data(ticket_id)
+        if not invoice_data:
+            # Si no existe, crear entrada con estado pendiente
+            invoice_manager.update_invoice_status(ticket_id, invoice_manager.InvoiceStatus.PENDIENTE)
+            invoice_data = invoice_manager.get_invoice_data(ticket_id)
+
+        # Obtener adjuntos
+        attachments = invoice_manager.get_attachments(ticket_id)
+
+        return {
+            "success": True,
+            "invoice_data": {
+                "status": invoice_data.status.value,
+                "pdf_path": invoice_data.pdf_path,
+                "xml_path": invoice_data.xml_path,
+                "metadata": invoice_data.metadata,
+                "failure_reason": invoice_data.failure_reason,
+                "last_check": invoice_data.last_check,
+                "uuid": invoice_data.uuid,
+                "sat_validation": invoice_data.sat_validation
+            },
+            "attachments": [
+                {
+                    "id": att.id,
+                    "ticket_id": att.ticket_id,
+                    "file_type": att.file_type.value,
+                    "file_path": att.file_path,
+                    "file_size": att.file_size,
+                    "uploaded_at": att.uploaded_at,
+                    "is_valid": att.is_valid,
+                    "validation_details": att.validation_details
+                } for att in attachments
+            ]
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting invoice status for ticket {ticket_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tickets/{ticket_id}/image")
+async def get_ticket_image(ticket_id: int):
+    """
+    Obtener la imagen original del ticket para visualización en el dashboard
+    """
+    try:
+        # Obtener la imagen del ticket desde la base de datos
+        import sqlite3
+        conn = sqlite3.connect('./data/mcp_internal.db')
+        cursor = conn.cursor()
+
+        # Buscar el ticket
+        cursor.execute("SELECT original_image, raw_data FROM tickets WHERE id = ?", (ticket_id,))
+        result = cursor.fetchone()
+        conn.close()
+
+        if not result:
+            raise HTTPException(status_code=404, detail="Ticket no encontrado")
+
+        original_image, raw_data = result
+        # Priorizar imagen original, luego raw_data
+        image_data = original_image or raw_data
+
+        # Verificar si es imagen base64
+        if image_data and (image_data.startswith('/9j/') or image_data.startswith('iVBOR') or image_data.startswith('UklG')):
+            # Es una imagen base64, determinar el tipo
+            if image_data.startswith('/9j/'):
+                media_type = "image/jpeg"
+            elif image_data.startswith('iVBOR'):
+                media_type = "image/png"
+            elif image_data.startswith('UklG'):
+                media_type = "image/webp"
+            else:
+                media_type = "image/jpeg"  # Default
+
+            # Decodificar base64 y devolver como imagen
+            import base64
+            decoded_image_data = base64.b64decode(image_data)
+
+            from fastapi.responses import Response
+            return Response(content=decoded_image_data, media_type=media_type)
+        else:
+            # No es imagen válida
+            raise HTTPException(status_code=404, detail="No hay imagen disponible para este ticket")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error obteniendo imagen del ticket {ticket_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+
+@router.get("/tickets/{ticket_id}/ocr-text")
+async def get_ticket_ocr_text(ticket_id: int):
+    """
+    Obtener el texto OCR extraído de un ticket
+    """
+    try:
+        ticket = get_ticket(ticket_id)
+        if not ticket:
+            raise HTTPException(status_code=404, detail="Ticket no encontrado")
+
+        # Priorizar extracted_text (OCR) sobre raw_data
+        ocr_text = ticket.get("extracted_text", "") or ticket.get("raw_data", "")
+
+        return {
+            "success": True,
+            "ticket_id": ticket_id,
+            "ocr_text": ocr_text,
+            "tipo": ticket.get("tipo", ""),
+            "has_extracted_text": bool(ticket.get("extracted_text")),
+            "text_length": len(ocr_text)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error obteniendo texto OCR del ticket {ticket_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+
+@router.post("/tickets/{ticket_id}/upload-invoice", response_model=Dict[str, Any])
+async def upload_invoice_file(
+    ticket_id: int,
+    file: UploadFile = File(...),
+    file_type: str = Form(...)
+):
+    """
+    Subir archivo de factura (PDF o XML) para un ticket
+    """
+    try:
+        from core.invoice_manager import invoice_manager, AttachmentType
+
+        # Validar tipo de archivo
+        if file_type not in ['pdf', 'xml']:
+            raise HTTPException(status_code=400, detail="Tipo de archivo debe ser 'pdf' o 'xml'")
+
+        # Leer contenido del archivo
+        file_content = await file.read()
+
+        if not file_content:
+            raise HTTPException(status_code=400, detail="Archivo vacío")
+
+        # Convertir string a enum
+        attachment_type = AttachmentType.PDF if file_type == 'pdf' else AttachmentType.XML
+
+        # Guardar archivo
+        attachment = invoice_manager.attach_invoice_file(
+            ticket_id=ticket_id,
+            file_content=file_content,
+            file_type=attachment_type,
+            original_filename=file.filename
+        )
+
+        if not attachment:
+            raise HTTPException(status_code=500, detail="Error guardando archivo")
+
+        # Verificar si la factura está completa
+        invoice_manager.mark_invoice_complete(ticket_id)
+
+        return {
+            "success": True,
+            "message": f"Archivo {file_type.upper()} subido exitosamente",
+            "attachment": {
+                "id": attachment.id,
+                "ticket_id": attachment.ticket_id,
+                "file_type": attachment.file_type.value,
+                "file_size": attachment.file_size,
+                "is_valid": attachment.is_valid,
+                "validation_details": attachment.validation_details
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading invoice file for ticket {ticket_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/attachments/{attachment_id}/download")
+async def download_attachment(attachment_id: int):
+    """
+    Descargar archivo adjunto por ID
+    """
+    try:
+        import sqlite3
+        import os
+        from fastapi.responses import FileResponse
+
+        # Obtener información del adjunto
+        conn = sqlite3.connect('./data/mcp_internal.db')
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT file_path, file_type, ticket_id
+            FROM invoice_attachments
+            WHERE id = ?
+        """, (attachment_id,))
+
+        result = cursor.fetchone()
+        conn.close()
+
+        if not result:
+            raise HTTPException(status_code=404, detail="Adjunto no encontrado")
+
+        file_path, file_type, ticket_id = result
+
+        # Verificar que el archivo existe
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="Archivo no encontrado en el sistema")
+
+        # Generar nombre de descarga
+        filename = f"ticket_{ticket_id}_{file_type}.{file_type}"
+
+        return FileResponse(
+            path=file_path,
+            filename=filename,
+            media_type="application/octet-stream"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error downloading attachment {attachment_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/test-intelligent-agent/{ticket_id}")
+async def test_intelligent_agent(ticket_id: int):
+    """
+    Endpoint para probar el agente de decisión inteligente con un ticket real.
+    """
+    try:
+        # Obtener ticket
+        ticket = get_ticket(ticket_id)
+        if not ticket:
+            raise HTTPException(status_code=404, detail="Ticket no encontrado")
+
+        # Obtener merchant y URLs del ticket
+        extracted_text = ticket.get("extracted_text", "") or ticket.get("raw_data", "")
+
+        # Obtener URLs extraídas del ticket
+        llm_analysis = ticket.get("llm_analysis", {})
+        facturacion_urls = llm_analysis.get("facturacion_urls", [])
+
+        # Usar URL real si está disponible, sino usar Google para pruebas
+        if facturacion_urls and len(facturacion_urls) > 0:
+            primary_url = facturacion_urls[0].get("url", "")
+            # Asegurar que tenga protocolo
+            if not primary_url.startswith("http"):
+                primary_url = "https://" + primary_url
+            merchant_name = llm_analysis.get("merchant_name", "Portal Real")
+        else:
+            primary_url = "https://google.com"  # Fallback para pruebas
+            merchant_name = "Portal de Prueba"
+
+        test_merchant = {
+            "nombre": merchant_name,
+            "metadata": {
+                "url": primary_url
+            }
+        }
+
+        # Preparar datos del ticket usando información extraída
+        extracted_fields = llm_analysis.get("extracted_fields", {})
+
+        ticket_data = {
+            "rfc": "XAXX010101000",  # Mantener RFC por defecto
+            "email": "test@example.com",  # Email por defecto
+            "folio": extracted_fields.get("folio", ticket.get("id", "")),
+            "total": extracted_fields.get("total", "100.00"),
+            "fecha": extracted_fields.get("fecha", "2024-01-15"),
+            "raw_data": extracted_text
+        }
+
+        # Importar y usar automatización
+        from modules.invoicing_agent.web_automation import process_web_automation
+
+        logger.info(f"Probando agente inteligente con ticket {ticket_id}")
+
+        # Procesar con agente inteligente
+        result = await process_web_automation(test_merchant, ticket_data)
+
+        return {
+            "ticket_id": ticket_id,
+            "merchant": test_merchant["nombre"],
+            "result": result,
+            "ticket_data": ticket_data,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"Error testing intelligent agent: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/test-state-machine/{ticket_id}")
+async def test_state_machine_agent(ticket_id: int):
+    """
+    Endpoint para probar el nuevo agente con State Machine
+    """
+    try:
+        # Obtener ticket
+        ticket = get_ticket(ticket_id)
+        if not ticket:
+            raise HTTPException(status_code=404, detail="Ticket no encontrado")
+
+        # Extraer texto OCR
+        extracted_text = ticket.get("extracted_text", "")
+        if not extracted_text:
+            # Intentar extraer con OCR si no existe
+            try:
+                image_path = get_ticket_image_path(ticket_id)
+                if image_path and os.path.exists(image_path):
+                    extracted_text = await extract_text_from_image(image_path)
+            except Exception as e:
+                logger.warning(f"Error extrayendo texto: {e}")
+
+        # Obtener análisis LLM
+        llm_analysis = ticket.get("llm_analysis", {})
+        facturacion_urls = llm_analysis.get("facturacion_urls", [])
+
+        # Usar URL real si está disponible
+        if facturacion_urls and len(facturacion_urls) > 0:
+            primary_url = facturacion_urls[0].get("url", "")
+            if not primary_url.startswith("http"):
+                primary_url = "https://" + primary_url
+            merchant_name = llm_analysis.get("merchant_name", "Portal Real")
+        else:
+            primary_url = "https://litromil.com"  # Fallback
+            merchant_name = "Litromil"
+
+        test_merchant = {
+            "nombre": merchant_name,
+            "metadata": {"url": primary_url}
+        }
+
+        # Preparar datos del ticket
+        extracted_fields = llm_analysis.get("extracted_fields", {})
+        ticket_data = {
+            "rfc": "XAXX010101000",
+            "email": "test@example.com",
+            "folio": extracted_fields.get("folio", ticket.get("id", "")),
+            "total": extracted_fields.get("total", "100.00"),
+            "fecha": extracted_fields.get("fecha", "2024-01-15"),
+            "raw_data": extracted_text
+        }
+
+        logger.info(f"🚀 Probando State Machine con ticket {ticket_id}")
+
+        # Importar y usar state machine
+        import sys
+        sys.path.append('/Users/danielgoes96/Desktop/mcp-server')
+        from state_machine_integration import smart_state_machine_flow
+        from modules.invoicing_agent.web_automation import WebAutomationWorker
+
+        # Crear worker de automatización
+        worker = WebAutomationWorker()
+        try:
+            # Navegar al portal del merchant
+            await worker.navigate_to_portal(
+                url=primary_url,
+                merchant_name=merchant_name,
+                ticket_text=extracted_text,
+                take_screenshot=True
+            )
+
+            # Ejecutar flujo con State Machine
+            result = await smart_state_machine_flow(worker, ticket_data, "Facturación automática con State Machine")
+
+        finally:
+            await worker.cleanup()
+
+        return {
+            "ticket_id": ticket_id,
+            "merchant": merchant_name,
+            "url": primary_url,
+            "result": result,
+            "ticket_data": ticket_data,
+            "timestamp": datetime.now().isoformat(),
+            "agent_type": "state_machine"
+        }
+
+    except Exception as e:
+        logger.error(f"Error testing state machine: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

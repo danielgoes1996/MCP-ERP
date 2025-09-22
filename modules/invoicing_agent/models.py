@@ -119,6 +119,7 @@ def create_ticket(
     user_id: Optional[int] = None,
     whatsapp_message_id: Optional[str] = None,
     company_id: str = "default",
+    original_image: Optional[str] = None,
 ) -> int:
     """Crear un nuevo ticket en la base de datos."""
     now = datetime.utcnow().isoformat()
@@ -136,10 +137,11 @@ def create_ticket(
                     whatsapp_message_id,
                     company_id,
                     created_at,
-                    updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    updated_at,
+                    original_image
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (user_id, raw_data, tipo, "pendiente", whatsapp_message_id, company_id, now, now),
+                (user_id, raw_data, tipo, "pendiente", whatsapp_message_id, company_id, now, now, original_image),
             )
             connection.commit()
             return int(cursor.lastrowid)
@@ -221,9 +223,41 @@ def list_tickets(
                 except json.JSONDecodeError:
                     ticket["llm_analysis"] = None
 
+            # Agregar campo processing para el frontend (SINCRONIZADO)
+            ticket["processing"] = _calculate_processing_status(ticket)
             tickets.append(ticket)
 
         return tickets
+
+
+def _calculate_processing_status(ticket: Dict[str, Any]) -> bool:
+    """
+    Función centralizada para calcular el estado de procesamiento.
+    SINCRONIZADA entre POST /tickets y GET /tickets.
+    """
+    if ticket.get("tipo") == "imagen":
+        # Para imágenes: está en procesamiento si NO tiene merchant_name válido Y análisis LLM
+        merchant_name = ticket.get("merchant_name")
+        llm_analysis = ticket.get("llm_analysis")
+
+        # Considerar procesado si tiene merchant_name válido Y análisis LLM
+        has_valid_merchant = (
+            merchant_name is not None and
+            merchant_name != "" and
+            merchant_name != "Unknown" and
+            merchant_name != "Procesando imagen..."
+        )
+        has_analysis = llm_analysis is not None
+
+        # Solo está en procesamiento si le falta merchant o análisis
+        return not (has_valid_merchant and has_analysis)
+
+    # Para texto: normalmente no está en procesamiento a menos que tenga indicadores específicos
+    merchant_name = ticket.get("merchant_name")
+    return (
+        merchant_name == "Procesando imagen..." or
+        merchant_name == "Texto insuficiente"
+    )
 
 
 def update_ticket(
@@ -236,6 +270,8 @@ def update_ticket(
     confidence: Optional[float] = None,
     invoice_data: Optional[Dict[str, Any]] = None,
     llm_analysis: Optional[Dict[str, Any]] = None,
+    raw_data: Optional[str] = None,
+    extracted_text: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Actualizar un ticket."""
     updates = []
@@ -268,6 +304,14 @@ def update_ticket(
     if llm_analysis is not None:
         updates.append("llm_analysis = ?")
         params.append(json.dumps(llm_analysis))
+
+    if raw_data is not None:
+        updates.append("raw_data = ?")
+        params.append(raw_data)
+
+    if extracted_text is not None:
+        updates.append("extracted_text = ?")
+        params.append(extracted_text)
 
     if not updates:
         return get_ticket(ticket_id)

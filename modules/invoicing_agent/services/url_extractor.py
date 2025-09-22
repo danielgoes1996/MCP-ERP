@@ -192,7 +192,12 @@ class URLExtractor:
             line = line.strip()
 
             # Buscar líneas que sugieren URLs de facturación pero sin el protocolo
-            if any(keyword in line.lower() for keyword in ['facture en', 'facturación:', 'portal:']):
+            # Patrones flexibles para OCR con errores
+            facturacion_patterns = [
+                'facture en', 'facturación:', 'portal:', 'tulacon en', 'acion en',
+                'en linea en:', 'en línea en:', 'factura en:', 'facturation'
+            ]
+            if any(keyword in line.lower() for keyword in facturacion_patterns):
                 # Buscar en las siguientes líneas por URLs o dominios
                 for j in range(i + 1, min(i + 4, len(text_lines))):  # Buscar en las próximas 3 líneas
                     next_line = text_lines[j].strip()
@@ -236,14 +241,32 @@ class URLExtractor:
 
     def _extract_generic_urls(self, text: str) -> List[str]:
         """Extraer todas las URLs genéricas del texto."""
-        # Patrón para URLs completas
-        url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+[^\s<>"{}|\\^`\[\].,;:]'
-
         urls = []
+
+        # Patrón para URLs completas con protocolo
+        url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+[^\s<>"{}|\\^`\[\].,;:]'
         matches = re.finditer(url_pattern, text, re.IGNORECASE)
         for match in matches:
             url = self._clean_url(match.group(0))
             if url:
+                urls.append(url)
+
+        # NUEVO: Patrón para dominios sin protocolo (común en tickets mexicanos)
+        domain_pattern = r'\b(?:factura|billing|invoice|cfdi|fiscal)[a-zA-Z0-9\-]*\.[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,3}\b'
+        domain_matches = re.finditer(domain_pattern, text, re.IGNORECASE)
+        for match in domain_matches:
+            domain = match.group(0)
+            # Añadir protocolo si no lo tiene
+            if not domain.startswith(('http://', 'https://')):
+                domain = 'https://' + domain
+            url = self._clean_url(domain)
+            if url:
+                urls.append(url)
+
+        # NUEVO: Buscar dominios conocidos sin protocolo
+        for known_domain in self.known_domains.keys():
+            if known_domain in text.lower():
+                url = 'https://' + known_domain
                 urls.append(url)
 
         return list(set(urls))  # Eliminar duplicados

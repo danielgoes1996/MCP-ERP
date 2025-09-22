@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bienvenido a MCP Expenses</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body class="bg-slate-50 min-h-screen">
+    <header class="bg-white border-b shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 py-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-900">Bienvenido a MCP Expenses</h1>
+                <p class="text-slate-600">Regístrate en segundos y empieza a usar la plataforma. Si lo deseas, también podrás activar un demo con datos de ejemplo.</p>
+            </div>
+            <nav class="flex items-center gap-4 text-sm">
+                <a class="text-blue-600 hover:underline" href="/">Inicio</a>
+                <a class="text-blue-600 hover:underline" href="/voice-expenses">Vista de Voz</a>
+                <a class="text-blue-600 hover:underline" href="/docs" target="_blank" rel="noreferrer">API Docs</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 py-10 space-y-8">
+        <section class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 md:p-10" id="onboarding-register">
+            <form id="onboarding-form" class="space-y-8">
+                <div>
+                    <p class="text-slate-700 font-medium mb-3">Elige cómo quieres registrarte</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label class="method-option">
+                            <input type="radio" name="method" value="whatsapp" checked class="sr-only" />
+                            <div class="method-card">
+                                <div class="method-icon bg-green-100 text-green-600">
+                                    <i class="fab fa-whatsapp"></i>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-slate-900">Número de WhatsApp</p>
+                                    <p class="text-xs text-slate-500">Guarda tu demo usando tu número (10 a 15 dígitos, con o sin código de país).</p>
+                                </div>
+                            </div>
+                        </label>
+                        <label class="method-option">
+                            <input type="radio" name="method" value="email" class="sr-only" />
+                            <div class="method-card">
+                                <div class="method-icon bg-blue-100 text-blue-600">
+                                    <i class="fas fa-envelope"></i>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-slate-900">Correo Gmail u Hotmail</p>
+                                    <p class="text-xs text-slate-500">Aceptamos direcciones @gmail, @hotmail, @outlook o @live.</p>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="identifier" class="block text-sm font-semibold text-slate-700 mb-1" id="identifier-label">Número de WhatsApp</label>
+                        <div class="flex items-center gap-2">
+                            <input id="identifier" type="tel" required placeholder="Ej. 5522334455" class="input-field flex-1" />
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1" id="identifier-help">Ingresa entre 10 y 15 dígitos (puedes incluir código de país).</p>
+                    </div>
+                    <div>
+                        <label for="full-name" class="block text-sm font-semibold text-slate-700 mb-1">Nombre (opcional)</label>
+                        <input id="full-name" type="text" placeholder="¿Cómo te llamas?" class="input-field" />
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <button type="submit" class="w-full md:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <i class="fas fa-user-plus"></i>
+                        Crear cuenta
+                    </button>
+                    <p class="text-xs text-slate-500">Después de registrarte podrás explorar un demo con datos ficticios o conectar tu empresa real.</p>
+                </div>
+            </form>
+        </section>
+
+        <section id="onboarding-result" class="hidden"></section>
+    </main>
+
+    <template id="missions-template">
+        <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 md:p-10 space-y-8">
+            <header class="space-y-2">
+                <h2 class="text-2xl font-bold text-slate-900">🎉 Tu demo de ejemplo está listo</h2>
+                <p class="text-slate-600">Explora cómo funciona MCP Expenses recorriendo el flujo completo de un gasto, desde su creación hasta la conciliación bancaria.</p>
+            </header>
+
+            <div class="space-y-4">
+                <p class="text-sm text-slate-500">Completa las misiones en orden. Marca cada casilla cuando hayas terminado el paso y usa los botones “Comenzar misión” para ir directo a la pantalla correspondiente.</p>
+                <div class="relative">
+                    <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
+                        <div id="mission-progress-bar" class="h-2 bg-blue-500 transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <div class="flex justify-between text-xs font-semibold text-slate-500 mt-3" id="mission-steps">
+                        <span class="progress-step" data-step="1">Misión 1</span>
+                        <span class="progress-step" data-step="2">Misión 2</span>
+                        <span class="progress-step" data-step="3">Misión 3</span>
+                        <span class="progress-step" data-step="4">Misión 4</span>
+                    </div>
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-2" id="missions-grid">
+                    <label class="mission-card" data-mission="1">
+                        <input type="checkbox" class="mission-checkbox sr-only" data-mission="1" />
+                        <div class="mission-content">
+                            <div class="mission-header">
+                                <span class="mission-number">Misión 1</span>
+                                <h3 class="mission-title">Crear un gasto</h3>
+                            </div>
+                            <ul class="mission-list">
+                                <li>Dicta por voz lo que compraste.</li>
+                                <li>Sube un ticket o factura para leerla automáticamente.</li>
+                                <li>Prefieres escribir? Captura el gasto manualmente.</li>
+                            </ul>
+                            <p class="mission-highlight">Próximamente: registra gastos desde WhatsApp (nota de voz, foto de ticket, texto) o desde tu correo; detectaremos comprobantes automáticamente.</p>
+                            <p class="mission-goal">Objetivo: ver lo fácil que es registrar gastos desde cualquier canal.</p>
+                            <p class="mission-tip">Casos de uso sugeridos: viáticos, compras recurrentes, reposición de caja chica.</p>
+                            <div class="mission-actions">
+                                <button type="button" class="mission-start-button" data-mission="1" data-href="/voice-expenses?mission=1">
+                                    <i class="fas fa-play"></i>
+                                    Comenzar misión 1
+                                </button>
+                                <span class="mission-hint">Se abrirá la vista de voz para que pruebes los tres canales.</span>
+                            </div>
+                        </div>
+                    </label>
+
+                    <label class="mission-card" data-mission="2">
+                        <input type="checkbox" class="mission-checkbox sr-only" data-mission="2" />
+                        <div class="mission-content">
+                            <div class="mission-header">
+                                <span class="mission-number">Misión 2</span>
+                                <h3 class="mission-title">Vincular la factura</h3>
+                            </div>
+                            <ul class="mission-list">
+                                <li>Sube el CFDI o PDF del gasto demo.</li>
+                                <li>Observa cómo el sistema liga el documento automáticamente.</li>
+                            </ul>
+                            <p class="mission-goal">Objetivo: comprobar cómo evoluciona el estatus de un gasto al adjuntar la factura.</p>
+                            <p class="mission-tip">Casos de uso sugeridos: facturas de proveedores recurrentes, reembolsos con CFDI.</p>
+                            <div class="mission-actions">
+                                <button type="button" class="mission-start-button" data-mission="2" data-href="/voice-expenses?mission=2">
+                                    <i class="fas fa-play"></i>
+                                    Comenzar misión 2
+                                </button>
+                                <span class="mission-hint">Te llevaremos a la sección de facturas pendientes.</span>
+                            </div>
+                        </div>
+                    </label>
+
+                    <label class="mission-card" data-mission="3">
+                        <input type="checkbox" class="mission-checkbox sr-only" data-mission="3" />
+                        <div class="mission-content">
+                            <div class="mission-header">
+                                <span class="mission-number">Misión 3</span>
+                                <h3 class="mission-title">Conciliación bancaria</h3>
+                            </div>
+                            <ul class="mission-list">
+                                <li>Revisa los movimientos bancarios ficticios.</li>
+                                <li>Acepta o rechaza nuestras sugerencias inteligentes.</li>
+                                <li>Analiza un pago fragmentado para ver cómo se suman los cargos.</li>
+                            </ul>
+                            <p class="mission-goal">Objetivo: entender cómo cuadras tus gastos con el banco en segundos.</p>
+                            <p class="mission-tip">Casos de uso sugeridos: tarjetas corporativas, transferencias a proveedores, pagos divididos.</p>
+                            <div class="mission-actions">
+                                <button type="button" class="mission-start-button" data-mission="3" data-href="/voice-expenses?mission=3">
+                                    <i class="fas fa-play"></i>
+                                    Comenzar misión 3
+                                </button>
+                                <span class="mission-hint">Abriremos la conciliación bancaria con movimientos demo.</span>
+                            </div>
+                        </div>
+                    </label>
+
+                    <label class="mission-card" data-mission="4">
+                        <input type="checkbox" class="mission-checkbox sr-only" data-mission="4" />
+                        <div class="mission-content">
+                            <div class="mission-header">
+                                <span class="mission-number">Misión 4</span>
+                                <h3 class="mission-title">Reportes y control</h3>
+                            </div>
+                            <ul class="mission-list">
+                                <li>Visita el dashboard de gastos.</li>
+                                <li>Filtra por categoría, proveedor o estatus.</li>
+                                <li>Explora tus indicadores en tiempo real.</li>
+                            </ul>
+                            <p class="mission-goal">Objetivo: descubrir el control que tendrás sobre tus gastos.</p>
+                            <p class="mission-tip">Casos de uso sugeridos: auditorías, cierres de mes, seguimiento por centros de costo.</p>
+                            <div class="mission-actions">
+                                <button type="button" class="mission-start-button" data-mission="4" data-href="/voice-expenses?mission=4">
+                                    <i class="fas fa-play"></i>
+                                    Comenzar misión 4
+                                </button>
+                                <span class="mission-hint">Explora el dashboard demo con filtros dinámicos.</span>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+
+                <div id="mission-badge" class="hidden rounded-xl bg-emerald-50 border border-emerald-200 p-4 flex items-center gap-3 text-emerald-700 font-semibold">
+                    <i class="fas fa-bullseye text-xl"></i>
+                    🎯 ¡Demo completado! Próximo nivel: conecta tu empresa real 🚀
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <p class="text-sm font-semibold text-slate-700">Gastos de ejemplo</p>
+                <div class="overflow-x-auto border border-slate-200 rounded-lg">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-slate-100 text-slate-600">
+                            <tr>
+                                <th class="px-3 py-2 text-left">Fecha</th>
+                                <th class="px-3 py-2 text-left">Proveedor</th>
+                                <th class="px-3 py-2 text-left">Categoría</th>
+                                <th class="px-3 py-2 text-right">Monto</th>
+                                <th class="px-3 py-2 text-left">Estatus</th>
+                            </tr>
+                        </thead>
+                        <tbody id="demo-expenses-table" class="divide-y divide-slate-200"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div class="flex gap-3">
+                    <a href="/voice-expenses" class="primary-action">
+                        <i class="fas fa-microphone"></i>
+                        Ir a la Vista de Voz (Misión 1)
+                    </a>
+                    <a href="/voice-expenses?company_id=" id="voice-link-with-company" class="secondary-action">
+                        Ir con mi demo activo
+                    </a>
+                </div>
+                <a href="/" class="tertiary-action">
+                    <i class="fas fa-plug"></i>
+                    Conectar mi empresa real ahora
+                </a>
+            </div>
+        </div>
+    </template>
+
+    <script>
+        const form = document.getElementById('onboarding-form');
+        const methodInputs = document.querySelectorAll('input[name="method"]');
+        const identifierInput = document.getElementById('identifier');
+        const identifierLabel = document.getElementById('identifier-label');
+        const identifierHelp = document.getElementById('identifier-help');
+        const fullNameInput = document.getElementById('full-name');
+        const resultContainer = document.getElementById('onboarding-result');
+        const template = document.getElementById('missions-template');
+        const STORAGE_KEY = 'mcp_company_id';
+        const DEMO_FLAG = 'mcp_demo_mode';
+
+        const updateIdentifierUI = () => {
+            const selected = document.querySelector('input[name="method"]:checked')?.value || 'whatsapp';
+            if (selected === 'whatsapp') {
+                identifierLabel.textContent = 'Número de WhatsApp';
+                identifierInput.type = 'tel';
+                identifierInput.placeholder = 'Ej. 5522334455';
+                identifierHelp.textContent = 'Ingresa entre 10 y 15 dígitos (puedes incluir código de país).';
+            } else {
+                identifierLabel.textContent = 'Correo Gmail u Hotmail';
+                identifierInput.type = 'email';
+                identifierInput.placeholder = 'tu.email@gmail.com';
+                identifierHelp.textContent = 'Solo se permiten direcciones @gmail, @hotmail, @outlook o @live.';
+            }
+        };
+
+        methodInputs.forEach((input) => {
+            const getCard = () => input.parentElement?.querySelector('.method-card');
+            input.addEventListener('change', () => {
+                document.querySelectorAll('.method-card').forEach((card) => card.classList.remove('selected'));
+                const card = getCard();
+                if (card) card.classList.add('selected');
+                updateIdentifierUI();
+            });
+            if (input.checked) {
+                const card = getCard();
+                if (card) card.classList.add('selected');
+            }
+        });
+        updateIdentifierUI();
+
+        const buildExpensesTable = (expenses) => {
+            const formatter = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
+            return expenses.slice(0, 6).map((expense) => {
+                const provider = expense?.proveedor?.nombre || expense?.proveedor || '—';
+                const status = expense?.estado_factura || 'pendiente';
+                return `
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-3 py-2 text-slate-600">${expense?.fecha_gasto || '—'}</td>
+                        <td class="px-3 py-2 text-slate-700">${provider}</td>
+                        <td class="px-3 py-2 text-slate-600">${expense?.categoria || '—'}</td>
+                        <td class="px-3 py-2 text-right font-medium text-slate-700">${formatter.format(expense?.monto_total || 0)}</td>
+                        <td class="px-3 py-2">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${status === 'facturado' ? 'bg-green-100 text-green-700' : status === 'sin_factura' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}">
+                                ${status}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        };
+
+        const COMPLETED_MISSIONS_KEY = 'mcp_completed_missions';
+        const ACTIVE_MISSION_KEY = 'mcp_active_mission';
+
+        const getCompletedMissions = () => {
+            try {
+                const raw = localStorage.getItem(COMPLETED_MISSIONS_KEY);
+                const parsed = raw ? JSON.parse(raw) : [];
+                return Array.isArray(parsed) ? parsed.map(String) : [];
+            } catch (error) {
+                console.warn('No se pudo leer misiones completadas:', error);
+                return [];
+            }
+        };
+
+        const setCompletedMissions = (missions) => {
+            try {
+                const unique = Array.from(new Set(missions.map(String)));
+                localStorage.setItem(COMPLETED_MISSIONS_KEY, JSON.stringify(unique));
+            } catch (error) {
+                console.warn('No se pudo guardar misiones completadas:', error);
+            }
+        };
+
+        const handleMissionNavigation = (mission, href) => {
+            try {
+                localStorage.setItem(ACTIVE_MISSION_KEY, mission);
+                localStorage.setItem(DEMO_FLAG, 'true');
+            } catch (error) {
+                console.warn('No se pudo preparar la misión activa:', error);
+            }
+            window.location.href = href;
+        };
+
+        const setupMissions = () => {
+            const checkboxes = Array.from(document.querySelectorAll('.mission-checkbox'));
+            const missionCards = Array.from(document.querySelectorAll('.mission-card'));
+            const missionButtons = Array.from(document.querySelectorAll('.mission-start-button'));
+            const progressBar = document.getElementById('mission-progress-bar');
+            const steps = Array.from(document.querySelectorAll('.progress-step'));
+            const badge = document.getElementById('mission-badge');
+
+            const applyCompleted = () => {
+                const completedList = getCompletedMissions();
+                checkboxes.forEach((checkbox) => {
+                    const mission = checkbox.dataset.mission;
+                    const isCompleted = completedList.includes(mission);
+                    checkbox.checked = isCompleted;
+                    const card = missionCards.find((element) => element.dataset.mission === mission);
+                    if (card) {
+                        card.classList.toggle('completed', isCompleted);
+                    }
+                });
+            };
+
+            const updateProgress = () => {
+                const completedList = getCompletedMissions();
+                const completedCount = completedList.length;
+                const percentage = checkboxes.length ? (completedCount / checkboxes.length) * 100 : 0;
+                if (progressBar) {
+                    progressBar.style.width = `${percentage}%`;
+                }
+                const activeMission = localStorage.getItem(ACTIVE_MISSION_KEY) || null;
+                steps.forEach((step) => {
+                    const stepMission = step.dataset.step;
+                    step.classList.toggle('completed', completedList.includes(stepMission));
+                    step.classList.toggle('active', stepMission === activeMission);
+                });
+                missionCards.forEach((card) => {
+                    const mission = card.dataset.mission;
+                    card.classList.toggle('active', mission === activeMission);
+                    card.classList.toggle('completed', completedList.includes(mission));
+                });
+                if (badge) {
+                    badge.classList.toggle('hidden', completedCount !== checkboxes.length);
+                }
+            };
+
+            checkboxes.forEach((checkbox) => {
+                checkbox.addEventListener('change', () => {
+                    const mission = checkbox.dataset.mission;
+                    const completedSet = new Set(getCompletedMissions());
+                    if (checkbox.checked) {
+                        completedSet.add(mission);
+                    } else {
+                        completedSet.delete(mission);
+                    }
+                    setCompletedMissions(Array.from(completedSet));
+                    updateProgress();
+                });
+            });
+
+            missionButtons.forEach((button) => {
+                const mission = button.dataset.mission;
+                const href = button.dataset.href || `/voice-expenses?mission=${mission}`;
+                button.addEventListener('click', () => handleMissionNavigation(mission, href));
+            });
+
+            applyCompleted();
+            updateProgress();
+            return updateProgress;
+        };
+
+        const renderResult = (response) => {
+            const fragment = template.content.cloneNode(true);
+            const expensesBody = fragment.getElementById('demo-expenses-table');
+            const voiceLink = fragment.getElementById('voice-link-with-company');
+            const primaryVoiceLink = fragment.querySelector('.primary-action');
+
+            expensesBody.innerHTML = buildExpensesTable(response.demo_expenses || []);
+            if (primaryVoiceLink) {
+                primaryVoiceLink.href = `/voice-expenses?company_id=${response.company_id}&mission=1`;
+                primaryVoiceLink.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    handleMissionNavigation('1', primaryVoiceLink.href);
+                });
+            }
+            if (voiceLink) {
+                voiceLink.href = `/voice-expenses?company_id=${response.company_id}&mission=1`;
+                voiceLink.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    handleMissionNavigation('1', voiceLink.href);
+                });
+            }
+
+            const missionButtons = fragment.querySelectorAll('.mission-start-button');
+            missionButtons.forEach((button) => {
+                const mission = button.dataset.mission;
+                const href = button.dataset.href || `/voice-expenses?company_id=${response.company_id}&mission=${mission}`;
+                button.dataset.href = href;
+            });
+
+            resultContainer.innerHTML = '';
+            resultContainer.appendChild(fragment);
+            resultContainer.classList.remove('hidden');
+            resultContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            const refreshMissions = setupMissions();
+            window.mcpRefreshMissions = refreshMissions;
+        };
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const method = document.querySelector('input[name="method"]:checked')?.value || 'whatsapp';
+            const identifier = identifierInput.value.trim();
+            const fullName = fullNameInput.value.trim();
+
+            if (!identifier) {
+                alert('Por favor ingresa tu número de WhatsApp o correo.');
+                return;
+            }
+
+            const payload = { method, identifier, full_name: fullName || null };
+
+            try {
+                const response = await fetch('/onboarding/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || 'No pudimos crear tu demo. Inténtalo de nuevo.');
+                }
+
+                const result = await response.json();
+                try {
+                    localStorage.setItem(STORAGE_KEY, result.company_id);
+                    localStorage.setItem(DEMO_FLAG, 'true');
+                } catch (storageError) {
+                    console.warn('No se pudo guardar información en localStorage', storageError);
+                }
+                window.dispatchEvent(new CustomEvent('mcp-company-change', { detail: { companyId: result.company_id } }));
+                renderResult(result);
+                window.mcpRefreshMissions?.();
+            } catch (error) {
+                console.error('Error en onboarding:', error);
+                alert(error.message || 'Ocurrió un error al crear la demo. Por favor intenta de nuevo.');
+            }
+        });
+
+        // Helpers de estilo
+        document.querySelectorAll('.method-option').forEach((label) => {
+            label.addEventListener('click', () => {
+                document.querySelectorAll('.method-card').forEach((card) => card.classList.remove('selected'));
+                label.querySelector('.method-card').classList.add('selected');
+            });
+        });
+
+        window.addEventListener('storage', () => {
+            if (typeof window.mcpRefreshMissions === 'function') {
+                window.mcpRefreshMissions();
+            }
+        });
+    </script>
+
+    <style>
+        .input-field {
+            width: 100%;
+            border-radius: 0.75rem;
+            border: 1px solid #cbd5f5;
+            padding: 0.75rem 1rem;
+            color: #1f2937;
+            transition: box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+        .method-option {
+            position: relative;
+            display: block;
+            cursor: pointer;
+        }
+        .method-card {
+            display: flex;
+            gap: 0.875rem;
+            align-items: flex-start;
+            border-radius: 1rem;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            padding: 1rem;
+            transition: all 0.15s ease-in-out;
+        }
+        .method-card.selected,
+        .method-option:hover .method-card {
+            border-color: #60a5fa;
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.12);
+        }
+        .method-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 3rem;
+            width: 3rem;
+            border-radius: 9999px;
+            font-size: 1.25rem;
+        }
+        .mission-card {
+            position: relative;
+            display: block;
+            border-radius: 1rem;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            transition: all 0.15s ease-in-out;
+            cursor: pointer;
+        }
+        .mission-card:hover {
+            border-color: #60a5fa;
+        }
+        .mission-card.active {
+            border-color: #3b82f6;
+            box-shadow: 0 12px 30px rgba(59, 130, 246, 0.2);
+        }
+        .mission-card.completed {
+            border-color: #10b981;
+            background: #ecfdf5;
+        }
+        .mission-card input:checked + .mission-content {
+            border-color: #60a5fa;
+            background: #fff;
+            box-shadow: 0 15px 35px rgba(59, 130, 246, 0.15);
+        }
+        .mission-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            border-radius: 1rem;
+            border: 1px solid transparent;
+            padding: 1.25rem;
+        }
+        .mission-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .mission-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            background: #dbeafe;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #1d4ed8;
+        }
+        .mission-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        .mission-list {
+            margin: 0.25rem 0;
+            padding-left: 1.1rem;
+            font-size: 0.9rem;
+            color: #475569;
+            list-style: disc;
+        }
+        .mission-highlight {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #7c3aed;
+            background: #f5f3ff;
+            border: 1px solid #ddd6fe;
+            border-radius: 0.75rem;
+            padding: 0.65rem 0.75rem;
+        }
+        .mission-goal {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+        .mission-tip {
+            font-size: 0.75rem;
+            color: #475569;
+        }
+        .mission-actions {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .mission-start-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            border-radius: 9999px;
+            border: 1px solid #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.45rem 0.9rem;
+            transition: all 0.15s ease-in-out;
+        }
+        .mission-start-button:hover {
+            background: #dbeafe;
+        }
+        .mission-hint {
+            font-size: 0.7rem;
+            color: #6b7280;
+        }
+        .mission-checkbox:checked + .mission-content .mission-number {
+            background: #10b9810f;
+            color: #047857;
+        }
+        .progress-step.completed {
+            color: #1d4ed8;
+            font-weight: 600;
+        }
+        .progress-step.active {
+            color: #1d4ed8;
+        }
+        .primary-action,
+        .secondary-action,
+        .tertiary-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 600;
+            border-radius: 0.75rem;
+            transition: all 0.15s ease-in-out;
+        }
+        .primary-action {
+            background: #2563eb;
+            color: #fff;
+            padding: 0.6rem 1rem;
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.2);
+        }
+        .primary-action:hover {
+            background: #1d4ed8;
+        }
+        .secondary-action {
+            background: #e2e8f0;
+            color: #334155;
+            padding: 0.6rem 1rem;
+        }
+        .secondary-action:hover {
+            background: #cbd5f5;
+        }
+        .tertiary-action {
+            color: #2563eb;
+        }
+        .tertiary-action:hover {
+            text-decoration: underline;
+        }
+    </style>
+</body>
+</html>

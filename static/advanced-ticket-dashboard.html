@@ -74,6 +74,9 @@
                         <span class="opacity-75">Empresa:</span>
                         <span class="font-semibold" id="current-company">Mi Empresa SA de CV</span>
                     </div>
+                    <a href="/invoicing/automation-viewer?latest=true" target="_blank" class="bg-purple-600 bg-opacity-90 hover:bg-opacity-100 px-4 py-2 rounded-lg transition-all">
+                        <i class="fas fa-robot mr-2"></i>🤖 Automation Viewer
+                    </a>
                     <a href="/static/client-settings.html" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg transition-all">
                         <i class="fas fa-cog mr-2"></i>Configuración
                     </a>
@@ -98,7 +101,7 @@
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600">Total Tickets</p>
-                        <p class="text-2xl font-bold text-gray-900" id="stat-total">150</p>
+                        <p class="text-2xl font-bold text-gray-900" id="stat-total">-</p>
                     </div>
                 </div>
             </div>
@@ -111,7 +114,7 @@
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600">Auto Facturados</p>
-                        <p class="text-2xl font-bold text-gray-900" id="stat-auto">120</p>
+                        <p class="text-2xl font-bold text-gray-900" id="stat-auto">-</p>
                     </div>
                 </div>
             </div>
@@ -124,7 +127,7 @@
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600">Tasa de Éxito</p>
-                        <p class="text-2xl font-bold text-gray-900" id="stat-success">80%</p>
+                        <p class="text-2xl font-bold text-gray-900" id="stat-success">-</p>
                     </div>
                 </div>
             </div>
@@ -137,10 +140,15 @@
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600">Tiempo Promedio</p>
-                        <p class="text-2xl font-bold text-gray-900" id="stat-time">45s</p>
+                        <p class="text-2xl font-bold text-gray-900" id="stat-time">-</p>
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Last Update Indicator -->
+        <div class="text-right mb-4">
+            <p class="text-xs text-gray-500" id="last-update">Cargando estadísticas...</p>
         </div>
 
         <!-- Upload Section -->
@@ -227,32 +235,52 @@
             </div>
         </div>
 
-        <!-- Real-time Automation Monitor -->
-        <div id="automation-monitor" class="hidden bg-white rounded-xl shadow-md p-6 mt-8">
-            <h2 class="text-xl font-bold text-gray-900 mb-6">
-                <i class="fas fa-robot mr-2 text-blue-500 pulse-animation"></i>
-                Monitor de Automatización en Tiempo Real
-            </h2>
-
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Progress Steps -->
-                <div>
-                    <h3 class="font-semibold text-gray-700 mb-4">Progreso de Ejecución</h3>
-                    <div id="automation-steps" class="space-y-3">
-                        <!-- Steps will be populated here -->
-                    </div>
+        <!-- Sidebar Automation Monitor -->
+    <div id="automation-sidebar" class="fixed top-0 right-0 h-full w-96 bg-white shadow-2xl transform translate-x-full transition-transform duration-300 z-50 border-l border-gray-200">
+        <div class="flex flex-col h-full">
+            <!-- Header -->
+            <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+                <div class="flex items-center">
+                    <i class="fas fa-robot mr-2 text-xl"></i>
+                    <h3 class="text-lg font-bold">Monitor de Automatización</h3>
                 </div>
+                <button onclick="closeSidebar()" class="text-white hover:text-gray-200 text-xl">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
 
-                <!-- Live Screenshots -->
-                <div>
-                    <h3 class="font-semibold text-gray-700 mb-4">Vista en Vivo</h3>
-                    <div class="bg-gray-100 rounded-lg p-4 text-center">
-                        <img id="live-screenshot" src="" alt="Screenshot en vivo" class="max-w-full h-auto rounded-lg shadow-md">
-                        <p class="text-sm text-gray-500 mt-2">Última captura: <span id="screenshot-timestamp">--</span></p>
-                    </div>
+            <!-- Progress Bar -->
+            <div class="p-4 border-b border-gray-200 bg-gray-50">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium text-gray-700">Progreso General</span>
+                    <span id="overall-progress-text" class="text-sm text-gray-600">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div id="overall-progress-bar" class="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Steps Container -->
+            <div class="flex-1 overflow-y-auto p-4">
+                <div id="automation-steps-sidebar" class="space-y-4">
+                    <!-- Steps will be populated here -->
+                </div>
+            </div>
+
+            <!-- Footer with current status -->
+            <div class="p-4 border-t border-gray-200 bg-gray-50">
+                <div id="current-status" class="text-sm text-gray-600">
+                    <i class="fas fa-clock mr-2"></i>
+                    Esperando inicio de automatización...
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Sidebar Toggle Button (floating) -->
+    <button id="sidebar-toggle" onclick="toggleSidebar()" class="fixed bottom-6 right-6 bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 z-40">
+        <i class="fas fa-robot text-xl"></i>
+    </button>
     </main>
 
     <!-- Modals -->
@@ -304,6 +332,7 @@
             setupWebSocket();
             loadTickets();
             updateStats();
+            initializeSidebar();
         });
 
         function initializeApp() {
@@ -381,13 +410,48 @@
                 const result = await response.json();
                 console.log('📄 Upload result:', result);
 
-                // Procesar análisis automático si está disponible
-                if (result.analysis) {
+                // SINCRONIZADO: usar solo el campo processing de la respuesta
+                if (result.processing === true) {
+                    // Es un ticket en procesamiento - NO agregar a lista
+                    showToast(`🔄 ${result.message}`, 'info');
+                    console.log('🔄 Ticket en procesamiento, configurando polling...');
+
+                    // Configurar polling para verificar cuando esté listo
+                    const checkAnalysis = setInterval(async () => {
+                        try {
+                            const ticketResponse = await fetch(`${API_BASE}/tickets/${result.ticket_id}`);
+                            if (ticketResponse.ok) {
+                                const ticketData = await ticketResponse.json();
+                                if (ticketData && ticketData.merchant_name &&
+                                    ticketData.merchant_name !== "Procesando imagen..." &&
+                                    ticketData.merchant_name !== "Unknown") {
+
+                                    console.log('🎉 Análisis de imagen completado:', ticketData.merchant_name);
+                                    clearInterval(checkAnalysis);
+                                    showToast(`✅ Análisis completado: ${ticketData.merchant_name}`, 'success');
+
+                                    // Recargar tickets para mostrar el nuevo
+                                    loadTickets();
+                                    updateStats();
+                                }
+                            }
+                        } catch (error) {
+                            console.log('Error verificando análisis:', error);
+                        }
+                    }, 3000);
+
+                    // Timeout después de 2 minutos
+                    setTimeout(() => {
+                        clearInterval(checkAnalysis);
+                        console.log('⏰ Timeout de análisis de imagen');
+                    }, 120000);
+
+                } else if (result.analysis && result.analysis.merchant_name !== "Procesando imagen..." && result.analysis.merchant_name !== "Texto insuficiente") {
                     console.log('🤖 Análisis automático recibido:', result.analysis);
 
                     showToast(`¡Ticket analizado! Merchant: ${result.analysis.merchant_name}, Categoría: ${result.analysis.category}`, 'success');
 
-                    // Agregar el ticket con análisis a la lista local para actualización inmediata
+                    // Agregar el ticket con análisis COMPLETO a la lista local
                     const newTicket = {
                         id: result.ticket_id,
                         merchant: result.analysis.merchant_name,
@@ -404,7 +468,8 @@
                     appState.tickets.unshift(newTicket);
                     renderTicketsTable(appState.tickets);
                 } else {
-                    showToast('¡Ticket procesado exitosamente!', 'success');
+                    // Texto sin análisis suficiente
+                    showToast('📝 Ticket procesado, esperando análisis completo...', 'info');
                 }
 
                 // Actualizar tabla completa de tickets
@@ -553,8 +618,8 @@
                     console.log('📋 API Data:', data);
 
                     if (data.success && data.tickets) {
-                        // Convertir tickets reales al formato esperado con validación defensiva
-                        const realTickets = data.tickets.map(ticket => ({
+                        // Convertir y filtrar tickets reales - PRESERVAR CAMPO PROCESSING
+                        const allTickets = data.tickets.map(ticket => ({
                             id: ticket.id || 'N/A',
                             merchant: ticket.merchant_name || extractMerchantFromData(ticket.raw_data) || 'Desconocido',
                             category: ticket.category || getCategoryFromMerchant(ticket.merchant_name || extractMerchantFromData(ticket.raw_data)),
@@ -562,12 +627,32 @@
                             status: mapStatus(ticket.estado || 'pendiente'),
                             progress: getProgressFromStatus(ticket.estado || 'pendiente'),
                             created_at: ticket.created_at || new Date().toISOString(),
-                            automation_job_id: ticket.automation_job_id || null
+                            automation_job_id: ticket.automation_job_id || null,
+                            processing: ticket.processing  // ✅ PRESERVAR CAMPO DEL BACKEND
                         }));
 
-                        console.log('✅ Tickets procesados:', realTickets.length);
-                        appState.tickets = realTickets;
-                        renderTicketsTable(realTickets);
+                        // Filtrar tickets que aún están en procesamiento
+                        const readyTickets = allTickets.filter(ticket => {
+                            // Usar el campo processing del backend si está disponible
+                            if (ticket.processing !== undefined) {
+                                console.log(`Ticket ${ticket.id}: merchant="${ticket.merchant}", processing=${ticket.processing}`);
+                                return !ticket.processing;
+                            }
+
+                            // Fallback al método anterior si no hay campo processing
+                            const isProcessing = ticket.merchant === "Procesando imagen..." ||
+                                               ticket.merchant === "Texto insuficiente" ||
+                                               ticket.merchant === "Unknown" ||
+                                               ticket.merchant === null ||
+                                               ticket.merchant === "";
+
+                            console.log(`Ticket ${ticket.id}: merchant="${ticket.merchant}", processing=${isProcessing} (fallback)`);
+                            return !isProcessing;
+                        });
+
+                        console.log(`✅ Tickets totales: ${allTickets.length}, Listos: ${readyTickets.length}, En procesamiento: ${allTickets.length - readyTickets.length}`);
+                        appState.tickets = readyTickets;
+                        renderTicketsTable(readyTickets);
                         return;
                     } else {
                         console.log('⚠️ No hay tickets en la respuesta');
@@ -860,22 +945,48 @@
 
         async function updateStats() {
             try {
-                // Por ahora, usar datos simulados
-                // En producción, esto vendría de la API
-                const stats = {
-                    total_tickets: 150,
-                    auto_invoiced: 120,
-                    success_rate: 80,
-                    avg_processing_time_ms: 45000
-                };
+                // Obtener estadísticas reales de la API
+                const response = await fetch(`/invoicing/stats?company_id=${appState.currentCompanyId}`);
+                const data = await response.json();
 
-                document.getElementById('stat-total').textContent = stats.total_tickets;
-                document.getElementById('stat-auto').textContent = stats.auto_invoiced;
-                document.getElementById('stat-success').textContent = `${stats.success_rate}%`;
-                document.getElementById('stat-time').textContent = `${Math.round(stats.avg_processing_time_ms / 1000)}s`;
+                if (data.success) {
+                    const stats = data.stats;
+
+                    // Actualizar métricas principales
+                    document.getElementById('stat-total').textContent = stats.total_tickets;
+                    document.getElementById('stat-auto').textContent = stats.auto_invoiced;
+                    document.getElementById('stat-success').textContent = stats.success_rate;
+                    document.getElementById('stat-time').textContent = stats.avg_processing_time;
+
+                    // Actualizar timestamp de última actualización
+                    const lastUpdated = new Date(stats.last_updated);
+                    const timeString = lastUpdated.toLocaleTimeString();
+
+                    // Añadir indicador de última actualización si existe el elemento
+                    const lastUpdateElement = document.getElementById('last-update');
+                    if (lastUpdateElement) {
+                        lastUpdateElement.textContent = `Actualizado: ${timeString}`;
+                    }
+
+                    console.log('📊 Stats updated:', stats);
+                } else {
+                    console.error('❌ Error en respuesta de stats:', data.error);
+
+                    // Fallback a valores por defecto en caso de error
+                    document.getElementById('stat-total').textContent = '0';
+                    document.getElementById('stat-auto').textContent = '0';
+                    document.getElementById('stat-success').textContent = '0%';
+                    document.getElementById('stat-time').textContent = '0s';
+                }
 
             } catch (error) {
-                console.error('Error updating stats:', error);
+                console.error('❌ Error fetching stats:', error);
+
+                // Fallback a valores por defecto en caso de error de red
+                document.getElementById('stat-total').textContent = '0';
+                document.getElementById('stat-auto').textContent = '0';
+                document.getElementById('stat-success').textContent = '0%';
+                document.getElementById('stat-time').textContent = '0s';
             }
         }
 
@@ -955,16 +1066,27 @@
 
                         <!-- Contenido del ticket (texto o imagen) -->
                         <div>
-                            ${ticket.tipo === 'imagen' || (ticket.raw_data && ticket.raw_data.startsWith('/9j/') || ticket.raw_data.startsWith('data:image/')) ? `
+                            ${ticket.tipo === 'imagen' && ticket.original_image ? `
                                 <label class="block text-sm font-medium text-gray-700 mb-2">🖼️ Imagen del Ticket</label>
                                 <div class="bg-gray-50 rounded-md p-3">
-                                    <img src="data:image/jpeg;base64,${ticket.raw_data.startsWith('data:') ? ticket.raw_data.split(',')[1] : ticket.raw_data}"
-                                         alt="Ticket"
+                                    <img src="${API_BASE}/tickets/${ticket.id}/image"
+                                         alt="Ticket #${ticket.id}"
                                          class="max-w-full h-auto rounded cursor-pointer hover:shadow-lg transition-shadow"
                                          onclick="showImageModal(this.src)"
-                                         style="max-height: 400px;">
+                                         style="max-height: 400px;"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                    <div style="display: none;" class="text-center text-gray-500 py-8">
+                                        <i class="fas fa-image text-4xl mb-2"></i>
+                                        <p>No se pudo cargar la imagen del ticket</p>
+                                    </div>
                                     <p class="text-xs text-gray-500 mt-2">Haz clic en la imagen para ampliar</p>
                                 </div>
+                            ` : ticket.tipo === 'imagen' ? `
+                                <label class="block text-sm font-medium text-gray-700 mb-2">📄 Texto Extraído de Imagen (OCR)</label>
+                                <div class="bg-gray-50 rounded-md p-3 max-h-48 overflow-y-auto">
+                                    <pre class="text-sm text-gray-900 whitespace-pre-wrap">${ticket.raw_data || 'No disponible'}</pre>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-2">💡 Esta imagen ya fue procesada por OCR</p>
                             ` : `
                                 <label class="block text-sm font-medium text-gray-700 mb-2">📄 Texto Original del Ticket</label>
                                 <div class="bg-gray-50 rounded-md p-3 max-h-48 overflow-y-auto">
@@ -1012,7 +1134,7 @@
 
                             ${ticket.llm_analysis ? `
                             <div class="mb-3">
-                                <div class="text-xs font-semibold text-gray-600 mb-1">📋 Análisis OpenAI (Raw Output):</div>
+                                <div class="text-xs font-semibold text-gray-600 mb-1">📋 Análisis Claude (Raw Output):</div>
                                 <div class="bg-green-50 rounded-md p-3">
                                     <pre class="text-xs text-green-900 whitespace-pre-wrap font-mono">${JSON.stringify(ticket.llm_analysis, null, 2)}</pre>
                                 </div>
@@ -1036,6 +1158,35 @@
                             </div>
                         </div>
                         `}
+
+                        <!-- Factura Adjunta -->
+                        <div id="invoice-section-${ticket.id}">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">📄 Factura</label>
+                            <div class="bg-gray-50 rounded-md p-4 border">
+                                <div id="invoice-status-${ticket.id}" class="mb-3">
+                                    <span class="text-sm text-gray-600">⏳ Cargando estado de factura...</span>
+                                </div>
+
+                                <!-- Subida manual de archivos -->
+                                <div class="border-t pt-3">
+                                    <div class="text-xs font-semibold text-gray-600 mb-2">📤 Subir Archivos Manualmente:</div>
+                                    <div class="space-y-2">
+                                        <div class="flex items-center space-x-2">
+                                            <input type="file" id="pdf-upload-${ticket.id}" accept=".pdf" class="text-xs">
+                                            <button onclick="uploadInvoiceFile('${ticket.id}', 'pdf')" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs">
+                                                📄 Subir PDF
+                                            </button>
+                                        </div>
+                                        <div class="flex items-center space-x-2">
+                                            <input type="file" id="xml-upload-${ticket.id}" accept=".xml" class="text-xs">
+                                            <button onclick="uploadInvoiceFile('${ticket.id}', 'xml')" class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs">
+                                                📄 Subir XML
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
                         <!-- Fechas -->
                         <div class="grid grid-cols-2 gap-4 text-xs text-gray-500">
@@ -1062,12 +1213,16 @@
                             <button onclick="debugTicket('${ticket.id}')" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg text-sm">
                                 <i class="fas fa-bug mr-2"></i>Debug
                             </button>
+                            <button onclick="testIntelligentAgent('${ticket.id}')" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm">
+                                <i class="fas fa-robot mr-2"></i>🤖 Agente IA
+                            </button>
                         </div>
                     </div>
                 `;
 
-                // Cargar texto OCR automáticamente
+                // Cargar texto OCR y estado de factura automáticamente
                 loadOCRText(ticket.id);
+                loadInvoiceStatus(ticket.id);
 
             } catch (error) {
                 console.error('Error loading ticket details:', error);
@@ -1092,30 +1247,186 @@
             if (!ocrTextElement) return;
 
             try {
-                // Intentar obtener el texto OCR desde el endpoint de extracción de URLs
-                const response = await fetch(`${API_BASE}/tickets/${ticketId}/extract-urls`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                });
+                // Obtener el texto OCR desde el endpoint específico
+                const response = await fetch(`${API_BASE}/tickets/${ticketId}/ocr-text`);
 
                 if (response.ok) {
                     const data = await response.json();
 
-                    // Mostrar el texto completo si está disponible
-                    if (data.extracted_text_preview) {
-                        const fullText = data.extracted_text_preview.trim();
-                        ocrTextElement.textContent = fullText;
+                    // Mostrar el texto OCR real
+                    if (data.ocr_text && data.ocr_text.trim()) {
+                        const displayText = data.ocr_text.trim();
+                        ocrTextElement.textContent = displayText;
+
+                        // Agregar información adicional
+                        if (data.has_extracted_text) {
+                            ocrTextElement.title = `✅ Texto extraído por OCR (${data.text_length} caracteres)`;
+                        } else {
+                            ocrTextElement.title = `📝 Texto original (${data.text_length} caracteres)`;
+                        }
                     } else {
-                        ocrTextElement.textContent = '⚠️ Texto OCR no disponible en la respuesta del API';
+                        ocrTextElement.textContent = '⚠️ No hay texto disponible para este ticket';
+                        ocrTextElement.title = 'No se pudo extraer texto de este ticket';
                     }
                 } else {
                     ocrTextElement.textContent = '❌ Error al cargar texto OCR desde el API';
+                    ocrTextElement.title = `Error HTTP ${response.status}`;
                 }
             } catch (error) {
                 console.error('Error loading OCR text:', error);
                 ocrTextElement.textContent = `❌ Error: ${error.message}`;
+                ocrTextElement.title = error.message;
+            }
+        }
+
+        // Función para cargar estado de factura
+        async function loadInvoiceStatus(ticketId) {
+            const statusElement = document.getElementById(`invoice-status-${ticketId}`);
+            if (!statusElement) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/tickets/${ticketId}/invoice-status`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                const invoice = data.invoice_data;
+                const attachments = data.attachments;
+
+                let statusHtml = '';
+
+                // Mostrar estado actual
+                if (invoice.status === 'completa') {
+                    statusHtml += `<div class="flex items-center text-green-700 mb-2">
+                        <span class="text-lg mr-2">✅</span>
+                        <span class="font-medium">Factura Completa</span>
+                    </div>`;
+                } else if (invoice.status === 'fallida') {
+                    statusHtml += `<div class="flex items-center text-red-700 mb-2">
+                        <span class="text-lg mr-2">❌</span>
+                        <span class="font-medium">Error al descargar factura</span>
+                    </div>`;
+                    if (invoice.failure_reason) {
+                        statusHtml += `<div class="bg-red-50 border border-red-200 rounded p-2 text-sm text-red-800 mb-2">
+                            💡 <strong>Explicación:</strong> ${invoice.failure_reason}
+                        </div>`;
+                    }
+                } else if (invoice.status === 'descargando') {
+                    statusHtml += `<div class="flex items-center text-blue-700 mb-2">
+                        <span class="text-lg mr-2">⏳</span>
+                        <span class="font-medium">Descargando factura...</span>
+                    </div>`;
+                } else {
+                    statusHtml += `<div class="flex items-center text-yellow-700 mb-2">
+                        <span class="text-lg mr-2">⏸️</span>
+                        <span class="font-medium">Factura pendiente</span>
+                    </div>`;
+                }
+
+                // Mostrar archivos adjuntos
+                if (attachments && attachments.length > 0) {
+                    statusHtml += `<div class="border-t pt-2 mt-2">
+                        <div class="text-xs font-semibold text-gray-600 mb-2">📎 Archivos adjuntos:</div>
+                        <div class="space-y-1">`;
+
+                    attachments.forEach(att => {
+                        const icon = att.file_type === 'pdf' ? '📄' : '📄';
+                        const validIcon = att.is_valid ? '✅' : '❌';
+                        const fileName = att.file_path.split('/').pop();
+                        const fileSizeKB = Math.round(att.file_size / 1024);
+
+                        statusHtml += `<div class="flex items-center justify-between bg-white rounded px-2 py-1 text-xs">
+                            <div class="flex items-center space-x-2">
+                                <span>${icon}</span>
+                                <span class="font-medium">${att.file_type.toUpperCase()}</span>
+                                <span class="text-gray-500">(${fileSizeKB} KB)</span>
+                                <span>${validIcon}</span>
+                            </div>
+                            <button onclick="downloadAttachment('${att.id}')" class="text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        </div>`;
+                    });
+
+                    statusHtml += `</div></div>`;
+                }
+
+                statusElement.innerHTML = statusHtml;
+
+            } catch (error) {
+                console.error('Error loading invoice status:', error);
+                statusElement.innerHTML = `<div class="text-red-600 text-sm">❌ Error cargando estado: ${error.message}</div>`;
+            }
+        }
+
+        // Función para subir archivo de factura
+        async function uploadInvoiceFile(ticketId, fileType) {
+            const fileInput = document.getElementById(`${fileType}-upload-${ticketId}`);
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('Por favor selecciona un archivo');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('file_type', fileType);
+
+            try {
+                const response = await fetch(`${API_BASE}/tickets/${ticketId}/upload-invoice`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast(`✅ Archivo ${fileType.toUpperCase()} subido exitosamente`, 'success');
+                    fileInput.value = ''; // Limpiar input
+                    loadInvoiceStatus(ticketId); // Recargar estado
+                } else {
+                    throw new Error(result.message || 'Error desconocido');
+                }
+
+            } catch (error) {
+                console.error('Error uploading file:', error);
+                showToast(`❌ Error subiendo archivo: ${error.message}`, 'error');
+            }
+        }
+
+        // Función para descargar adjunto
+        async function downloadAttachment(attachmentId) {
+            try {
+                const response = await fetch(`${API_BASE}/attachments/${attachmentId}/download`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const blob = await response.blob();
+                const contentDisposition = response.headers.get('Content-Disposition');
+                const filename = contentDisposition ?
+                    contentDisposition.split('filename=')[1].replace(/"/g, '') :
+                    `attachment_${attachmentId}`;
+
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+            } catch (error) {
+                console.error('Error downloading attachment:', error);
+                showToast(`❌ Error descargando archivo: ${error.message}`, 'error');
             }
         }
 
@@ -1150,6 +1461,111 @@
             } catch (error) {
                 console.error('Debug error:', error);
                 showToast('❌ Error en debug', 'error');
+            }
+        }
+
+        // Función para probar el agente inteligente
+        async function testIntelligentAgent(ticketId) {
+            try {
+                showToast('🤖 Iniciando Agente Inteligente...', 'info');
+
+                // Mostrar modal de progreso
+                const progressModal = document.createElement('div');
+                progressModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+                progressModal.innerHTML = `
+                    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                        <div class="text-center">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">🤖 Agente IA Trabajando</h3>
+                            <p class="text-sm text-gray-600 mb-4">El agente está analizando el portal y tomando decisiones...</p>
+                            <div id="agent-status" class="text-xs text-gray-500">Iniciando navegación...</div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(progressModal);
+
+                // Llamar al endpoint del agente
+                const response = await fetch(`${API_BASE}/test-intelligent-agent/${ticketId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                // Remover modal de progreso
+                document.body.removeChild(progressModal);
+
+                // Mostrar resultados
+                const resultModal = document.createElement('div');
+                resultModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+                resultModal.innerHTML = `
+                    <div class="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-medium text-gray-900">🤖 Resultados del Agente IA</h3>
+                            <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="flex items-center mb-2">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${result.result.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                    ${result.result.success ? '✅ Exitoso' : '❌ Falló'}
+                                </span>
+                                <span class="ml-2 text-sm text-gray-600">Merchant: ${result.merchant}</span>
+                            </div>
+                            <p class="text-sm text-gray-700"><strong>Razón:</strong> ${result.result.final_reason}</p>
+                        </div>
+
+                        <div class="mb-4">
+                            <h4 class="font-medium text-gray-900 mb-2">📋 Pasos Ejecutados (${result.result.steps?.length || 0})</h4>
+                            <div class="space-y-2 max-h-48 overflow-y-auto">
+                                ${result.result.steps?.map((step, index) => `
+                                    <div class="border rounded p-3 text-sm">
+                                        <div class="flex justify-between items-start mb-1">
+                                            <span class="font-medium">Paso ${step.step}</span>
+                                            <span class="text-xs text-gray-500">${new Date(step.timestamp * 1000).toLocaleTimeString()}</span>
+                                        </div>
+                                        <div class="text-gray-600">
+                                            <strong>Acción:</strong> ${step.decision.action}<br>
+                                            <strong>Razón:</strong> ${step.decision.reason}<br>
+                                            <strong>URL:</strong> ${step.url}
+                                        </div>
+                                    </div>
+                                `).join('') || '<p class="text-gray-500">No hay pasos registrados</p>'}
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <h4 class="font-medium text-gray-900 mb-2">📸 Screenshots Capturados</h4>
+                            <div class="text-sm text-gray-600">
+                                ${result.result.screenshots?.length || 0} screenshots guardados en el servidor
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-50 rounded p-3">
+                            <h4 class="font-medium text-gray-900 mb-2">🎯 Datos del Ticket Procesado</h4>
+                            <pre class="text-xs text-gray-600 overflow-x-auto">${JSON.stringify(result.ticket_data, null, 2)}</pre>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(resultModal);
+
+                if (result.result.success) {
+                    showToast('🎉 ¡Agente IA completó la tarea exitosamente!', 'success');
+                } else {
+                    showToast('⚠️ Agente IA encontró problemas', 'warning');
+                }
+
+            } catch (error) {
+                console.error('Error testing intelligent agent:', error);
+                showToast('❌ Error ejecutando Agente IA', 'error');
+
+                // Remover modal de progreso si existe
+                const progressModal = document.querySelector('.fixed');
+                if (progressModal) progressModal.remove();
             }
         }
 
@@ -1205,6 +1621,357 @@
             monitor.scrollIntoView({ behavior: 'smooth' });
         }
 
+        function showNavigationResultsModal(navigationResults) {
+            // Crear modal de resultados de navegación si no existe
+            let resultsModal = document.getElementById('navigation-results-modal');
+            if (!resultsModal) {
+                resultsModal = document.createElement('div');
+                resultsModal.id = 'navigation-results-modal';
+                resultsModal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden';
+
+                resultsModal.innerHTML = `
+                    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-lg bg-white">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold text-gray-900">
+                                <i class="fas fa-robot mr-2 text-blue-500"></i>
+                                Resultados de Navegación Automática
+                            </h3>
+                            <button onclick="closeNavigationResultsModal()" class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-times text-xl"></i>
+                            </button>
+                        </div>
+                        <div id="navigation-results-content">
+                            <!-- Content will be populated here -->
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(resultsModal);
+            }
+
+            // Generar contenido del modal
+            const successCount = navigationResults.filter(r => r.success).length;
+            const totalCount = navigationResults.length;
+
+            const resultsHtml = `
+                <div class="mb-6">
+                    <div class="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg p-4 border border-blue-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="font-semibold text-gray-800">📊 Resumen de Navegación</h4>
+                                <p class="text-sm text-gray-600">
+                                    ${successCount} de ${totalCount} URLs navegadas exitosamente
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-2xl font-bold ${successCount === totalCount ? 'text-green-600' : 'text-orange-600'}">
+                                    ${Math.round((successCount / totalCount) * 100)}%
+                                </div>
+                                <div class="text-xs text-gray-500">Tasa de éxito</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    ${navigationResults.map((result, index) => `
+                        <div class="border rounded-lg p-4 ${result.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}">
+                            <div class="flex items-start justify-between mb-2">
+                                <div class="flex-1">
+                                    <div class="flex items-center mb-1">
+                                        <i class="fas fa-${result.success ? 'check-circle text-green-600' : 'exclamation-circle text-red-600'} mr-2"></i>
+                                        <h5 class="font-medium text-gray-800">${result.merchant}</h5>
+                                    </div>
+                                    <p class="text-sm text-gray-600 break-all">${result.url}</p>
+                                </div>
+                                <div class="ml-4">
+                                    <button onclick="window.open('${result.url}', '_blank')"
+                                            class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded">
+                                        <i class="fas fa-external-link-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            ${result.success ? `
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                    <div>
+                                        <span class="font-medium text-gray-600">⏱️ Tiempo de carga:</span>
+                                        <p class="text-gray-800">${result.loading_time?.toFixed(2)}s</p>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-gray-600">📄 Título:</span>
+                                        <p class="text-gray-800 truncate">${result.page_title || 'N/A'}</p>
+                                    </div>
+                                    <div>
+                                        <span class="font-medium text-gray-600">🔍 Accesibilidad:</span>
+                                        <p class="text-gray-800">${result.accessibility}</p>
+                                    </div>
+                                    ${result.screenshot_path ? `
+                                        <div>
+                                            <span class="font-medium text-gray-600">📸 Screenshot:</span>
+                                            <p class="text-xs text-blue-600">${result.screenshot_path.split('/').pop()}</p>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            ` : `
+                                <div class="mt-2">
+                                    <span class="font-medium text-red-600">❌ Error:</span>
+                                    <p class="text-sm text-red-800 mt-1">${result.error}</p>
+                                </div>
+                            `}
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div class="mt-6 pt-4 border-t">
+                    <div class="flex justify-between items-center">
+                        <p class="text-xs text-gray-500">
+                            💡 Tip: Los screenshots se guardan en la carpeta 'screenshots/' del proyecto
+                        </p>
+                        <button onclick="closeNavigationResultsModal()"
+                                class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('navigation-results-content').innerHTML = resultsHtml;
+            resultsModal.classList.remove('hidden');
+        }
+
+        function closeNavigationResultsModal() {
+            const modal = document.getElementById('navigation-results-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
+
+        // ===============================================================
+        // SIDEBAR AUTOMATION MONITOR
+        // ===============================================================
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('automation-sidebar');
+            sidebar.classList.toggle('translate-x-full');
+        }
+
+        function closeSidebar() {
+            const sidebar = document.getElementById('automation-sidebar');
+            sidebar.classList.add('translate-x-full');
+        }
+
+        function openSidebar() {
+            const sidebar = document.getElementById('automation-sidebar');
+            sidebar.classList.remove('translate-x-full');
+        }
+
+        let automationSteps = [
+            { id: 'navigate', name: '🔍 Navegando al portal', status: 'pending', details: '', screenshot: null },
+            { id: 'smart_nav', name: '🧠 Navegación inteligente', status: 'pending', details: '', screenshot: null },
+            { id: 'analyze', name: '🔎 Analizando formulario', status: 'pending', details: '', screenshot: null },
+            { id: 'extract', name: '🤖 Extrayendo datos con IA', status: 'pending', details: '', screenshot: null },
+            { id: 'fill', name: '📝 Llenando formulario', status: 'pending', details: '', screenshot: null },
+            { id: 'submit', name: '📤 Enviando formulario', status: 'pending', details: '', screenshot: null },
+            { id: 'result', name: '🔍 Analizando resultado', status: 'pending', details: '', screenshot: null }
+        ];
+
+        function updateAutomationStep(stepId, status, details = '', screenshot = null) {
+            const step = automationSteps.find(s => s.id === stepId);
+            if (step) {
+                step.status = status;
+                step.details = details;
+                if (screenshot) step.screenshot = screenshot;
+
+                renderAutomationSteps();
+                updateOverallProgress();
+                updateCurrentStatus(step, status);
+            }
+        }
+
+        function renderAutomationSteps() {
+            const container = document.getElementById('automation-steps-sidebar');
+
+            const stepsHtml = automationSteps.map(step => {
+                const statusIcon = getStatusIcon(step.status);
+                const statusColor = getStatusColor(step.status);
+
+                return `
+                    <div class="border rounded-lg p-3 ${step.status === 'in_progress' ? 'border-blue-300 bg-blue-50' : 'border-gray-200'} transition-all duration-300">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div class="mr-3 ${statusColor}">
+                                    ${statusIcon}
+                                </div>
+                                <div>
+                                    <h4 class="font-medium text-gray-800 text-sm">${step.name}</h4>
+                                    ${step.details ? `<p class="text-xs text-gray-600 mt-1">${step.details}</p>` : ''}
+                                </div>
+                            </div>
+                            ${step.screenshot ? `
+                                <button onclick="showStepScreenshot('${step.screenshot}')" class="text-blue-500 hover:text-blue-700 text-xs">
+                                    <i class="fas fa-image"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                        ${step.status === 'in_progress' ? `
+                            <div class="mt-2">
+                                <div class="w-full bg-gray-200 rounded-full h-1">
+                                    <div class="bg-blue-500 h-1 rounded-full animate-pulse" style="width: 70%"></div>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = stepsHtml;
+        }
+
+        function getStatusIcon(status) {
+            switch(status) {
+                case 'completed': return '<i class="fas fa-check-circle"></i>';
+                case 'in_progress': return '<i class="fas fa-spinner fa-spin"></i>';
+                case 'error': return '<i class="fas fa-exclamation-circle"></i>';
+                case 'pending': return '<i class="fas fa-clock"></i>';
+                default: return '<i class="fas fa-circle"></i>';
+            }
+        }
+
+        function getStatusColor(status) {
+            switch(status) {
+                case 'completed': return 'text-green-500';
+                case 'in_progress': return 'text-blue-500';
+                case 'error': return 'text-red-500';
+                case 'pending': return 'text-gray-400';
+                default: return 'text-gray-400';
+            }
+        }
+
+        function updateOverallProgress() {
+            const completedSteps = automationSteps.filter(s => s.status === 'completed').length;
+            const totalSteps = automationSteps.length;
+            const progressPercentage = Math.round((completedSteps / totalSteps) * 100);
+
+            document.getElementById('overall-progress-bar').style.width = `${progressPercentage}%`;
+            document.getElementById('overall-progress-text').textContent = `${progressPercentage}%`;
+        }
+
+        function updateCurrentStatus(step, status) {
+            const statusElement = document.getElementById('current-status');
+
+            if (status === 'in_progress') {
+                statusElement.innerHTML = `
+                    <i class="fas fa-spinner fa-spin mr-2 text-blue-500"></i>
+                    <span class="text-blue-600 font-medium">${step.name}</span>
+                `;
+            } else if (status === 'completed') {
+                statusElement.innerHTML = `
+                    <i class="fas fa-check-circle mr-2 text-green-500"></i>
+                    <span class="text-green-600">${step.name} completado</span>
+                `;
+            } else if (status === 'error') {
+                statusElement.innerHTML = `
+                    <i class="fas fa-exclamation-circle mr-2 text-red-500"></i>
+                    <span class="text-red-600">Error en ${step.name}</span>
+                `;
+            }
+        }
+
+        function resetAutomationSteps() {
+            automationSteps.forEach(step => {
+                step.status = 'pending';
+                step.details = '';
+                step.screenshot = null;
+            });
+            renderAutomationSteps();
+            updateOverallProgress();
+
+            document.getElementById('current-status').innerHTML = `
+                <i class="fas fa-clock mr-2"></i>
+                Esperando inicio de automatización...
+            `;
+        }
+
+        function showStepScreenshot(screenshotPath) {
+            // Mostrar screenshot en modal
+            showImageModal(`/${screenshotPath}`);
+        }
+
+        // Simular automatización para demo
+        function startAutomationDemo() {
+            openSidebar();
+            resetAutomationSteps();
+
+            const steps = ['navigate', 'smart_nav', 'analyze', 'extract', 'fill', 'submit', 'result'];
+            let currentStepIndex = 0;
+
+            function processNextStep() {
+                if (currentStepIndex >= steps.length) return;
+
+                const stepId = steps[currentStepIndex];
+                updateAutomationStep(stepId, 'in_progress');
+
+                // Simular tiempo de procesamiento
+                setTimeout(() => {
+                    // Simular detalles específicos para cada paso
+                    let details = '';
+                    switch(stepId) {
+                        case 'navigate':
+                            details = 'Portal cargado en 1.2s - Título: "Litromil"';
+                            break;
+                        case 'smart_nav':
+                            details = 'LLM encontró botón "Facturar Ticket" → Clic realizado';
+                            break;
+                        case 'analyze':
+                            details = '3 campos detectados: Clave, Monto, Submit';
+                            break;
+                        case 'extract':
+                            details = 'Código: 371456..., Monto: $359.00';
+                            break;
+                        case 'fill':
+                            details = 'Campos completados automáticamente';
+                            break;
+                        case 'submit':
+                            details = 'Formulario enviado - Esperando respuesta...';
+                            break;
+                        case 'result':
+                            details = '✅ Factura generada exitosamente';
+                            break;
+                    }
+
+                    updateAutomationStep(stepId, 'completed', details);
+                    currentStepIndex++;
+
+                    if (currentStepIndex < steps.length) {
+                        setTimeout(processNextStep, 500);
+                    } else {
+                        // Automatización completa
+                        document.getElementById('current-status').innerHTML = `
+                            <i class="fas fa-check-circle mr-2 text-green-500"></i>
+                            <span class="text-green-600 font-medium">¡Automatización completada!</span>
+                        `;
+                    }
+                }, Math.random() * 2000 + 1000); // 1-3 segundos por paso
+            }
+
+            processNextStep();
+        }
+
+        function initializeSidebar() {
+            renderAutomationSteps();
+            updateOverallProgress();
+
+            // Agregar demo button a la navbar para probar
+            const navbar = document.querySelector('.bg-gradient-to-r.from-blue-600.to-purple-700');
+            if (navbar) {
+                const demoButton = document.createElement('button');
+                demoButton.onclick = startAutomationDemo;
+                demoButton.className = 'bg-white bg-opacity-20 text-white px-3 py-1 rounded-lg text-sm hover:bg-opacity-30 transition-all duration-200 ml-4';
+                demoButton.innerHTML = '<i class="fas fa-play mr-2"></i>Demo Auto-fill';
+                navbar.appendChild(demoButton);
+            }
+        }
+
         function updateAutomationMonitor(jobStatus) {
             // Actualizar el monitor de automatización en tiempo real
             console.log('Updating automation monitor:', jobStatus);
@@ -1255,8 +2022,8 @@
 
                     // Mostrar el texto OCR extraído si está disponible
                     const ocrTextElement = document.getElementById(`ocr-text-${ticketId}`);
-                    if (ocrTextElement && urlResults.extracted_text_preview) {
-                        ocrTextElement.textContent = urlResults.extracted_text_preview;
+                    if (ocrTextElement && urlResults.extracted_text) {
+                        ocrTextElement.textContent = urlResults.extracted_text;
                     } else if (ocrTextElement) {
                         ocrTextElement.textContent = '⚠️ Texto OCR no disponible en la respuesta';
                     }
@@ -1415,6 +2182,11 @@
                                         title="Abrir portal de facturación">
                                     <i class="fas fa-external-link-alt"></i>
                                 </button>
+                                <button onclick="navigateToURL('${urlInfo.url}', '${urlInfo.merchant_hint || 'Portal'}', ${index})"
+                                        class="text-xs bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded"
+                                        title="Navegar automáticamente">
+                                    <i class="fas fa-robot"></i>
+                                </button>
                                 <button onclick="copyURLToClipboard('${urlInfo.url}')"
                                         class="text-xs bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded"
                                         title="Copiar URL">
@@ -1458,6 +2230,259 @@
                 console.error('Error copying URL:', err);
                 showToast('❌ Error copiando URL', 'error');
             });
+        }
+
+        async function navigateToURL(url, merchantName, urlIndex) {
+            try {
+                // Abrir el panel lateral y resetear pasos
+                openSidebar();
+                resetAutomationSteps();
+
+                showToast('🤖 Iniciando navegación automática...', 'info');
+
+                // Encontrar el ticket actual desde el modal
+                const ticketModal = document.getElementById('ticket-modal');
+                if (!ticketModal || ticketModal.classList.contains('hidden')) {
+                    showToast('❌ No se puede determinar el ticket actual', 'error');
+                    return;
+                }
+
+                // Buscar el ID del ticket en los elementos de URLs
+                const urlsSections = ticketModal.querySelectorAll('[id^="urls-section-"]');
+                if (urlsSections.length === 0) {
+                    showToast('❌ No se puede determinar el ticket ID', 'error');
+                    return;
+                }
+
+                const ticketId = urlsSections[0].id.replace('urls-section-', '');
+
+                console.log(`🤖 Navegando a ${url} para ticket ${ticketId}`);
+
+                // Iniciar paso 1: Navegando
+                updateAutomationStep('navigate', 'in_progress', `Conectando a ${url}...`);
+
+                // Llamar al endpoint de navegación automática con auto_fill activado
+                const response = await fetch(`${API_BASE}/tickets/${ticketId}/navigate-urls?auto_fill=true`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    let errorMessage = `Error ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.detail || errorData.message || errorMessage;
+                    } catch (parseError) {
+                        errorMessage = `Error ${response.status}: ${response.statusText}`;
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const result = await response.json();
+
+                console.log('🤖 Resultado de navegación:', result);
+
+                // Completar paso 1: Navegación
+                updateAutomationStep('navigate', 'completed', `Portal cargado - ${result.successful_navigations}/${result.total_urls} URLs exitosas`);
+
+                // Debug: Mostrar información completa en consola
+                console.group('🔍 ANÁLISIS DETALLADO DEL RESULTADO');
+                console.log('📊 Resumen:', {
+                    exitosas: result.successful_navigations,
+                    total: result.total_urls,
+                    timestamp: result.timestamp
+                });
+
+                if (result.navigation_results) {
+                    result.navigation_results.forEach((navResult, i) => {
+                        console.log(`\n📋 Resultado ${i + 1}:`, {
+                            url: navResult.url,
+                            success: navResult.success,
+                            form_fields: navResult.form_fields?.length || 0,
+                            auto_filled: navResult.auto_filled,
+                            filled_fields: Object.keys(navResult.filled_fields || {}),
+                            submission_result: navResult.submission_result?.status
+                        });
+                    });
+                }
+                console.groupEnd();
+
+                if (result.success) {
+                    const successfulNavs = result.successful_navigations;
+                    const totalUrls = result.total_urls;
+
+                    showToast(`🎉 Navegación completada: ${successfulNavs}/${totalUrls} exitosas`, 'success');
+
+                    // Mostrar resumen detallado en la consola
+                    console.group('🤖 RESULTADOS DE NAVEGACIÓN AUTOMÁTICA');
+                    console.log('📊 Resumen general:', {
+                        totalUrls: totalUrls,
+                        exitosas: successfulNavs,
+                        fallidas: totalUrls - successfulNavs,
+                        timestamp: result.timestamp
+                    });
+
+                    // Procesar resultados detallados para actualizar pasos
+                    if (result.navigation_results && result.navigation_results.length > 0) {
+                        console.log('📋 Detalles por URL:');
+
+                        // Buscar el resultado de la URL específica que se procesó
+                        const urlResult = result.navigation_results.find(r => r.url.includes(url.replace('https://', '').replace('http://', '')));
+
+                        if (urlResult && urlResult.success) {
+                            // Paso 2: Navegación inteligente (si ocurrió)
+                            // Inferir si hubo navegación inteligente por el URL final vs inicial
+                            const initialUrl = url.replace('https://', '').replace('http://', '');
+                            const finalUrl = urlResult.final_url?.replace('https://', '').replace('http://', '') || '';
+
+                            if (initialUrl !== finalUrl && finalUrl !== '') {
+                                updateAutomationStep('smart_nav', 'completed', `Navegó de ${initialUrl} a ${finalUrl.substring(0, 50)}...`);
+                            } else {
+                                updateAutomationStep('smart_nav', 'completed', 'No fue necesaria navegación adicional');
+                            }
+
+                            // Paso 3: Análisis de formulario
+                            const formFieldsCount = urlResult.form_fields?.length || 0;
+                            if (formFieldsCount > 0) {
+                                const fieldNames = urlResult.form_fields.map(f => f.label || f.name).slice(0, 3);
+                                updateAutomationStep('analyze', 'completed', `${formFieldsCount} campos: ${fieldNames.join(', ')}`);
+                            } else {
+                                updateAutomationStep('analyze', 'error', 'No se encontraron formularios de facturación');
+                            }
+
+                            // Paso 4: Extracción con IA (si hay auto_fill)
+                            if (urlResult.auto_filled) {
+                                const filledFields = Object.keys(urlResult.filled_fields || {});
+                                if (filledFields.length > 0) {
+                                    updateAutomationStep('extract', 'completed', `Datos extraídos: ${filledFields.join(', ')}`);
+
+                                    // Paso 5: Llenado de formulario
+                                    const filledValues = Object.values(urlResult.filled_fields || {});
+                                    updateAutomationStep('fill', 'completed', `Campos llenados: ${filledValues.join(', ')}`);
+                                } else {
+                                    updateAutomationStep('extract', 'error', 'No se extrajeron datos del ticket');
+                                    updateAutomationStep('fill', 'error', 'Sin datos para llenar');
+                                }
+
+                                // Paso 6: Envío de formulario
+                                const submissionResult = urlResult.submission_result;
+                                if (submissionResult && submissionResult.submitted) {
+                                    updateAutomationStep('submit', 'completed', 'Formulario enviado');
+
+                                    // Paso 6: Análisis del resultado
+                                    const status = submissionResult.status;
+                                    const message = submissionResult.message || 'Procesado';
+
+                                    if (status === 'success' || status === 'likely_success') {
+                                        updateAutomationStep('result', 'completed', `✅ ${message}`);
+                                    } else if (status === 'credential_error') {
+                                        updateAutomationStep('result', 'error', `🔐 ${message}`);
+                                    } else if (status === 'validation_error') {
+                                        updateAutomationStep('result', 'error', `📋 ${message}`);
+                                    } else {
+                                        updateAutomationStep('result', 'completed', `⚠️ ${message}`);
+                                    }
+                                } else {
+                                    updateAutomationStep('submit', 'error', 'No se pudo enviar el formulario');
+                                    updateAutomationStep('result', 'pending');
+                                }
+                            } else {
+                                // No hay auto-fill porque no se encontraron formularios
+                                if (formFieldsCount === 0) {
+                                    updateAutomationStep('extract', 'error', 'Sin formularios para extraer datos');
+                                    updateAutomationStep('fill', 'error', 'Sin campos para llenar');
+                                    updateAutomationStep('submit', 'error', 'Sin formulario para enviar');
+                                    updateAutomationStep('result', 'completed', '⚠️ Portal sin formularios de facturación');
+                                } else {
+                                    updateAutomationStep('extract', 'pending', 'Auto-fill no estaba activado');
+                                    updateAutomationStep('fill', 'pending');
+                                    updateAutomationStep('submit', 'pending');
+                                    updateAutomationStep('result', 'completed', 'Solo navegación - sin auto-fill');
+                                }
+                            }
+                        } else if (urlResult && !urlResult.success) {
+                            // Error en navegación
+                            updateAutomationStep('smart_nav', 'error', 'No se pudo conectar al portal');
+                            updateAutomationStep('analyze', 'error', `Error: ${urlResult.error || 'Portal no accesible'}`);
+                            updateAutomationStep('extract', 'error', 'Sin acceso para extraer datos');
+                            updateAutomationStep('fill', 'error', 'Sin acceso para llenar');
+                            updateAutomationStep('submit', 'error', 'Sin acceso para enviar');
+                            updateAutomationStep('result', 'error', 'Portal no disponible');
+                        } else {
+                            // No se encontró el resultado de esta URL específica
+                            updateAutomationStep('smart_nav', 'error', 'URL no procesada');
+                            updateAutomationStep('analyze', 'error', 'No se pudo analizar la URL específica');
+                            updateAutomationStep('extract', 'error', 'Sin datos para procesar');
+                            updateAutomationStep('fill', 'error', 'Sin formularios disponibles');
+                            updateAutomationStep('submit', 'error', 'Sin envío posible');
+                            updateAutomationStep('result', 'error', 'Procesamiento incompleto');
+                        }
+
+                        result.navigation_results.forEach((navResult, index) => {
+                            console.log(`\n${index + 1}. ${navResult.url}`);
+                            console.log(`   🏪 Merchant: ${navResult.merchant}`);
+                            console.log(`   ✅ Éxito: ${navResult.success ? 'SÍ' : 'NO'}`);
+
+                            if (navResult.success) {
+                                console.log(`   ⏱️ Tiempo de carga: ${navResult.loading_time?.toFixed(2)}s`);
+                                console.log(`   📄 Título de página: ${navResult.page_title || 'N/A'}`);
+                                console.log(`   🔍 Accesibilidad: ${navResult.accessibility}`);
+                                if (navResult.screenshot_path) {
+                                    console.log(`   📸 Screenshot: ${navResult.screenshot_path}`);
+                                }
+                            } else {
+                                console.log(`   ❌ Error: ${navResult.error}`);
+                            }
+
+                            // Mostrar toast específico para cada URL
+                            if (navResult.success) {
+                                showToast(`✅ ${navResult.merchant}: ${navResult.page_title || 'Portal accesible'} (${navResult.loading_time?.toFixed(2)}s)`, 'success');
+
+                                if (navResult.screenshot_path) {
+                                    showToast(`📸 Screenshot: ${navResult.screenshot_path.split('/').pop()}`, 'info');
+                                }
+                            } else {
+                                showToast(`⚠️ ${navResult.merchant}: ${navResult.error}`, 'warning');
+                            }
+                        });
+                    }
+
+                    console.groupEnd();
+
+                    // Crear un modal de resultados si hay múltiples URLs
+                    if (result.navigation_results.length > 1) {
+                        showNavigationResultsModal(result.navigation_results);
+                    }
+
+                } else {
+                    showToast(`❌ Error en navegación: ${result.message || 'Error desconocido'}`, 'error');
+                }
+
+            } catch (error) {
+                console.error('Error en navegación automática:', error);
+
+                // Marcar error en los pasos
+                updateAutomationStep('navigate', 'error', 'Error de conexión');
+                updateAutomationStep('analyze', 'pending');
+                updateAutomationStep('extract', 'pending');
+                updateAutomationStep('fill', 'pending');
+                updateAutomationStep('submit', 'pending');
+                updateAutomationStep('result', 'pending');
+
+                let errorMessage = 'Error desconocido';
+
+                if (error.message) {
+                    errorMessage = error.message;
+                } else if (typeof error === 'string') {
+                    errorMessage = error;
+                } else if (error.toString && error.toString() !== '[object Object]') {
+                    errorMessage = error.toString();
+                }
+
+                showToast(`❌ Error: ${errorMessage}`, 'error');
+            }
         }
 
         async function testURLExtractionDirectly(ticketId) {

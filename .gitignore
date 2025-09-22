@@ -69,6 +69,8 @@ tmp/
 test_*
 debug_*
 example_with_real_data.py
+# Keep pytest modules under tests/
+!tests/test_*.py
 
 # Backup files
 *.bak

@@ -1,14 +1,34 @@
 """
-Servicio de análisis automático de tickets usando OpenAI
-Extrae el nombre del comercio y categoriza el tipo de gasto
+Servicio de análisis automático de tickets usando Claude como LLM principal con OpenAI como fallback.
+Extrae el nombre del comercio y categoriza el tipo de gasto.
 """
 
 import json
 import logging
 import os
-from typing import Dict, Optional, Tuple
-import openai
+from typing import Dict, Optional, Tuple, List
 from dataclasses import dataclass
+
+# Importar Claude como LLM principal
+try:
+    import anthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
+
+# OpenAI como fallback
+try:
+    import openai
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+
+# Importar sistema de fallbacks robusto
+try:
+    from core.robust_fallback_system import try_llm_analysis_with_fallbacks, fallback_system
+    FALLBACK_SYSTEM_AVAILABLE = True
+except ImportError:
+    FALLBACK_SYSTEM_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -21,16 +41,18 @@ class TicketAnalysis:
     confidence: float
     subcategory: Optional[str] = None
     raw_analysis: Optional[Dict] = None
+    facturacion_urls: Optional[List[Dict]] = None
 
 
 class TicketAnalyzer:
     """
-    Analizador inteligente de tickets usando OpenAI GPT
+    Analizador inteligente de tickets usando Claude como LLM principal y OpenAI como fallback
     """
 
     def __init__(self):
-        self.client = None
-        self._initialize_openai()
+        self.claude_client = None
+        self.openai_client = None
+        self._initialize_llm_clients()
 
         # Categorías predefinidas para gastos empresariales
         self.categories = {
@@ -47,20 +69,35 @@ class TicketAnalyzer:
             "otros": ["misceláneos", "varios", "general"]
         }
 
-    def _initialize_openai(self):
-        """Inicializar cliente de OpenAI"""
-        try:
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
+    def _initialize_llm_clients(self):
+        """Inicializar clientes de Claude y OpenAI"""
+        # Inicializar Claude como principal
+        if ANTHROPIC_AVAILABLE:
+            claude_key = os.getenv("ANTHROPIC_API_KEY")
+            if claude_key:
+                try:
+                    self.claude_client = anthropic.Anthropic(api_key=claude_key)
+                    logger.info("🤖 Cliente Claude inicializado como LLM principal")
+                except Exception as e:
+                    logger.error(f"Error inicializando Claude: {e}")
+            else:
+                logger.warning("ANTHROPIC_API_KEY no configurada")
+        else:
+            logger.warning("Anthropic no instalado - instala con: pip install anthropic")
+
+        # Inicializar OpenAI como fallback
+        if OPENAI_AVAILABLE:
+            openai_key = os.getenv("OPENAI_API_KEY")
+            if openai_key:
+                try:
+                    self.openai_client = True  # Indicar que tenemos API key
+                    logger.info("🔄 Cliente OpenAI inicializado como fallback")
+                except Exception as e:
+                    logger.error(f"Error inicializando OpenAI: {e}")
+            else:
                 logger.warning("OPENAI_API_KEY no configurada")
-                return
-
-            self.client = True  # Indicar que tenemos API key
-            logger.info("Cliente OpenAI inicializado correctamente")
-
-        except Exception as e:
-            logger.error(f"Error inicializando OpenAI: {e}")
-            self.client = None
+        else:
+            logger.warning("OpenAI no instalado")
 
     async def analyze_ticket(self, ticket_text: str) -> TicketAnalysis:
         """
@@ -73,19 +110,19 @@ class TicketAnalyzer:
             TicketAnalysis con merchant_name, category y confidence
         """
 
-        if not self.client:
-            logger.warning("Cliente OpenAI no disponible, usando análisis básico")
+        if not self.claude_client and not self.openai_client:
+            logger.warning("No hay LLM disponible, usando análisis básico")
             return self._basic_analysis(ticket_text)
 
         try:
             # Crear prompt optimizado para análisis de tickets mexicanos
             prompt = self._create_analysis_prompt(ticket_text)
 
-            # Llamar a OpenAI
-            response = await self._call_openai(prompt)
+            # Intentar Claude primero, luego OpenAI como fallback
+            response = await self._call_llm_with_fallback(prompt)
 
             # Parsear respuesta
-            analysis = self._parse_openai_response(response)
+            analysis = self._parse_llm_response(response)
 
             logger.info(f"Ticket analizado: {analysis.merchant_name} - {analysis.category}")
             return analysis
@@ -109,6 +146,7 @@ INSTRUCCIONES:
 1. Identifica el NOMBRE DEL COMERCIO/EMPRESA (el más específico y reconocible)
 2. Clasifica el TIPO DE GASTO según estas categorías: """ + categories_list + """
 3. Asigna un nivel de CONFIANZA (0.0 a 1.0)
+4. Sugiere URLs de FACTURACIÓN basándote en el merchant detectado
 
 REGLAS:
 - Para el merchant: usa el nombre comercial más conocido (ej: "OXXO", "Walmart", "Soriana")
@@ -117,27 +155,87 @@ REGLAS:
 - Si es gasolina → "transporte"
 - Si son suministros de oficina → "oficina"
 
+IMPORTANTE: SOLO sugiere URLs que aparecen LITERALMENTE en el texto del ticket.
+NO inventes URLs. Si no hay URLs de facturación en el texto, devuelve una lista vacía.
+
 FORMATO DE RESPUESTA (JSON):
 {
     "merchant_name": "Nombre del comercio",
     "category": "categoria_del_gasto",
     "confidence": 0.95,
     "subcategory": "subcategoría opcional",
-    "reasoning": "breve explicación"
+    "reasoning": "breve explicación",
+    "facturacion_urls": [
+        {
+            "url": "URL_EXACTA_DEL_TEXTO",
+            "confidence": 0.95,
+            "method": "texto_ticket"
+        }
+    ]
 }
 
 EJEMPLOS:
-- OXXO con comida → {"merchant_name": "OXXO", "category": "alimentacion", "confidence": 0.9}
-- Pemex gasolina → {"merchant_name": "Pemex", "category": "transporte", "confidence": 0.95}
-- Office Depot → {"merchant_name": "Office Depot", "category": "oficina", "confidence": 0.9}
+- Si el texto dice "facture en factura.oxxo.com" → {"merchant_name": "OXXO", "category": "alimentacion", "confidence": 0.9, "facturacion_urls": [{"url": "factura.oxxo.com", "confidence": 0.95, "method": "texto_ticket"}]}
+- Si el texto dice "facturacion.inforest.com.mx" → {"merchant_name": "Merchant Name", "category": "alimentacion", "confidence": 0.9, "facturacion_urls": [{"url": "facturacion.inforest.com.mx", "confidence": 0.95, "method": "texto_ticket"}]}
+- Si NO hay URLs en el texto → {"merchant_name": "Merchant Name", "category": "alimentacion", "confidence": 0.9, "facturacion_urls": []}
 
 Responde SOLO con el JSON, sin texto adicional:
 """
 
         return prompt
 
+    async def _call_llm_with_fallback(self, prompt: str) -> str:
+        """Llamar a Claude primero, OpenAI como fallback"""
+
+        # Intentar Claude primero
+        if self.claude_client:
+            try:
+                logger.info("🤖 Llamando a Claude para análisis de ticket")
+                response = await self._call_claude(prompt)
+                logger.info("✅ Claude respondió exitosamente")
+                return response
+            except Exception as e:
+                logger.warning(f"❌ Claude falló, intentando OpenAI: {e}")
+
+        # Fallback a OpenAI
+        if self.openai_client:
+            try:
+                logger.info("🔄 Usando OpenAI como fallback")
+                response = await self._call_openai(prompt)
+                logger.info("✅ OpenAI respondió exitosamente")
+                return response
+            except Exception as e:
+                logger.error(f"❌ OpenAI también falló: {e}")
+                raise
+
+        raise Exception("No hay LLM disponible")
+
+    async def _call_claude(self, prompt: str) -> str:
+        """Llamar a Claude API"""
+        try:
+            message = self.claude_client.messages.create(
+                model="claude-3-haiku-20240307",  # Modelo más barato y rápido
+                max_tokens=1000,
+                temperature=0.3,
+                system="Eres un experto analizando tickets de compra mexicanos para categorización de gastos empresariales. Responde siempre en formato JSON válido.",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ]
+            )
+
+            result = message.content[0].text.strip()
+            logger.info(f"Claude response: {result[:200]}...")
+            return result
+
+        except Exception as e:
+            logger.error(f"Error llamando Claude API: {e}")
+            raise
+
     async def _call_openai(self, prompt: str) -> str:
-        """Llamar a OpenAI API"""
+        """Llamar a OpenAI API (fallback)"""
 
         try:
             from openai import AsyncOpenAI
@@ -157,18 +255,20 @@ Responde SOLO con el JSON, sin texto adicional:
                     }
                 ],
                 temperature=0.3,  # Baja temperatura para respuestas más consistentes
-                max_tokens=200,
+                max_tokens=800,
                 timeout=10
             )
 
-            return response.choices[0].message.content.strip()
+            result = response.choices[0].message.content.strip()
+            logger.info(f"OpenAI response: {result[:200]}...")
+            return result
 
         except Exception as e:
             logger.error(f"Error llamando OpenAI API: {e}")
             raise
 
-    def _parse_openai_response(self, response: str) -> TicketAnalysis:
-        """Parsear respuesta JSON de OpenAI"""
+    def _parse_llm_response(self, response: str) -> TicketAnalysis:
+        """Parsear respuesta JSON del LLM (Claude u OpenAI)"""
 
         try:
             # Limpiar respuesta por si tiene texto extra
@@ -183,11 +283,12 @@ Responde SOLO con el JSON, sin texto adicional:
                 category=data.get("category", "otros"),
                 confidence=float(data.get("confidence", 0.5)),
                 subcategory=data.get("subcategory"),
-                raw_analysis=data
+                raw_analysis=data,
+                facturacion_urls=data.get("facturacion_urls", [])
             )
 
         except json.JSONDecodeError as e:
-            logger.error(f"Error parseando JSON de OpenAI: {e}, respuesta: {response}")
+            logger.error(f"Error parseando JSON del LLM: {e}, respuesta: {response}")
             # Intentar extracción manual
             return self._manual_parse(response)
 
@@ -196,7 +297,8 @@ Responde SOLO con el JSON, sin texto adicional:
             return TicketAnalysis(
                 merchant_name="Error de Análisis",
                 category="otros",
-                confidence=0.0
+                confidence=0.0,
+                facturacion_urls=[]
             )
 
     def _manual_parse(self, response: str) -> TicketAnalysis:
@@ -232,7 +334,8 @@ Responde SOLO con el JSON, sin texto adicional:
         return TicketAnalysis(
             merchant_name=merchant,
             category=category,
-            confidence=confidence
+            confidence=confidence,
+            facturacion_urls=[]
         )
 
     def _basic_analysis(self, ticket_text: str) -> TicketAnalysis:
@@ -277,7 +380,8 @@ Responde SOLO con el JSON, sin texto adicional:
         return TicketAnalysis(
             merchant_name=merchant,
             category=category,
-            confidence=confidence
+            confidence=confidence,
+            facturacion_urls=[]
         )
 
     def get_category_display_name(self, category: str) -> str:
@@ -303,7 +407,7 @@ Responde SOLO con el JSON, sin texto adicional:
 # Función de conveniencia para usar desde otros módulos
 async def analyze_ticket_content(ticket_text: str) -> TicketAnalysis:
     """
-    Función principal para analizar contenido de tickets
+    Función principal para analizar contenido de tickets con fallbacks robustos.
 
     Args:
         ticket_text: Texto extraído del ticket
@@ -311,6 +415,36 @@ async def analyze_ticket_content(ticket_text: str) -> TicketAnalysis:
     Returns:
         TicketAnalysis con merchant y categoría
     """
+    # Intentar con sistema de fallbacks si está disponible
+    if False:  # FALLBACK_SYSTEM_AVAILABLE - Temporalmente deshabilitado
+        try:
+            # Usar sistema de fallbacks robusto
+            analyzer = TicketAnalyzer()
+            prompt = analyzer._create_analysis_prompt(ticket_text)
+
+            result = await try_llm_analysis_with_fallbacks(ticket_text, prompt)
+
+            if result.success:
+                if isinstance(result.result, dict):
+                    # Resultado del análisis básico
+                    analysis_data = result.result
+                else:
+                    # Resultado de OpenAI (string JSON)
+                    analysis_data = json.loads(result.result)
+
+                return TicketAnalysis(
+                    merchant_name=analysis_data.get("merchant_name", "Unknown"),
+                    category=analysis_data.get("category", "otros"),
+                    confidence=analysis_data.get("confidence", 0.5),
+                    facturacion_urls=analysis_data.get("facturacion_urls", []),
+                    raw_analysis={"method": "fallback_system", "service": result.service_used}
+                )
+            else:
+                logger.warning(f"Fallback system failed: {result.error}")
+        except Exception as e:
+            logger.warning(f"Error in fallback system: {e}")
+
+    # Fallback al método tradicional
     analyzer = TicketAnalyzer()
     return await analyzer.analyze_ticket(ticket_text)
 

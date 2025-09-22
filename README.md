@@ -10,8 +10,13 @@
 
 - 🏢 **Integración completa con Odoo** - Creación real de gastos en ERP
 - 💰 **Gestión de gastos empresariales** - Validación, categorización y seguimiento
+- 🏢 **Multiempresa** - `company_id` en gastos, facturas y conciliación para separar unidades de negocio
+- 🚀 **Onboarding Express** - Registro vía WhatsApp o Gmail/Hotmail con datos demo automáticos
 - 🧾 **Información fiscal México** - Soporte para CFDI, RFC y facturación
 - 🎤 **Procesamiento de voz** - Entrada y salida por audio usando OpenAI Whisper y TTS
+- 📲 **Facturación automática WhatsApp** - Facturación de tickets enviados por WhatsApp
+- 🏪 **Detección de comercios** - Identificación automática de merchants para facturación
+- 🤖 **Jobs de procesamiento** - Sistema de trabajos para facturación asíncrona
 - 🔒 **Seguro** - Configuración por variables de entorno
 - 📱 **API REST** - Endpoints simples y documentados
 - ⚡ **Lightweight** - Sin dependencias pesadas, puede ejecutarse con HTTP básico
@@ -68,6 +73,8 @@ OPENAI_API_KEY=sk-your-openai-api-key-here
 - Personaliza la ruta con las variables `INTERNAL_DATA_DIR` o `INTERNAL_DB_PATH` si deseas guardar la base en otra ubicación.
 - Se creó la tabla `expense_records` para que más adelante podamos registrar gastos internos con o sin factura y ligarlos a las cuentas del catálogo.
 - También se incluyen tablas de `bank_movements` y `bank_match_feedback` para preparar la conciliación bancaria asistida.
+- Todas las tablas clave (`expense_records`, `bank_movements`, `expense_invoices`, etc.) incluyen ahora `company_id` para aislar datos por empresa.
+- El onboarding crea la tabla `users` y genera datos demo por empresa cuando un usuario se registra.
 
 ### 🤖 Conciliación bancaria asistida (demo IA)
 
@@ -78,6 +85,15 @@ OPENAI_API_KEY=sk-your-openai-api-key-here
 - El motor detecta pagos fragmentados (2-3 cargos que suman el gasto) y lo destaca como “pago en varios cargos”.
 - El flujo del gasto puede cerrarse marcándolo como “No se pudo facturar”, lo cual actualiza automáticamente sus asientos.
 - Endpoint `POST /invoices/parse` analiza el XML CFDI para extraer subtotal, IVA y otros impuestos y alimentar los asientos.
+
+### 🔁 Flujo operativo Gasto → Factura → Conciliación de gastos → Banco
+
+1. **Captura del gasto** — Se registra por voz, ticket OCR o manual. El backend guarda `invoice_status = pendiente`, `will_have_cfdi = true` y la UI lo muestra en *Gastos sin conciliar* con badge naranja.
+2. **Adjuntar factura** — Desde “Facturas pendientes” (`/expenses/{id}/invoice`) se vincula el CFDI o se marca como no facturable. Si llega factura, el gasto pasa a `invoice_status = facturado` y aparece en la pestaña *Conciliación de gastos* con badge verde “Listo para conciliar en bancos”.
+3. **Conciliación de gastos** — En el modal “Conciliar Gastos” se revisa el match gasto ↔ factura antes de ir al banco. Todos los registros con `invoice_status = facturado` y `bank_status ≠ conciliado_banco` se muestran como “Listos para conciliación bancaria”.
+4. **Conciliación bancaria** — Al abrir “Conciliación bancaria” se comparan esos gastos con los movimientos (`bank_status = pendiente_bancaria`). Al aceptar una sugerencia o seleccionar un cargo manualmente, el backend actualiza `bank_status = conciliado_banco` y el gasto migra al panel de conciliados.
+
+> Tip: si un gasto se marca como “No facturable”, la UI y los estados (`invoice_status = sin_factura`, `bank_status = sin_factura`) lo excluyen automáticamente de las etapas de conciliación.
 
 ## 🔥 Uso
 
@@ -241,6 +257,19 @@ FastAPI expone operaciones sobre el ERP interno (todas en JSON):
 - `POST /bank_reconciliation/suggestions` & `/feedback` — sugerencias IA y feedback de conciliación.
 - `POST /expenses/check-duplicates`, `/expenses/predict-category`, `/invoices/parse` — utilidades IA/OCR.
 
+### 📲 Facturación Automática WhatsApp
+
+- `POST /invoicing/tickets` — subir ticket de compra para facturación automática.
+- `GET /invoicing/tickets/{id}` — obtener estado y detalles de un ticket.
+- `GET /invoicing/tickets` — listar tickets con filtros (estado, empresa).
+- `POST /invoicing/bulk-match` — carga masiva de tickets para procesamiento en lote.
+- `POST /invoicing/webhooks/whatsapp` — webhook para mensajes entrantes de WhatsApp.
+- `GET /invoicing/merchants` — listar merchants disponibles para facturación.
+- `POST /invoicing/merchants` — crear nuevo merchant con método de facturación.
+- `GET /invoicing/jobs` — ver jobs de procesamiento pendientes y completados.
+- `POST /invoicing/jobs/{id}/process` — procesar job específico manualmente.
+- `POST /invoicing/tickets/{id}/create-expense` — crear gasto desde ticket procesado.
+
 Todas las operaciones de escritura registran eventos en `expense_events` para trazabilidad.
 
 ## 🎯 Métodos MCP Soportados
@@ -255,9 +284,109 @@ Todas las operaciones de escritura registran eventos en `expense_events` para tr
 - `voice_mcp` - Endpoint con entrada y salida de voz
 - `audio/{filename}` - Servir archivos de audio generados
 
+### Facturación Automática
+- `invoicing_upload_ticket` - Subir ticket para facturación automática
+- `invoicing_ticket_status` - Ver estado de procesamiento de ticket
+- `invoicing_bulk_upload` - Carga masiva de tickets
+- `whatsapp_webhook` - Recibir mensajes de WhatsApp
+- `invoicing_merchants` - Gestión de comercios para facturación
+- `invoicing_jobs` - Ver trabajos de procesamiento
+
 ### Otros
 - `get_inventory` - Gestión de inventario (demo)
 - `create_order` - Crear órdenes (demo)
+
+## 📲 Facturación de Tickets vía WhatsApp
+
+El módulo **invoicing_agent** permite facturar automáticamente tickets de compra recibidos por WhatsApp, perfecto para usuarios en plan freemium.
+
+### 🔄 Flujo de Facturación
+
+1. **Usuario envía ticket** por WhatsApp (foto, PDF, texto, o voz)
+2. **Sistema guarda el ticket** con metadata mínima
+3. **Se dispara un job** que:
+   - Detecta el comercio usando AI/OCR
+   - Usa credenciales globales para facturación
+   - Obtiene CFDI XML + PDF
+4. **Crea expense_record** y actualiza estado
+5. **Gasto aparece** en Conciliación bancaria
+
+### 📝 Ejemplos de Uso
+
+#### Subir ticket de imagen
+```bash
+curl -X POST "http://localhost:8000/invoicing/tickets" \
+  -F "file=@ticket_oxxo.jpg" \
+  -F "user_id=123" \
+  -F "company_id=mi_empresa"
+```
+
+#### Ver estado del ticket
+```bash
+curl "http://localhost:8000/invoicing/tickets/1"
+```
+
+#### Webhook WhatsApp
+```bash
+curl -X POST "http://localhost:8000/invoicing/webhooks/whatsapp" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message_id": "wa_123",
+    "from_number": "+525512345678",
+    "message_type": "image",
+    "content": "Mi ticket de Walmart",
+    "media_url": "https://wa.me/media/ticket.jpg"
+  }'
+```
+
+#### Carga masiva
+```bash
+curl -X POST "http://localhost:8000/invoicing/bulk-match" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tickets": [
+      {"raw_data": "OXXO TOTAL: $125.50", "tipo": "texto"},
+      {"raw_data": "WALMART TOTAL: $350.00", "tipo": "texto"}
+    ],
+    "auto_process": true,
+    "company_id": "mi_empresa"
+  }'
+```
+
+### ⚙️ Configuración
+
+Variables de entorno para facturación:
+
+```env
+# Credenciales globales para portales
+INVOICING_EMAIL=empresa@midominio.com
+INVOICING_PASSWORD=mi_password_seguro
+COMPANY_RFC=XAXX010101000
+COMPANY_NAME=Mi Empresa SA de CV
+
+# WhatsApp API
+WHATSAPP_API_KEY=tu_api_key_whatsapp
+```
+
+### 🏪 Merchants Soportados
+
+El sistema incluye merchants preconfigurados:
+
+- **OXXO** - Portal web con login empresarial
+- **Walmart** - Facturación por email
+- **Costco** - API REST para facturación
+- **Home Depot** - Portal con código de recibo
+
+### 🤖 Worker de Procesamiento
+
+Para procesar jobs automáticamente:
+
+```bash
+# Ejecutar worker en background
+python -m modules.invoicing_agent.worker default 30
+
+# O integrar en tu sistema de colas (Celery, etc.)
+```
 
 ## 🏗️ Arquitectura
 
@@ -351,3 +480,4 @@ MIT License - Ver archivo `LICENSE` para detalles.
 ---
 
 🚀 **¡Listo para gestionar gastos empresariales como un profesional!**
+- Onboarding vía `/onboarding/register` crea un workspace demo por usuario (WhatsApp o Gmail/Hotmail) y devuelve el `company_id` para consumir la experiencia de voz.

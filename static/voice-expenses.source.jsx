@@ -1,9 +1,213 @@
 const { useState, useCallback, useRef, useEffect, useMemo } = React;
 
+const MISSION_DETAILS = {
+    '1': {
+        title: 'Misión 1: Crear un gasto',
+        description: 'Registra un gasto demo y vive la captura multicanal (voz, ticket o texto).',
+        steps: [
+            'Selecciona “Voz (dictado)”, “Subir ticket (OCR)” o “Texto (manual)”.',
+            'Completa los campos clave (monto, fecha, proveedor) con la información demo.',
+            'Guarda el gasto y verifica que aparece en tu tablero demo.'
+        ],
+        ctaLabel: 'Ir a los canales de captura',
+        action: 'capture',
+        next: '2'
+    },
+    '2': {
+        title: 'Misión 2: Vincular la factura',
+        description: 'Adjunta una factura demo para ver cómo cambia el estatus del gasto automáticamente.',
+        steps: [
+            'Abre “Facturas pendientes” en la parte superior.',
+            'Carga el CFDI/PDF demo o vincula la factura sugerida.',
+            'Confirma que el estatus del gasto pasa a “facturado”.'
+        ],
+        ctaLabel: 'Abrir facturas demo',
+        action: 'pendingInvoices',
+        next: '3'
+    },
+    '3': {
+        title: 'Misión 3: Conciliación bancaria',
+        description: 'Revisa los movimientos demo, acepta sugerencias y entiende los pagos fragmentados.',
+        steps: [
+            'Abre la “Conciliación bancaria” para ver los movimientos ficticios.',
+            'Aprueba o rechaza sugerencias inteligentes según el gasto demo.',
+            'Analiza el ejemplo de pago dividido en varios cargos.'
+        ],
+        ctaLabel: 'Revisar conciliación demo',
+        action: 'bank',
+        next: '4'
+    },
+    '4': {
+        title: 'Misión 4: Reportes y control',
+        description: 'Explora el dashboard demo y prueba filtros en tiempo real.',
+        steps: [
+            'Abre el dashboard de gastos demo.',
+            'Filtra por categoría, proveedor o estatus para entender la visibilidad.',
+            'Revisa los indicadores clave y detecta patrones.'
+        ],
+        ctaLabel: 'Ir al dashboard de gastos',
+        action: 'dashboard',
+        next: null
+    }
+};
+
         const formatCurrency = (amount) => `$${(amount || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
+        const INVOICE_STATUS_MAP = {
+            facturado: 'facturado',
+            pagado: 'facturado',
+            timbrado: 'facturado',
+            cerrada: 'facturado',
+            cerrada_factura: 'facturado',
+            cerrada_con_factura: 'facturado',
+            factura_pagada: 'facturado',
+            pendiente: 'pendiente',
+            pendiente_factura: 'pendiente',
+            registrada: 'pendiente',
+            en_revision: 'pendiente',
+            en_proceso: 'pendiente',
+            recibida: 'pendiente',
+            capturado: 'pendiente',
+            captura: 'pendiente',
+            sin_factura: 'sin_factura',
+            no_requiere: 'sin_factura',
+            cerrado_sin_factura: 'sin_factura',
+            cancelada: 'sin_factura'
+        };
+
+        const BANK_STATUS_MAP = {
+            conciliado: 'conciliado_banco',
+            conciliado_banco: 'conciliado_banco',
+            conciliado_manual: 'conciliado_banco',
+            conciliado_parcial: 'conciliado_banco',
+            pendiente_bancaria: 'pendiente_bancaria',
+            pendiente_pago: 'pendiente_bancaria',
+            por_conciliar: 'pendiente_bancaria',
+            pendiente_banco: 'pendiente_bancaria',
+            pendiente_factura: 'pendiente_factura',
+            sin_factura: 'sin_factura',
+            no_requiere: 'sin_factura'
+        };
+
+        const INVOICE_STATUS_META = {
+            pendiente: {
+                label: 'Pendiente de factura',
+                description: 'Sube o vincula el CFDI para continuar al banco.',
+                stageIndex: 0,
+                accent: 'orange'
+            },
+            facturado: {
+                label: 'Factura lista',
+                description: 'Puedes avanzar a conciliación bancaria.',
+                stageIndex: 1,
+                accent: 'green'
+            },
+            sin_factura: {
+                label: 'Cerrado sin factura',
+                description: 'El gasto se documentó sin requerir CFDI.',
+                stageIndex: 0,
+                accent: 'slate'
+            }
+        };
+
+        const BANK_STATUS_META = {
+            pendiente_factura: {
+                label: 'Esperando factura',
+                description: 'Primero adjunta la factura para poder conciliar.',
+                accent: 'orange'
+            },
+            pendiente_bancaria: {
+                label: 'Listo para conciliar en bancos',
+                description: 'Revisa los detalles del gasto y luego pasa a conciliación bancaria.',
+                accent: 'emerald'
+            },
+            conciliado_banco: {
+                label: 'Conciliado',
+                description: 'El gasto ya está vinculado a un movimiento.',
+                accent: 'green'
+            },
+            sin_factura: {
+                label: 'Sin factura',
+                description: 'El flujo terminó sin requerir conciliación.',
+                accent: 'slate'
+            }
+        };
+
+        const normalizeInvoiceStatusValue = (status, willHaveCfdi = true) => {
+            if (!willHaveCfdi) {
+                return 'sin_factura';
+            }
+            const value = (status || '').toString().trim().toLowerCase();
+            if (!value) {
+                return 'pendiente';
+            }
+            if (INVOICE_STATUS_MAP[value]) {
+                return INVOICE_STATUS_MAP[value];
+            }
+            if (value.includes('fact')) {
+                return 'facturado';
+            }
+            if (value.includes('sin') || value.includes('no requiere')) {
+                return 'sin_factura';
+            }
+            return 'pendiente';
+        };
+
+        const normalizeBankStatusValue = (status, invoiceStatus, hasBankLink = false) => {
+            const value = (status || '').toString().trim().toLowerCase();
+            if (value && BANK_STATUS_MAP[value]) {
+                return BANK_STATUS_MAP[value];
+            }
+            if (invoiceStatus === 'facturado') {
+                return hasBankLink ? 'conciliado_banco' : 'pendiente_bancaria';
+            }
+            if (invoiceStatus === 'pendiente') {
+                return 'pendiente_factura';
+            }
+            return 'sin_factura';
+        };
+
+        const getInvoiceStatusMeta = (status) => {
+            const key = (status || '').toString().trim().toLowerCase();
+            return INVOICE_STATUS_META[key] || {
+                label: 'Seguimiento en curso',
+                description: 'Revisa los detalles del gasto para continuar.',
+                stageIndex: 0,
+                accent: 'slate'
+            };
+        };
+
+        const getBankStatusMeta = (status) => {
+            const key = (status || '').toString().trim().toLowerCase();
+            return BANK_STATUS_META[key] || {
+                label: 'Sin conciliación',
+                description: 'Aún no se ha conciliado contra el banco.',
+                accent: 'slate'
+            };
+        };
+
+        const isPendingInvoiceStatus = (status) => {
+            const key = (status || '').toString().trim().toLowerCase();
+            return key === 'pendiente' || key === 'pendiente_factura';
+        };
+
+        const getBadgeClassName = (accent = 'slate') => {
+            switch (accent) {
+                case 'green':
+                    return 'bg-green-100 border border-green-200 text-green-700';
+                case 'emerald':
+                    return 'bg-emerald-100 border border-emerald-200 text-emerald-700';
+                case 'orange':
+                    return 'bg-orange-100 border border-orange-200 text-orange-700';
+                case 'indigo':
+                    return 'bg-indigo-100 border border-indigo-200 text-indigo-700';
+                default:
+                    return 'bg-slate-100 border border-slate-200 text-slate-700';
+            }
+        };
+
         // Componente de Dashboard de Gastos
-        const DashboardContent = ({ expensesData, selectedMonth, setSelectedMonth, selectedCategoryFilter, setSelectedCategoryFilter, categorias, getCategoryInfo }) => {
+        const DashboardContent = ({ expensesData, selectedMonth, setSelectedMonth, selectedCategoryFilter, setSelectedCategoryFilter, categorias, getCategoryInfo, onOpenQuickView }) => {
             try {
             const dataset = Array.isArray(expensesData) ? expensesData : [];
             // Filtrar gastos por mes
@@ -114,6 +318,82 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
 
             const aiInsights = generateInsights();
 
+            const stageCounter = expensesInMonth.reduce((acc, expense) => {
+                const invoiceStatus = (expense.estado_factura || '').toLowerCase();
+                const bankStatus = (expense.estado_conciliacion || '').toLowerCase();
+
+                if (invoiceStatus === 'sin_factura') {
+                    acc.noInvoice += 1;
+                } else if (invoiceStatus === 'facturado') {
+                    acc.facturado += 1;
+                    if (bankStatus === 'conciliado_banco') {
+                        acc.conciliado += 1;
+                    }
+                } else {
+                    acc.pendiente += 1;
+                }
+
+                return acc;
+            }, { pendiente: 0, facturado: 0, conciliado: 0, noInvoice: 0 });
+
+            const invoiceStageData = [
+                {
+                    key: 'pendiente',
+                    label: 'Pendiente de factura',
+                    accent: 'orange',
+                    count: stageCounter.pendiente,
+                    helper: stageCounter.pendiente === 0 ? 'Sin pendientes este mes.' : 'Sube o vincula la factura para avanzar.',
+                },
+                {
+                    key: 'facturado',
+                    label: 'Factura lista',
+                    accent: 'green',
+                    count: stageCounter.facturado,
+                    helper: stageCounter.facturado === 0
+                        ? 'Aún no hay facturas registradas.'
+                        : `${Math.max(stageCounter.facturado - stageCounter.conciliado, 0)} pendientes de conciliar.`,
+                },
+                {
+                    key: 'conciliado',
+                    label: 'Conciliado en banco',
+                    accent: 'indigo',
+                    count: stageCounter.conciliado,
+                    helper: stageCounter.conciliado === 0 ? 'Cuando concilies aparecerán aquí.' : 'Ciclo cerrado con movimiento bancario.',
+                },
+            ];
+
+            const getStageCircleClass = (accent, count) => {
+                if (!count) {
+                    return 'bg-gray-200 text-gray-500 border border-gray-300';
+                }
+                switch (accent) {
+                    case 'orange':
+                        return 'bg-orange-500 text-white shadow-md shadow-orange-200';
+                    case 'green':
+                        return 'bg-green-500 text-white shadow-md shadow-green-200';
+                    case 'indigo':
+                        return 'bg-indigo-500 text-white shadow-md shadow-indigo-200';
+                    default:
+                        return 'bg-slate-600 text-white';
+                }
+            };
+
+            const getConnectorClass = (currentStep, nextStep) => {
+                if (!nextStep) {
+                    return 'bg-gray-200';
+                }
+                if (currentStep.count === 0 && nextStep.count === 0) {
+                    return 'bg-gray-200';
+                }
+                if (currentStep.accent === 'orange') {
+                    return nextStep.count > 0 ? 'bg-gradient-to-r from-orange-400 to-green-400' : 'bg-orange-200';
+                }
+                if (currentStep.accent === 'green') {
+                    return nextStep.count > 0 ? 'bg-gradient-to-r from-green-400 to-indigo-400' : 'bg-green-200';
+                }
+                return nextStep.count > 0 ? 'bg-indigo-400' : 'bg-indigo-200';
+            };
+
             return (
                 <div className="p-6 space-y-6">
                     {/* Controles de filtro */}
@@ -172,6 +452,39 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                                     <p className="text-2xl font-bold text-orange-800">{categoryStats.length}</p>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Visualizador de estatus de factura */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900">Visualizador de estatus</h3>
+                                <p className="text-sm text-gray-600">Sigue el recorrido del gasto desde la captura hasta la conciliación bancaria.</p>
+                            </div>
+                            <span className="text-xs text-gray-500">Período: {selectedMonth}</span>
+                        </div>
+
+                        <div className="mt-6 flex flex-col md:flex-row md:items-center md:justify-between md:gap-4 space-y-4 md:space-y-0">
+                            {invoiceStageData.map((step, index) => (
+                                <React.Fragment key={step.key}>
+                                    <div className="flex flex-col items-center text-center md:w-40 bg-slate-50 md:bg-transparent border border-slate-200 md:border-none rounded-lg md:rounded-none px-4 py-3 md:px-0 md:py-0">
+                                        <div className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-semibold transition-colors ${getStageCircleClass(step.accent, step.count)}`}>
+                                            {step.count}
+                                        </div>
+                                        <p className="mt-2 text-sm font-medium text-gray-700">{step.label}</p>
+                                        <p className="text-xs text-gray-500 mt-1">{step.helper}</p>
+                                    </div>
+                                    {index < invoiceStageData.length - 1 && (
+                                        <div className={`hidden md:block flex-1 h-1 ${getConnectorClass(step, invoiceStageData[index + 1])}`}></div>
+                                    )}
+                                </React.Fragment>
+                            ))}
+                        </div>
+
+                        <div className="mt-4 flex items-center gap-2 text-xs text-gray-500 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2">
+                            <i className="fas fa-receipt text-slate-500"></i>
+                            <span>{stageCounter.noInvoice} gastos marcados como sin factura en el periodo.</span>
                         </div>
                     </div>
 
@@ -247,7 +560,11 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                                 {filteredExpenses.map(expense => {
                                     const categoryInfo = getCategoryInfo(expense.categoria);
                                     return (
-                                        <div key={expense.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                                        <div
+                                            key={expense.id}
+                                            className={`bg-white border border-gray-200 rounded-lg p-4 ${onOpenQuickView ? 'hover:border-blue-300 transition cursor-pointer' : ''}`}
+                                            onClick={() => onOpenQuickView && onOpenQuickView(expense)}
+                                        >
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-3">
                                                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${categoryInfo.color}`}>
@@ -844,26 +1161,175 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
         ];
 
         // Componente de Carga de Facturas
-        const InvoiceUploadContent = ({ expensesData, setExpensesData }) => {
+        const InvoiceUploadContent = ({ expensesData, setExpensesData, normalizeExpenseFn, companyId }) => {
             const [selectedFiles, setSelectedFiles] = useState([]);
             const [isUploading, setIsUploading] = useState(false);
+            const [uploadResults, setUploadResults] = useState([]);
+            const [uploadSummary, setUploadSummary] = useState(null);
+            const [showTable, setShowTable] = useState(false);
 
             const handleFileSelection = (files) => {
                 setSelectedFiles(Array.from(files));
+                setUploadResults([]);
+                setUploadSummary(null);
+                setShowTable(false);
             };
 
             const processInvoices = async () => {
-                setIsUploading(true);
-                // Simular procesamiento de facturas
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                if (selectedFiles.length === 0) {
+                    return;
+                }
 
-                alert(`${selectedFiles.length} facturas procesadas exitosamente`);
+                console.log('📂 Preparando carga masiva de facturas', selectedFiles.map((file) => ({ name: file.name, size: file.size })));
+                setIsUploading(true);
+                const preliminaryResults = [];
+                const invoicesPayload = [];
+
+                for (const file of selectedFiles) {
+                    const extension = (file.name.split('.').pop() || '').toLowerCase();
+                    if (extension !== 'xml') {
+                        preliminaryResults.push({
+                            filename: file.name,
+                            status: 'unsupported',
+                            message: 'Solo se pueden procesar archivos XML CFDI en esta versión.',
+                        });
+                        continue;
+                    }
+
+                    let fileText;
+                    try {
+                        fileText = await file.text();
+                    } catch (error) {
+                        preliminaryResults.push({
+                            filename: file.name,
+                            status: 'error',
+                            message: 'No se pudo leer el archivo local.',
+                        });
+                        continue;
+                    }
+
+                    const formData = new FormData();
+                    formData.append('file', file, file.name);
+
+                    try {
+                        console.log('📤 Enviando CFDI a /invoices/parse', file.name);
+                        const response = await fetch('/invoices/parse', {
+                            method: 'POST',
+                            body: formData,
+                        });
+
+                        if (!response.ok) {
+                            const text = await response.text();
+                            preliminaryResults.push({
+                                filename: file.name,
+                                status: 'error',
+                                message: `Error interpretando CFDI: ${text || response.status}`,
+                            });
+                            continue;
+                        }
+
+                        const parsed = await response.json();
+                        console.log('🧾 CFDI interpretado', { file: file.name, total: parsed.total, uuid: parsed.uuid });
+                        invoicesPayload.push({
+                            filename: file.name,
+                            uuid: parsed.uuid || null,
+                            total: parsed.total,
+                            issued_at: parsed.issued_at || parsed.fecha_emision || null,
+                            rfc_emisor: parsed.emitter?.rfc || null,
+                            folio: parsed.folio || null,
+                            raw_xml: fileText,
+                        });
+                    } catch (error) {
+                        console.error('Error parsing invoice', error);
+                        preliminaryResults.push({
+                            filename: file.name,
+                            status: 'error',
+                            message: 'Error interno al enviar el archivo al servidor.',
+                        });
+                    }
+                }
+
+                let matchResults = [];
+                if (invoicesPayload.length > 0) {
+                    try {
+                        console.log('🔎 Enviando lote a /invoices/bulk-match', invoicesPayload);
+                        const response = await fetch('/invoices/bulk-match', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                company_id: companyId || 'default',
+                                invoices: invoicesPayload,
+                                auto_mark_invoiced: true,
+                            }),
+                        });
+
+                        if (!response.ok) {
+                            const text = await response.text();
+                            preliminaryResults.push({
+                                filename: undefined,
+                                status: 'error',
+                                message: `Error conciliando facturas: ${text || response.status}`,
+                            });
+                            console.error('❌ Error conciliando facturas', text || response.status);
+                        } else {
+                            const result = await response.json();
+                            matchResults = result?.results || [];
+                            console.log('🔗 Resultado de conciliación masiva', matchResults);
+
+                            const linkedExpenses = matchResults
+                                .filter((item) => item.status === 'linked' && item.expense)
+                                .map((item) => item.expense);
+
+                            if (linkedExpenses.length > 0 && typeof setExpensesData === 'function') {
+                                setExpensesData((prevExpenses) => {
+                                    const map = new Map(prevExpenses.map((exp) => [exp.id, exp]));
+                                    linkedExpenses.forEach((expense) => {
+                                        const normalized = typeof normalizeExpenseFn === 'function'
+                                            ? normalizeExpenseFn(expense)
+                                            : expense;
+                                        map.set(normalized.id, normalized);
+                                    });
+                                    return Array.from(map.values());
+                                });
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error matching invoices', error);
+                        preliminaryResults.push({
+                            filename: undefined,
+                            status: 'error',
+                            message: 'Error interno al conciliar las facturas.',
+                        });
+                    }
+                }
+
+                const finalResults = [
+                    ...matchResults,
+                    ...preliminaryResults,
+                ];
+
+                setUploadResults(finalResults);
+                setUploadSummary({
+                    total: selectedFiles.length,
+                    sent_to_match: invoicesPayload.length,
+                    linked: finalResults.filter((r) => r.status === 'linked').length,
+                    needs_review: finalResults.filter((r) => r.status === 'needs_review').length,
+                    errors: finalResults.filter((r) => r.status === 'error').length,
+                });
                 setSelectedFiles([]);
                 setIsUploading(false);
+                setShowTable(true);
+                console.log('📊 Resumen conciliación', {
+                    total: selectedFiles.length,
+                    enviados: invoicesPayload.length,
+                    resultados: finalResults,
+                });
             };
 
             return (
-                <div className="p-6 space-y-4">
+                <div className="p-4 sm:p-6 space-y-4">
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
                         <h3 className="font-medium text-green-800 mb-2">
                             📤 Carga masiva de facturas
@@ -873,7 +1339,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                         </p>
                     </div>
 
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 sm:p-8 text-center">
                         <input
                             type="file"
                             id="invoice-files"
@@ -907,21 +1373,238 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                             </button>
                         </div>
                     )}
+
+                    {uploadSummary && (
+                        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                <div>
+                                    <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                                        <i className="fas fa-clipboard-check text-green-600"></i>
+                                        Resumen de conciliación
+                                    </h4>
+                                    <p className="text-sm text-gray-600">{uploadSummary.linked}/{uploadSummary.sent_to_match} facturas conciliadas automáticamente</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs text-gray-500">{uploadSummary.total} archivos subidos</p>
+                                    <button
+                                        onClick={() => {
+                                            const headers = ['Archivo', 'UUID', 'Estado', 'Mensaje'];
+                                            const rows = uploadResults.map((item) => [
+                                                item.filename || '',
+                                                item.uuid || '',
+                                                item.status,
+                                                item.message || '',
+                                            ]);
+                                            const csv = [headers.join(','), ...rows.map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(','))].join('\n');
+                                            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                                            const url = URL.createObjectURL(blob);
+                                            const link = document.createElement('a');
+                                            link.href = url;
+                                            link.setAttribute('download', `resumen-conciliacion-${Date.now()}.csv`);
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            document.body.removeChild(link);
+                                            URL.revokeObjectURL(url);
+                                        }}
+                                        className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                    >
+                                        <i className="fas fa-download"></i>
+                                        Descargar reporte
+                                    </button>
+                                </div>
+                            </div>
+
+                            {(() => {
+                                const totalConciliadas = uploadSummary.linked;
+                                const totalProcesadas = uploadSummary.sent_to_match || 1;
+                                const percentage = Math.round((totalConciliadas / totalProcesadas) * 100);
+                                return (
+                                    <div className="bg-emerald-100 border border-emerald-200 rounded-lg p-3 space-y-2">
+                                        <div className="flex items-center justify-between text-xs font-semibold text-emerald-700">
+                                            <span>{totalConciliadas}/{totalProcesadas} facturas conciliadas automáticamente</span>
+                                            <span>{percentage}%</span>
+                                        </div>
+                                        <div className="w-full h-2 bg-emerald-200 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-emerald-500 transition-all duration-700"
+                                                style={{ width: `${percentage}%` }}
+                                            ></div>
+                                        </div>
+                                        <p className="text-sm text-emerald-900 font-medium">
+                                            {percentage >= 70
+                                                ? '¡Buen trabajo! La mayoría se conciliaron solas, revisa las pendientes 👀'
+                                                : 'Vamos bien, revisa las pendientes para cerrar el ciclo 🚀'}
+                                        </p>
+                                    </div>
+                                );
+                            })()}
+
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                                    <p className="text-emerald-700 font-semibold">{uploadSummary.linked}</p>
+                                    <p className="text-emerald-600">Facturas conciliadas automáticamente</p>
+                                </div>
+                                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                                    <p className="text-yellow-700 font-semibold">{uploadSummary.needs_review}</p>
+                                    <p className="text-yellow-600">Revisiones manuales sugeridas</p>
+                                </div>
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                                    <p className="text-red-700 font-semibold">{uploadSummary.errors}</p>
+                                    <p className="text-red-600">Errores durante la carga</p>
+                                </div>
+                                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                                    <p className="text-slate-700 font-semibold">{uploadSummary.sent_to_match}/{uploadSummary.total}</p>
+                                    <p className="text-slate-600">CFDI enviados a conciliación</p>
+                                </div>
+                            </div>
+
+                            {showTable && uploadResults.length > 0 && (
+                                <div className="space-y-3">
+                                    <div className="hidden md:block overflow-auto">
+                                        <table className="min-w-full text-xs border border-gray-200 rounded-lg">
+                                            <thead className="bg-gray-50 text-gray-600 uppercase tracking-wide">
+                                                <tr>
+                                                    <th className="px-3 py-2 text-left">Folio / UUID</th>
+                                                    <th className="px-3 py-2 text-left">Proveedor</th>
+                                                    <th className="px-3 py-2 text-left">Monto</th>
+                                                    <th className="px-3 py-2 text-left">Fecha</th>
+                                                    <th className="px-3 py-2 text-left">Resultado</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-200 bg-white">
+                                                {uploadResults.map((item, index) => {
+                                                    const statusConfig = {
+                                                        linked: { label: 'Conciliada automáticamente', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: 'fas fa-check-circle' },
+                                                        needs_review: { label: 'Revisión manual', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', icon: 'fas fa-exclamation-triangle' },
+                                                        no_match: { label: 'Sin coincidencia', color: 'bg-slate-100 text-slate-700 border-slate-200', icon: 'fas fa-search' },
+                                                        error: { label: 'Error', color: 'bg-red-100 text-red-700 border-red-200', icon: 'fas fa-times-circle' },
+                                                        unsupported: { label: 'Formato no soportado', color: 'bg-gray-100 text-gray-700 border-gray-200', icon: 'fas fa-ban' },
+                                                    };
+                                                    const config = statusConfig[item.status] || statusConfig.no_match;
+                                                    const mainCandidate = Array.isArray(item.candidates) && item.candidates.length > 0 ? item.candidates[0] : null;
+                                                    const expenseFromResult = item.expense || null;
+                                                    const providerName = mainCandidate?.provider_name || expenseFromResult?.proveedor?.nombre || '—';
+                                                    const providerRfc = mainCandidate?.provider_rfc || expenseFromResult?.proveedor?.rfc || expenseFromResult?.rfc;
+                                                    const amountDisplay = mainCandidate
+                                                        ? formatCurrency(mainCandidate.monto_total)
+                                                        : expenseFromResult
+                                                            ? formatCurrency(expenseFromResult.monto_total)
+                                                            : '—';
+                                                    const dateDisplay = mainCandidate?.fecha_gasto || expenseFromResult?.fecha_gasto || '—';
+                                                    return (
+                                                        <tr key={`${item.filename || 'invoice'}-${index}`} className="hover:bg-gray-50">
+                                                            <td className="px-3 py-2">
+                                                                <div className="font-semibold text-gray-800">{item.uuid || 'Sin UUID'}</div>
+                                                                <div className="text-gray-500">{item.filename || 'Factura'}</div>
+                                                            </td>
+                                                            <td className="px-3 py-2">
+                                                                {providerName}
+                                                                {providerRfc && (
+                                                                    <div className="text-gray-500">RFC: {providerRfc}</div>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-3 py-2">{amountDisplay}</td>
+                                                            <td className="px-3 py-2">{dateDisplay}</td>
+                                                            <td className="px-3 py-2">
+                                                                <span className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-full border ${config.color}`}>
+                                                                    <i className={config.icon}></i>
+                                                                    {config.label}
+                                                                </span>
+                                                                {item.message && (
+                                                                    <div className="mt-1 text-[11px] text-gray-600">{item.message}</div>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div className="md:hidden space-y-2">
+                                        {uploadResults.map((item, index) => {
+                                            const statusConfig = {
+                                                linked: { label: 'Conciliada automáticamente', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: 'fas fa-check-circle' },
+                                                needs_review: { label: 'Revisión manual', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', icon: 'fas fa-exclamation-triangle' },
+                                                no_match: { label: 'Sin coincidencia', color: 'bg-slate-100 text-slate-700 border-slate-200', icon: 'fas fa-search' },
+                                                error: { label: 'Error', color: 'bg-red-100 text-red-700 border-red-200', icon: 'fas fa-times-circle' },
+                                                unsupported: { label: 'Formato no soportado', color: 'bg-gray-100 text-gray-700 border-gray-200', icon: 'fas fa-ban' },
+                                            };
+                                            const config = statusConfig[item.status] || statusConfig.no_match;
+                                            const mainCandidate = Array.isArray(item.candidates) && item.candidates.length > 0 ? item.candidates[0] : null;
+                                            const expenseFromResult = item.expense || null;
+                                            const providerName = mainCandidate?.provider_name || expenseFromResult?.proveedor?.nombre || '—';
+                                            const providerRfc = mainCandidate?.provider_rfc || expenseFromResult?.proveedor?.rfc || expenseFromResult?.rfc;
+                                            const amountDisplay = mainCandidate
+                                                ? formatCurrency(mainCandidate.monto_total)
+                                                : expenseFromResult
+                                                    ? formatCurrency(expenseFromResult.monto_total)
+                                                    : '—';
+                                            const dateDisplay = mainCandidate?.fecha_gasto || expenseFromResult?.fecha_gasto || '—';
+                                            return (
+                                                <div key={`${item.filename || 'invoice-mobile'}-${index}`} className="border border-gray-200 rounded-lg p-3 bg-white space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <p className="text-sm font-semibold text-gray-800">{item.filename || 'Factura'}</p>
+                                                            <p className="text-xs text-gray-500">UUID: {item.uuid || 'Sin UUID'}</p>
+                                                        </div>
+                                                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-full border ${config.color}`}>
+                                                            <i className={config.icon}></i>
+                                                            {config.label}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-xs text-gray-600 space-y-1">
+                                                        <p><strong>Proveedor:</strong> {providerName}</p>
+                                                        {providerRfc && <p><strong>RFC:</strong> {providerRfc}</p>}
+                                                        <p><strong>Monto:</strong> {amountDisplay}</p>
+                                                        <p><strong>Fecha:</strong> {dateDisplay}</p>
+                                                        {item.message && <p className="text-[11px] text-gray-500">{item.message}</p>}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <p className="text-xs text-gray-500">Tip: abre la pestaña “Conciliar Gastos” para resolver rápidamente las facturas en revisión manual.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             );
         };
 
         // Componente de Conciliación
-        const ReconciliationContent = ({ expensesData }) => {
-            const pendingExpenses = expensesData.filter(expense => expense.estado_factura === 'pendiente');
-            const invoicedExpenses = expensesData.filter(expense => expense.estado_factura === 'facturado');
+        const ReconciliationContent = ({ expensesData, onOpenBulkUpload }) => {
+            const pendingExpenses = expensesData.filter((expense) => isPendingInvoiceStatus(expense.estado_factura));
+            const facturadoExpenses = expensesData.filter((expense) => expense.estado_factura === 'facturado');
+            const conciliatedExpenses = facturadoExpenses.filter((expense) => expense.estado_conciliacion === 'conciliado_banco');
 
-            const totalConciliated = invoicedExpenses.length;
-            const totalTracked = pendingExpenses.length + totalConciliated;
-            const conciliatedPercentage = ((totalConciliated / (totalTracked || 1)) * 100).toFixed(1);
+            const conciliatedPercentage = facturadoExpenses.length === 0
+                ? '0.0'
+                : ((conciliatedExpenses.length / facturadoExpenses.length) * 100).toFixed(1);
 
             return (
                 <div className="p-6 space-y-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                            <div>
+                                <h3 className="font-medium text-blue-800 mb-1 flex items-center gap-2">
+                                    <i className="fas fa-route"></i>
+                                    Flujo guiado: captura → factura → banco
+                                </h3>
+                                <p className="text-sm text-blue-700">
+                                    Revisa la columna izquierda para saber qué gastos aún necesitan factura y usa la derecha para monitorear los que ya están listos o conciliados con el banco.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => typeof onOpenBulkUpload === 'function' && onOpenBulkUpload()}
+                                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700"
+                            >
+                                <i className="fas fa-file-upload"></i>
+                                Carga masiva de facturas
+                            </button>
+                        </div>
+                    </div>
+
                     <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
                         <h3 className="font-medium text-purple-800 mb-2">
                             ⚖️ Conciliador de Gastos vs Facturas
@@ -942,15 +1625,26 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                                     <div key={expense.id} className="p-3 bg-orange-50 border border-orange-200 rounded">
                                         <p className="font-medium text-sm">{expense.descripcion}</p>
                                         <p className="text-xs text-gray-600">{formatCurrency(expense.monto_total)} • {expense.fecha_gasto}</p>
-                                        {!expense.factura_id ? (
+                                        {(() => {
+                                            const invoiceMeta = expense.invoice_status_meta || getInvoiceStatusMeta(expense.estado_factura);
+                                            const badgeClass = getBadgeClassName(invoiceMeta.accent);
+                                            return (
+                                                <div className="mt-2 space-y-1">
+                                                    <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded ${badgeClass}`}>
+                                                        <i className="fas fa-file-invoice mr-1"></i>
+                                                        {invoiceMeta.label}
+                                                    </span>
+                                                    <p className="text-xs text-orange-700 flex items-start gap-1">
+                                                        <i className="fas fa-lightbulb mt-0.5"></i>
+                                                        <span>{invoiceMeta.description}</span>
+                                                    </p>
+                                                </div>
+                                            );
+                                        })()}
+                                        {!expense.factura_id && (
                                             <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                                                <i className="fas fa-times-circle"></i>
-                                                Este gasto aún no tiene factura registrada.
-                                            </p>
-                                        ) : (
-                                            <p className="text-xs text-orange-700 mt-1 flex items-center gap-1">
-                                                <i className="fas fa-clock"></i>
-                                                Factura {expense.factura_id} registrada, pendiente de conciliar.
+                                                <i className="fas fa-upload"></i>
+                                                Sube el CFDI o marca si no requiere factura.
                                             </p>
                                         )}
                                     </div>
@@ -968,60 +1662,163 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                         <div className="bg-white border border-gray-200 rounded-lg p-4">
                             <h4 className="font-medium text-gray-900 mb-3 flex items-center">
                                 <i className="fas fa-check-circle text-green-500 mr-2"></i>
-                                Gastos conciliados ({invoicedExpenses.length})
+                                Conciliación de gastos ({facturadoExpenses.length})
                             </h4>
-                            <div className="space-y-2 max-h-64 overflow-y-auto">
-                                {invoicedExpenses.map(expense => {
-                                    const movimientos = expense.movimientos_bancarios || (expense.movimiento_bancario ? [expense.movimiento_bancario] : []);
-                                    return (
-                                        <div key={expense.id} className="p-3 bg-green-50 border border-green-200 rounded space-y-2">
-                                            <p className="font-medium text-sm">{expense.descripcion}</p>
-                                            <p className="text-xs text-gray-600">{formatCurrency(expense.monto_total)} • {expense.fecha_gasto}</p>
-                                            <div className="mt-2 text-xs text-green-700 flex flex-wrap items-center gap-2">
-                                                <i className="fas fa-file-invoice"></i>
-                                                <span>Factura {expense.factura_id || 'sin folio'}</span>
-                                                <a
-                                                    href={expense.factura_url || '#'}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-blue-600 hover:underline"
-                                                >
-                                                    Abrir factura
-                                                </a>
-                                            </div>
-                                            {movimientos.length > 0 ? (
-                                                <div className="text-xs text-indigo-700 space-y-1">
-                                                    {movimientos.map((mov, idx) => (
-                                                        <div key={idx} className="flex items-center justify-between">
-                                                            <span className="flex items-center gap-2">
-                                                                <i className="fas fa-university"></i>
-                                                                {mov.bank || mov.banco} • {mov.description || mov.descripcion}
-                                                            </span>
-                                                            <span>{formatCurrency(mov.amount || mov.monto || 0)}</span>
-                                                        </div>
-                                                    ))}
-                                                    {expense.tax_info && (
-                                                        <div className="flex items-center gap-2 text-green-600">
-                                                            <i className="fas fa-file-invoice"></i>
-                                                            <span>IVA acreditable: ${Number(expense.tax_info.iva_amount || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+                            <div className="space-y-4 max-h-64 overflow-y-auto pr-1">
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h5 className="text-sm font-semibold text-emerald-700 flex items-center gap-2">
+                                            <i className="fas fa-layer-group"></i>
+                                            Listos para conciliación bancaria ({readyForBankStage.length})
+                                        </h5>
+                                        {readyForBankStage.length > 0 && (
+                                            <span className="text-xs text-emerald-600">Da clic en “Conciliar Gastos” para avanzar al banco</span>
+                                        )}
+                                    </div>
+                                    <div className="space-y-2">
+                                        {readyForBankStage.map(expense => {
+                                            const movimientos = expense.movimientos_bancarios || (expense.movimiento_bancario ? [expense.movimiento_bancario] : []);
+                                            const bankMeta = expense.bank_status_meta || getBankStatusMeta(expense.estado_conciliacion);
+                                            const bankBadgeClass = getBadgeClassName(bankMeta.accent);
+                                            const invoiceMeta = expense.invoice_status_meta || getInvoiceStatusMeta(expense.estado_factura);
+                                            return (
+                                                <div key={`ready-${expense.id}`} className="p-3 bg-emerald-50 border border-emerald-200 rounded space-y-2">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <p className="font-medium text-sm text-emerald-900">{expense.descripcion}</p>
+                                                        <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded ${bankBadgeClass}`}>
+                                                            <i className="fas fa-traffic-light mr-1"></i>
+                                                            {bankMeta.label}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-gray-600">{formatCurrency(expense.monto_total)} • {expense.fecha_gasto}</p>
+                                                    <div className="mt-1 text-xs text-green-700 flex flex-wrap items-center gap-2">
+                                                        <i className="fas fa-file-invoice"></i>
+                                                        <span>Factura {expense.factura_id || (expense.factura_url ? 'registrada' : 'sin folio')}</span>
+                                                        {expense.factura_url && (
+                                                            <a
+                                                                href={expense.factura_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-blue-600 hover:underline"
+                                                            >
+                                                                Abrir factura
+                                                            </a>
+                                                        )}
+                                                        <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded ${getBadgeClassName(invoiceMeta.accent)}`}>
+                                                            <i className="fas fa-layer-group mr-1"></i>
+                                                            {invoiceMeta.label}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-emerald-700 flex items-start gap-1">
+                                                        <i className="fas fa-info-circle mt-0.5"></i>
+                                                        <span>{bankMeta.description}</span>
+                                                    </p>
+                                                    {movimientos.length > 0 && (
+                                                        <div className="text-xs text-indigo-700 space-y-1">
+                                                            {movimientos.map((mov, idx) => (
+                                                                <div key={idx} className="flex items-center justify-between">
+                                                                    <span className="flex items-center gap-2">
+                                                                        <i className="fas fa-university"></i>
+                                                                        {mov.bank || mov.banco || 'Movimiento bancario'} • {mov.description || mov.descripcion || 'Sin descripción'}
+                                                                    </span>
+                                                                    <span>{formatCurrency(mov.amount || mov.monto || 0)}</span>
+                                                                </div>
+                                                            ))}
                                                         </div>
                                                     )}
                                                 </div>
-                                            ) : (
-                                                <div className="mt-2 text-xs text-gray-600 flex items-center gap-2">
-                                                    <i className="fas fa-arrow-right"></i>
-                                                    <span>Listo para conciliación bancaria.</span>
-                                                </div>
-                                            )}
-                                            <p className="text-xs text-gray-500">Flujo: {expense.workflow_status === 'facturado' ? 'Facturado' : expense.workflow_status === 'pendiente_factura' ? 'Pendiente de factura' : 'Cerrado sin factura'}</p>
-                                        </div>
-                                    );
-                                })}
+                                            );
+                                        })}
 
-                                {invoicedExpenses.length === 0 && (
+                                        {readyForBankStage.length === 0 && (
+                                            <div className="text-xs text-gray-500 px-3 py-4 bg-emerald-50 border border-dashed border-emerald-200 rounded">
+                                                <i className="fas fa-smile mr-1 text-emerald-500"></i>
+                                                Todos los gastos facturados ya fueron conciliados en banco.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="pt-3 border-t border-gray-200">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h5 className="text-sm font-semibold text-indigo-700 flex items-center gap-2">
+                                            <i className="fas fa-university"></i>
+                                            Conciliados en banco ({conciliatedExpenses.length})
+                                        </h5>
+                                        {conciliatedExpenses.length > 0 && (
+                                            <span className="text-xs text-indigo-600">Consulta los movimientos asociados</span>
+                                        )}
+                                    </div>
+                                    <div className="space-y-2">
+                                        {conciliatedExpenses.map(expense => {
+                                            const movimientos = expense.movimientos_bancarios || (expense.movimiento_bancario ? [expense.movimiento_bancario] : []);
+                                            const totalConciliado = movimientos.reduce((sum, mov) => sum + (mov.amount || mov.monto || 0), 0);
+                                            const bankMeta = expense.bank_status_meta || getBankStatusMeta(expense.estado_conciliacion);
+                                            const badgeClass = getBadgeClassName(bankMeta.accent);
+                                            return (
+                                                <div key={`bank-${expense.id}`} className="p-3 bg-green-50 border border-green-200 rounded space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <p className="font-medium text-sm">{expense.descripcion}</p>
+                                                            <p className="text-xs text-gray-600">Factura {expense.factura_id || 'sin folio'} • {expense.fecha_gasto}</p>
+                                                        </div>
+                                                        <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded ${badgeClass}`}>
+                                                            <i className="fas fa-check mr-1"></i>
+                                                            {bankMeta.label}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-xs text-green-700 space-y-1">
+                                                        {movimientos.map((mov, idx) => (
+                                                            <div key={idx} className="flex items-center justify-between">
+                                                                <span className="flex items-center gap-2">
+                                                                    <i className="fas fa-university"></i>
+                                                                    {mov.bank} • {mov.description}
+                                                                </span>
+                                                                <span>{formatCurrency(mov.amount || mov.monto || 0)}</span>
+                                                            </div>
+                                                        ))}
+                                                        <div className="flex items-center gap-2">
+                                                            <i className="fas fa-calendar-day"></i>
+                                                            <span>Conciliado el {new Date(expense.fecha_conciliacion_bancaria || expense.fecha_facturacion || new Date()).toLocaleDateString('es-MX')}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="mt-2 flex items-center gap-2">
+                                                        <a
+                                                            className="text-blue-600 text-xs hover:underline"
+                                                            href={expense.factura_url || '#'}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                        >
+                                                            Ver factura
+                                                        </a>
+                                                        <span className="text-gray-400 text-xs">•</span>
+                                                        <button
+                                                            onClick={() => handleLinkMovement(expense, null)}
+                                                            className="text-xs text-red-600 hover:text-red-700"
+                                                        >
+                                                            Desasociar movimiento
+                                                        </button>
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">
+                                                        Total conciliado: {formatCurrency(totalConciliado || expense.monto_total)}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+
+                                        {conciliatedExpenses.length === 0 && (
+                                            <div className="text-xs text-gray-500 px-3 py-4 bg-gray-50 border border-dashed border-gray-200 rounded">
+                                                <i className="fas fa-info-circle mr-1 text-gray-500"></i>
+                                                Aún no hay movimientos bancarios confirmados para este periodo.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {facturadoExpenses.length === 0 && (
                                     <div className="text-center text-sm text-gray-500 py-6">
                                         <i className="fas fa-file-invoice text-gray-400 text-2xl mb-2"></i>
-                                        <p>Aquí se mostrarán los gastos que ya tienen factura conciliada.</p>
+                                        <p>Aquí verás los gastos que ya tienen factura y avanzan a conciliación.</p>
                                     </div>
                                 )}
                             </div>
@@ -1032,7 +1829,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                         <div className="flex items-center justify-between flex-wrap gap-3">
                             <div>
                                 <h4 className="font-medium text-gray-900">Resumen de Conciliación</h4>
-                                <p className="text-sm text-gray-600">{conciliatedPercentage}% de los gastos con factura ya están listos para conciliación bancaria.</p>
+                                <p className="text-sm text-gray-600">{conciliatedPercentage}% de los gastos con factura ya están conciliados contra el banco.</p>
                             </div>
                             <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm">
                                 📊 Reporte de conciliación
@@ -1043,10 +1840,11 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
             );
         };
 
-        const BankReconciliationContent = ({ expensesData, onUpdateExpense }) => {
+        const BankReconciliationContent = ({ expensesData, onUpdateExpense, companyId, onMissionComplete }) => {
+            const resolvedCompany = companyId || 'default';
             const readyForBank = expensesData.filter(expense => expense.estado_factura === 'facturado');
-            const reconciledWithBank = readyForBank.filter(expense => expense.movimiento_bancario);
-            const pendingBankLink = readyForBank.filter(expense => !expense.movimiento_bancario);
+            const reconciledWithBank = readyForBank.filter(expense => expense.estado_conciliacion === 'conciliado_banco');
+            const pendingBankLink = readyForBank.filter(expense => expense.estado_conciliacion !== 'conciliado_banco');
 
             const [bankMovements, setBankMovements] = useState(SAMPLE_BANK_MOVEMENTS);
             const [suggestionsByExpense, setSuggestionsByExpense] = useState({});
@@ -1055,7 +1853,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
 
             const fetchMovements = useCallback(async () => {
                 try {
-                    const response = await fetch('/bank_reconciliation/movements');
+                    const response = await fetch(`/bank_reconciliation/movements?company_id=${encodeURIComponent(resolvedCompany)}`);
                     if (!response.ok) {
                         throw new Error('Error obteniendo movimientos bancarios');
                     }
@@ -1066,7 +1864,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                 } catch (error) {
                     console.error('Error fetching bank movements:', error);
                 }
-            }, []);
+            }, [resolvedCompany]);
 
             useEffect(() => {
                 fetchMovements();
@@ -1137,12 +1935,13 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                             confidence,
                             decision,
                             metadata,
+                            company_id: resolvedCompany,
                         })
                     });
                 } catch (error) {
                     console.error('Error enviando feedback de conciliación bancaria:', error);
                 }
-            }, []);
+            }, [resolvedCompany]);
 
             const handleLinkMovement = useCallback((expense, movementInput, options = {}) => {
                 const movementsArray = Array.isArray(movementInput) ? movementInput : movementInput ? [movementInput] : [];
@@ -1200,6 +1999,10 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                                 : 'Movimiento asociado manualmente',
                     }
                 }));
+
+                if (typeof onMissionComplete === 'function') {
+                    onMissionComplete();
+                }
             }, [onUpdateExpense, sendFeedback, normalizeMovement]);
 
             const loadSuggestions = useCallback(async (expense) => {
@@ -1216,6 +2019,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                             date: expense.fecha_gasto,
                             provider_name: expense['proveedor.nombre'] || (typeof expense.proveedor === 'string' ? expense.proveedor : expense.proveedor?.nombre),
                             paid_by: expense.paid_by,
+                            company_id: resolvedCompany,
                             metadata: {
                                 categoria: expense.categoria,
                                 forma_pago: expense.forma_pago,
@@ -1246,7 +2050,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                         return next;
                     });
                 }
-            }, []);
+            }, [resolvedCompany]);
 
             useEffect(() => {
                 pendingBankLink.forEach(expense => {
@@ -1321,9 +2125,10 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
             return (
                 <div className="p-6 space-y-6">
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <h3 className="font-medium text-blue-800 mb-2">💳 Conciliación bancaria</h3>
+                        <h3 className="font-medium text-blue-800 mb-2">💳 Conciliación bancaria (Paso 4)</h3>
                         <p className="text-sm text-blue-700">
-                            Vincula los gastos que ya tienen factura con el movimiento bancario correcto para cerrar el ciclo completo.
+                            Aquí solo aparecen los gastos que ya pasaron por “Conciliación de gastos” y están listos para vincularse con un movimiento bancario.
+                            Acepta la sugerencia o selecciona un cargo para cerrar el ciclo.
                         </p>
                     </div>
 
@@ -1349,6 +2154,8 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                                     const combinedAmount = suggestionEntry?.combined_amount || normalizedSuggestionMovements.reduce((s, mov) => s + (mov.amount || 0), 0);
                                     const isLoading = !!loadingSuggestions[expense.id];
                                     const suggestionDismissed = suggestionsByExpense[expense.id]?.dismissed;
+                                    const bankMeta = expense.bank_status_meta || getBankStatusMeta(expense.estado_conciliacion);
+                                    const badgeClass = getBadgeClassName(bankMeta.accent);
 
                                     return (
                                         <div key={expense.id} className="border border-blue-200 bg-blue-50 rounded-lg p-4 space-y-3">
@@ -1358,6 +2165,17 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                                                     <p className="text-xs text-gray-600">Factura {expense.factura_id || 'sin folio'} • {expense.fecha_gasto}</p>
                                                 </div>
                                                 <span className="text-sm font-semibold text-gray-900">{formatCurrency(expense.monto_total)}</span>
+                                            </div>
+
+                                            <div className="flex items-center justify-between flex-wrap gap-2">
+                                                <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded ${badgeClass}`}>
+                                                    <i className="fas fa-info-circle mr-1"></i>
+                                                    {bankMeta.label}
+                                                </span>
+                                                <p className="text-xs text-blue-700 flex items-start gap-1">
+                                                    <i className="fas fa-lightbulb mt-0.5"></i>
+                                                    <span>{bankMeta.description}</span>
+                                                </p>
                                             </div>
 
                                             {isLoading && (
@@ -1383,6 +2201,23 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                                                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${confidenceBadge(suggestionEntry.confidence)}`}>
                                                         Confianza {Math.round(suggestionEntry.confidence)}%
                                                     </span>
+                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                        {suggestionEntry.split_payment && (
+                                                            <span className="px-2 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">
+                                                                Pago fragmentado
+                                                            </span>
+                                                        )}
+                                                        {suggestionEntry.linked_match && (
+                                                            <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold">
+                                                                Coincide con el gasto
+                                                            </span>
+                                                        )}
+                                                        {suggestionEntry.group_id && (
+                                                            <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-600 text-xs">
+                                                                Grupo: {suggestionEntry.group_id}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                     <div className="text-xs text-gray-600 flex flex-wrap gap-2">
                                                         {suggestionEntry.type === 'combination' ? (
@@ -1404,6 +2239,12 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                                                                 <span>{reason}</span>
                                                             </div>
                                                         ))}
+                                                        {Array.isArray(suggestionEntry.movement_ids) && suggestionEntry.movement_ids.length > 1 && (
+                                                            <div className="flex items-center gap-2 text-[11px] text-gray-500">
+                                                                <i className="fas fa-link text-blue-400"></i>
+                                                                <span>Movimientos: {suggestionEntry.movement_ids.join(' + ')}</span>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <button
@@ -1482,6 +2323,8 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                                 {reconciledWithBank.map(expense => {
                                     const movimientos = expense.movimientos_bancarios || (expense.movimiento_bancario ? [expense.movimiento_bancario] : []);
                                     const totalConciliado = movimientos.reduce((sum, mov) => sum + (mov.amount || mov.monto || 0), 0);
+                                    const bankMeta = expense.bank_status_meta || getBankStatusMeta(expense.estado_conciliacion);
+                                    const badgeClass = getBadgeClassName(bankMeta.accent);
                                     return (
                                         <div key={expense.id} className="border border-green-200 bg-green-50 rounded-lg p-4 space-y-2">
                                             <div className="flex items-center justify-between">
@@ -1491,6 +2334,10 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                                                 </div>
                                                 <span className="text-sm font-semibold text-gray-900">{formatCurrency(totalConciliado || expense.monto_total)}</span>
                                             </div>
+                                            <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded ${badgeClass}`}>
+                                                <i className="fas fa-check mr-1"></i>
+                                                {bankMeta.label}
+                                            </span>
                                             <div className="text-xs text-green-700 space-y-1">
                                                 {movimientos.map((mov, idx) => (
                                                     <div key={idx} className="flex items-center justify-between">
@@ -1833,7 +2680,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
         };
 
         // Componente del Modal de No Conciliación
-        const NonReconciliationModal = ({ isOpen, onClose, expense, onSubmit }) => {
+        const NonReconciliationModal = ({ isOpen, onClose, expense, onSubmit, companyId = 'default' }) => {
             const [selectedReason, setSelectedReason] = useState('');
             const [customReason, setCustomReason] = useState('');
             const [notes, setNotes] = useState('');
@@ -1845,11 +2692,11 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                 if (isOpen) {
                     fetchReasons();
                 }
-            }, [isOpen]);
+            }, [isOpen, companyId]);
 
             const fetchReasons = async () => {
                 try {
-                    const response = await fetch('/expenses/non-reconciliation-reasons');
+                    const response = await fetch(`/expenses/non-reconciliation-reasons?company_id=${encodeURIComponent(companyId || 'default')}`);
                     const data = await response.json();
                     setReasons(data.reasons);
                 } catch (error) {
@@ -2081,7 +2928,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({ query: currentQuery })
+                        body: JSON.stringify({ query: currentQuery, company_id: resolvedCompanyId })
                     });
 
                     const result = await response.json();
@@ -2265,6 +3112,281 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
             // Estados del sistema simplificado
             const [showExpensesDashboard, setShowExpensesDashboard] = useState(false);
             const [expensesData, setExpensesData] = useState([]);
+            const [demoMode, setDemoMode] = useState(() => {
+                try {
+                    return localStorage.getItem('mcp_demo_mode') === 'true';
+                } catch (error) {
+                    return false;
+                }
+            });
+            const [companyId, setCompanyId] = useState(() => {
+                try {
+                    return localStorage.getItem('mcp_company_id') || 'default';
+                } catch (error) {
+                    console.warn('No se pudo leer company_id de localStorage:', error);
+                    return 'default';
+                }
+            });
+            const resolvedCompanyId = companyId || 'default';
+            const [activeMission, setActiveMission] = useState(() => {
+                try {
+                    const params = new URLSearchParams(window.location.search);
+                    return params.get('mission') || localStorage.getItem('mcp_active_mission') || null;
+                } catch (error) {
+                    return localStorage.getItem('mcp_active_mission') || null;
+                }
+            });
+            const [completedMissions, setCompletedMissions] = useState(() => {
+                try {
+                    const raw = localStorage.getItem('mcp_completed_missions');
+                    const parsed = raw ? JSON.parse(raw) : [];
+                    return Array.isArray(parsed) ? parsed.map(String) : [];
+                } catch (error) {
+                    return [];
+                }
+            });
+            const [showNavigationDrawer, setShowNavigationDrawer] = useState(false);
+            const [showAccountMenu, setShowAccountMenu] = useState(false);
+
+            const getLocalExpensesMap = () => {
+                try {
+                    const raw = localStorage.getItem('expensesData');
+                    if (!raw) {
+                        return {};
+                    }
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed)) {
+                        return { default: parsed };
+                    }
+                    return parsed && typeof parsed === 'object' ? parsed : {};
+                } catch (error) {
+                    console.warn('No se pudo leer expensesData de localStorage:', error);
+                    return {};
+                }
+            };
+
+            const loadLocalExpenses = useCallback(() => {
+                const map = getLocalExpensesMap();
+                const list = map[resolvedCompanyId];
+                return Array.isArray(list) ? list : [];
+            }, [resolvedCompanyId]);
+
+            const saveLocalExpenses = useCallback((list) => {
+                const map = getLocalExpensesMap();
+                map[resolvedCompanyId] = list;
+                localStorage.setItem('expensesData', JSON.stringify(map));
+            }, [resolvedCompanyId]);
+
+            const clearLocalExpenses = useCallback(() => {
+                const map = getLocalExpensesMap();
+                if (map[resolvedCompanyId]) {
+                    delete map[resolvedCompanyId];
+                    localStorage.setItem('expensesData', JSON.stringify(map));
+                }
+            }, [resolvedCompanyId]);
+
+            const syncDemoMode = useCallback((value) => {
+                setDemoMode(value);
+                try {
+                    localStorage.setItem('mcp_demo_mode', value ? 'true' : 'false');
+                } catch (error) {
+                    console.warn('No se pudo actualizar mcp_demo_mode:', error);
+                }
+            }, []);
+
+            const handleCompanyChange = useCallback((value, options = {}) => {
+                const { closeDrawer = false } = options;
+                if (value === '__new__') {
+                    const manual = prompt('Introduce el identificador de la empresa (company_id):', '');
+                    if (manual && manual.trim()) {
+                        setCompanyId(manual.trim());
+                        if (closeDrawer) {
+                            setShowNavigationDrawer(false);
+                        }
+                    }
+                    return;
+                }
+                setCompanyId((value || 'default'));
+                if (closeDrawer) {
+                    setShowNavigationDrawer(false);
+                }
+            }, [setCompanyId, setShowNavigationDrawer]);
+
+            const missionDetails = MISSION_DETAILS;
+
+            const handleMissionAction = (missionKey) => {
+                const mission = missionDetails[String(missionKey)];
+                if (!mission) {
+                    return;
+                }
+                switch (mission.action) {
+                    case 'capture':
+                        setInputMode('voice');
+                        document.getElementById('capture-mode-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        break;
+                    case 'pendingInvoices':
+                        setShowPendingInvoices(true);
+                        break;
+                    case 'bank':
+                        setShowBankReconciliation(true);
+                        break;
+                    case 'dashboard':
+                        setShowExpensesDashboard(true);
+                        break;
+                    default:
+                        break;
+                }
+            };
+
+            const markMissionComplete = (missionKey) => {
+                const id = String(missionKey);
+                if (!completedMissions.includes(id)) {
+                    setCompletedMissions([...completedMissions, id]);
+                }
+            };
+
+            const goToMission = (missionKey) => {
+                if (missionKey) {
+                    setActiveMission(String(missionKey));
+                } else {
+                    setActiveMission(null);
+                }
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+
+            const handleQuickFillDemo = useCallback(() => {
+                const today = new Date().toISOString().split('T')[0];
+                setTranscript('Compra demo: gasolina corporativa de 845.32 pesos en Pemex con tarjeta de empresa.');
+                handleFieldChange('descripcion', 'Carga demo de combustible corporativo');
+                handleFieldChange('monto_total', 845.32);
+                handleFieldChange('fecha_gasto', today);
+                handleFieldChange('proveedor.nombre', 'Gasolinera Pemex Demo');
+                handleFieldChange('categoria', 'combustible');
+                handleFieldChange('forma_pago', 'tarjeta_empresa');
+                handleFieldChange('will_have_cfdi', true);
+                handleFieldChange('paid_by', 'company_account');
+                handleFieldChange('notas', 'Gasto demo generado desde el onboarding.');
+            }, [handleFieldChange]);
+
+            const buildExpenseData = useCallback(() => {
+                const proveedorNombre = getFieldValue('proveedor.nombre');
+                const provider = proveedorNombre ? { nombre: proveedorNombre } : null;
+                return {
+                    descripcion: getFieldValue('descripcion') || 'Gasto demo',
+                    monto_total: getFieldValue('monto_total') || 0,
+                    fecha_gasto: getFieldValue('fecha_gasto'),
+                    categoria: getFieldValue('categoria'),
+                    proveedor: provider,
+                    rfc: getFieldValue('rfc'),
+                    forma_pago: getFieldValue('forma_pago'),
+                    will_have_cfdi: getFieldValue('will_have_cfdi'),
+                    paid_by: getFieldValue('paid_by'),
+                    company_id: resolvedCompanyId,
+                    notas: getFieldValue('notas'),
+                    ticket_file: getFieldValue('ticket_file'),
+                    xml_file: getFieldValue('xml_file'),
+                    pdf_file: getFieldValue('pdf_file'),
+                    tax_info: formData.tax_info || null,
+                    factura_uuid: formData.factura_uuid || null,
+                    movimientos_bancarios: formData.movimientos_bancarios || [],
+                    metadata: formData.metadata || {},
+                    workflow_status: formData.workflow_status,
+                    estado_factura: formData.estado_factura,
+                    estado_conciliacion: formData.estado_conciliacion,
+                };
+            }, [formData, getFieldValue, resolvedCompanyId]);
+
+            useEffect(() => {
+                try {
+                    localStorage.setItem('mcp_company_id', resolvedCompanyId);
+                } catch (error) {
+                    console.warn('No se pudo persistir company_id:', error);
+                }
+            }, [resolvedCompanyId]);
+
+            const knownCompanies = useMemo(() => {
+                const identifiers = new Set([resolvedCompanyId]);
+                expensesData.forEach(expense => {
+                    if (expense?.company_id) {
+                        identifiers.add(expense.company_id);
+                    }
+                });
+                return Array.from(identifiers);
+            }, [expensesData, resolvedCompanyId]);
+
+            useEffect(() => {
+                setExpensesData([]);
+                syncDemoMode(false);
+            }, [resolvedCompanyId, syncDemoMode]);
+
+            useEffect(() => {
+                try {
+                    const event = new CustomEvent('mcp-company-change', {
+                        detail: { companyId: resolvedCompanyId },
+                    });
+                    window.dispatchEvent(event);
+                } catch (error) {
+                    console.warn('No se pudo notificar cambio de empresa:', error);
+                }
+            }, [resolvedCompanyId]);
+
+            useEffect(() => {
+                try {
+                    const params = new URLSearchParams(window.location.search);
+                    if (params.has('mission')) {
+                        params.delete('mission');
+                        const newUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '') + window.location.hash;
+                        window.history.replaceState({}, '', newUrl);
+                    }
+                } catch (error) {
+                    console.warn('No se pudo limpiar parámetro de misión:', error);
+                }
+            }, []);
+
+            useEffect(() => {
+                const handler = () => {
+                    try {
+                        const demoFlag = localStorage.getItem('mcp_demo_mode') === 'true';
+                        setDemoMode(demoFlag);
+                        const active = localStorage.getItem('mcp_active_mission');
+                        setActiveMission(active || null);
+                        const completedRaw = localStorage.getItem('mcp_completed_missions');
+                        const parsed = completedRaw ? JSON.parse(completedRaw) : [];
+                        if (Array.isArray(parsed)) {
+                            setCompletedMissions(parsed.map(String));
+                        }
+                    } catch (error) {
+                        console.warn('No se pudo sincronizar estado del demo:', error);
+                    }
+                };
+                window.addEventListener('storage', handler);
+                window.addEventListener('mcp-company-change', handler);
+                return () => {
+                    window.removeEventListener('storage', handler);
+                    window.removeEventListener('mcp-company-change', handler);
+                };
+            }, []);
+
+            useEffect(() => {
+                try {
+                    if (activeMission) {
+                        localStorage.setItem('mcp_active_mission', activeMission);
+                    } else {
+                        localStorage.removeItem('mcp_active_mission');
+                    }
+                } catch (error) {
+                    console.warn('No se pudo guardar misión activa:', error);
+                }
+            }, [activeMission]);
+
+            useEffect(() => {
+                try {
+                    const unique = Array.from(new Set(completedMissions.map(String)));
+                    localStorage.setItem('mcp_completed_missions', JSON.stringify(unique));
+                } catch (error) {
+                    console.warn('No se pudo guardar misiones completadas:', error);
+                }
+            }, [completedMissions]);
             const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
             const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('todos');
             const [showPendingInvoices, setShowPendingInvoices] = useState(false);
@@ -2276,6 +3398,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
             const [showNonReconciliationModal, setShowNonReconciliationModal] = useState(false);
             const [selectedExpenseForNonReconciliation, setSelectedExpenseForNonReconciliation] = useState(null);
             const [moreActionsOpen, setMoreActionsOpen] = useState(false);
+            const [quickViewExpense, setQuickViewExpense] = useState(null);
 
             // Estados de operaciones
             const [isSaving, setIsSaving] = useState(false);
@@ -2289,56 +3412,51 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                 const hasInvoice = !!expense.factura_id;
                 const willHaveCfdi = expense.will_have_cfdi !== undefined ? expense.will_have_cfdi : hasInvoice;
 
-                let estadoFactura = expense.estado_factura || (willHaveCfdi ? (hasInvoice ? 'facturado' : 'pendiente') : 'no_requiere');
-                if (!willHaveCfdi && estadoFactura !== 'sin_factura') {
-                    estadoFactura = 'sin_factura';
-                }
+                const rawInvoiceStatus = expense.estado_factura || expense.invoice_status || expense.invoiceStatus;
+                const estadoFactura = normalizeInvoiceStatusValue(rawInvoiceStatus, willHaveCfdi);
 
                 const movimientosBancarios = expense.movimientos_bancarios || (expense.movimiento_bancario ? [expense.movimiento_bancario] : []);
+                const companyFromRecord = expense.company_id || resolvedCompanyId;
 
-                let estadoConciliacion = expense.estado_conciliacion;
-                if (!estadoConciliacion) {
-                    if (estadoFactura === 'facturado') {
-                        estadoConciliacion = movimientosBancarios.length > 0 ? 'conciliado_banco' : 'pendiente_bancaria';
-                    } else if (estadoFactura === 'pendiente') {
-                        estadoConciliacion = hasInvoice ? 'pendiente_bancaria' : 'pendiente_factura';
-                    } else {
-                        estadoConciliacion = 'sin_factura';
-                    }
-                }
+                const rawBankStatus = expense.estado_conciliacion || expense.bank_status;
+                const estadoConciliacion = normalizeBankStatusValue(rawBankStatus, estadoFactura, movimientosBancarios.length > 0);
 
                 let workflowStatus = 'capturado';
-                if (willHaveCfdi) {
-                    if (estadoFactura === 'facturado') {
-                        workflowStatus = 'facturado';
-                    } else if (estadoFactura === 'sin_factura') {
-                        workflowStatus = 'cerrado_sin_factura';
-                    } else {
-                        workflowStatus = 'pendiente_factura';
-                    }
-                } else {
+                if (estadoFactura === 'facturado') {
+                    workflowStatus = estadoConciliacion === 'conciliado_banco' ? 'conciliado_banco' : 'facturado';
+                } else if (estadoFactura === 'sin_factura') {
                     workflowStatus = 'cerrado_sin_factura';
+                } else {
+                    workflowStatus = 'pendiente_factura';
                 }
 
                 const taxInfo = expense.tax_info || expense.tax_breakdown || null;
+                const invoiceMeta = getInvoiceStatusMeta(estadoFactura);
+                const bankMeta = getBankStatusMeta(estadoConciliacion);
 
                 const normalized = {
                     ...expense,
+                    company_id: companyFromRecord,
                     will_have_cfdi: willHaveCfdi,
                     estado_factura: estadoFactura,
+                    estado_factura_original: rawInvoiceStatus || null,
                     factura_url: hasInvoice ? (expense.factura_url || `https://erp.tuempresa.com/facturas/${expense.factura_id}`) : null,
                     estado_conciliacion: estadoConciliacion,
+                    estado_conciliacion_original: rawBankStatus || null,
                     movimientos_bancarios: movimientosBancarios,
                     movimiento_bancario: movimientosBancarios[0] || null,
                     tax_info: taxInfo,
                     workflow_status: workflowStatus,
                     flujo_cerrado: workflowStatus !== 'pendiente_factura',
+                    invoice_status_meta: invoiceMeta,
+                    bank_status_meta: bankMeta,
+                    invoice_stage_index: invoiceMeta.stageIndex,
                 };
 
                 normalized.asientos_contables = generateAccountingEntries(normalized);
 
                 return normalized;
-            }, []);
+            }, [resolvedCompanyId]);
 
             const updateExpense = useCallback(async (expenseId, updatesProducer) => {
                 try {
@@ -2369,6 +3487,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                         paid_by: updatedExpenseData.paid_by || 'company_account',
                         will_have_cfdi: updatedExpenseData.will_have_cfdi !== false,
                         movimientos_bancarios: updatedExpenseData.movimientos_bancarios,
+                        company_id: updatedExpenseData.company_id || resolvedCompanyId,
                         metadata: updatedExpenseData.metadata || {}
                     };
 
@@ -2393,7 +3512,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                                 }
                                 return expense;
                             });
-                            localStorage.setItem('expensesData', JSON.stringify(nextExpenses));
+                            saveLocalExpenses(nextExpenses);
                             return nextExpenses;
                         });
 
@@ -2414,13 +3533,13 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                             const updates = typeof updatesProducer === 'function' ? updatesProducer(expense) : updatesProducer;
                             return normalizeExpense({ ...expense, ...updates });
                         });
-                        localStorage.setItem('expensesData', JSON.stringify(nextExpenses));
+                        saveLocalExpenses(nextExpenses);
                         return nextExpenses;
                     });
 
                     console.warn('⚠️ Gasto actualizado en localStorage (fallback)');
                 }
-            }, [expensesData, setExpensesData, normalizeExpense]);
+            }, [expensesData, setExpensesData, normalizeExpense, resolvedCompanyId, saveLocalExpenses]);
 
             const registerInvoiceForExpense = useCallback(
                 async (expenseId, payload) => {
@@ -2444,13 +3563,20 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                         const nextExpenses = prevExpenses.map(expense => (
                             expense.id === expenseId ? normalizedExpense : expense
                         ));
-                        localStorage.setItem('expensesData', JSON.stringify(nextExpenses));
+                        saveLocalExpenses(nextExpenses);
                         return nextExpenses;
                     });
 
+                    if (demoMode) {
+                        markMissionComplete('2');
+                        if (activeMission === '2') {
+                            goToMission('3');
+                        }
+                    }
+
                     return normalizedExpense;
                 },
-                [normalizeExpense, setExpensesData],
+                [normalizeExpense, setExpensesData, saveLocalExpenses, demoMode, activeMission],
             );
 
             const markExpenseAsInvoiced = useCallback(
@@ -2475,13 +3601,20 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                         const nextExpenses = prevExpenses.map(expense => (
                             expense.id === expenseId ? normalizedExpense : expense
                         ));
-                        localStorage.setItem('expensesData', JSON.stringify(nextExpenses));
+                        saveLocalExpenses(nextExpenses);
                         return nextExpenses;
                     });
 
+                    if (demoMode) {
+                        markMissionComplete('2');
+                        if (activeMission === '2') {
+                            goToMission('3');
+                        }
+                    }
+
                     return normalizedExpense;
                 },
-                [normalizeExpense, setExpensesData],
+                [normalizeExpense, setExpensesData, saveLocalExpenses, demoMode, activeMission],
             );
 
             const closeExpenseWithoutInvoice = useCallback(
@@ -2506,13 +3639,13 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                         const nextExpenses = prevExpenses.map(expense => (
                             expense.id === expenseId ? normalizedExpense : expense
                         ));
-                        localStorage.setItem('expensesData', JSON.stringify(nextExpenses));
+                        saveLocalExpenses(nextExpenses);
                         return nextExpenses;
                     });
 
                     return normalizedExpense;
                 },
-                [normalizeExpense, setExpensesData],
+                [normalizeExpense, setExpensesData, saveLocalExpenses],
             );
 
             // Referencias para Web Speech API
@@ -2932,7 +4065,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                     formData.append('paid_by', 'company_account'); // default
                     formData.append('will_have_cfdi', 'true'); // default
 
-                    const response = await fetch('http://localhost:3001/ocr/intake', {
+                    const response = await fetch('http://localhost:8000/ocr/intake', {
                         method: 'POST',
                         body: formData
                     });
@@ -3066,6 +4199,28 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                 }
             }, [formData]);
 
+            const handleSaveDemoExpense = useCallback(async () => {
+                if (missingRequiredFields.length > 0) {
+                    alert('Completa los campos obligatorios marcados antes de guardar el gasto demo.');
+                    return;
+                }
+
+                try {
+                    const expenseData = buildExpenseData();
+                    const savedExpense = await saveExpenseToDatabase(expenseData, true);
+                    syncDemoMode(true);
+                    markMissionComplete('1');
+                    await loadExpenses();
+                    alert('¡Gasto demo guardado! Continúa con la misión 2 para vincular una factura.');
+                    if (activeMission === '1') {
+                        goToMission('2');
+                    }
+                } catch (error) {
+                    console.error('Error guardando gasto demo:', error);
+                    alert(error.message || 'No se pudo guardar el gasto demo. Intenta nuevamente.');
+                }
+            }, [missingRequiredFields, buildExpenseData, saveExpenseToDatabase, syncDemoMode, activeMission, loadExpenses]);
+
             // Enviar a Odoo
             const handleSendToOdoo = useCallback(async () => {
                 setIsSending(true);
@@ -3073,16 +4228,18 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                     // Verificar duplicados ANTES de procesar
                     console.log('🔍 Verificando duplicados antes de enviar...');
 
+                    const baseData = buildExpenseData();
                     const preliminaryData = {
-                        descripcion: getFieldValue('descripcion'),
-                        monto_total: getFieldValue('monto_total'),
-                        fecha_gasto: getFieldValue('fecha_gasto'),
-                        proveedor: getFieldValue('proveedor.nombre'),
-                        categoria: getFieldValue('categoria'),
-                        forma_pago: getFieldValue('forma_pago'),
-                        will_have_cfdi: getFieldValue('will_have_cfdi'),
-                        paid_by: getFieldValue('paid_by'),
-                        rfc: getFieldValue('rfc')
+                        descripcion: baseData.descripcion,
+                        monto_total: baseData.monto_total,
+                        fecha_gasto: baseData.fecha_gasto,
+                        proveedor: baseData.proveedor ? baseData.proveedor.nombre : null,
+                        categoria: baseData.categoria,
+                        forma_pago: baseData.forma_pago,
+                        will_have_cfdi: baseData.will_have_cfdi,
+                        paid_by: baseData.paid_by,
+                        rfc: baseData.rfc,
+                        company_id: resolvedCompanyId,
                     };
 
                     const duplicateResult = await checkForDuplicates(preliminaryData);
@@ -3097,23 +4254,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                         console.log('✅ Usuario decidió continuar a pesar del duplicado');
                     }
                     // Preparar datos usando getFieldValue para compatibilidad con claves planas
-                    const expenseData = {
-                        descripcion: getFieldValue('descripcion'),
-                        monto_total: getFieldValue('monto_total'),
-                        fecha_gasto: getFieldValue('fecha_gasto'),
-                        proveedor: getFieldValue('proveedor.nombre'),
-                        categoria: getFieldValue('categoria'),
-                        forma_pago: getFieldValue('forma_pago'),
-                        will_have_cfdi: getFieldValue('will_have_cfdi'),
-                        paid_by: getFieldValue('paid_by'),
-                        rfc: getFieldValue('rfc'),
-                        notas: getFieldValue('notas'),
-                        ticket_file: getFieldValue('ticket_file'),
-                        xml_file: getFieldValue('xml_file'),
-                        pdf_file: getFieldValue('pdf_file'),
-                        tax_info: formData.tax_info || null,
-                        factura_uuid: formData.factura_uuid || null
-                    };
+                    const expenseData = buildExpenseData();
 
                     // Determinar el modo de pago basado en los campos
                     let paymentMode = 'own_account';
@@ -3176,7 +4317,8 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                             total: getFieldValue('monto_total') || 0,
                             date: getFieldValue('fecha_gasto') || new Date().toISOString().split('T')[0],
                             provider_name: getFieldValue('proveedor.nombre') || 'Proveedor sin nombre',
-                            rfc: getFieldValue('rfc')
+                            rfc: getFieldValue('rfc'),
+                            company_id: resolvedCompanyId,
                         };
 
                         console.log('Intentando con Expense Router:', expenseRouterData);
@@ -3249,7 +4391,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                 } finally {
                     setIsSending(false);
                 }
-            }, [formData]);
+            }, [buildExpenseData, formData]);
 
             // Calcular progreso básico
             const calculateProgress = () => {
@@ -3263,67 +4405,81 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
             };
 
             // Cargar gastos desde el backend
-            useEffect(() => {
-                const loadExpenses = async () => {
-                    try {
-                        // Cargar gastos desde el backend
-                        const response = await fetch('/expenses');
-                        if (response.ok) {
-                            const backendExpenses = await response.json();
+            const loadExpenses = useCallback(async () => {
+                try {
+                    const response = await fetch(`/expenses?company_id=${encodeURIComponent(resolvedCompanyId)}`);
+                    if (response.ok) {
+                        const backendExpenses = await response.json();
+                        if (backendExpenses.length === 0) {
+                            const dummyExpenses = generateDummyExpenses();
+                            console.log('🎯 Creando datos dummy en el backend...');
+                            const savedExpenses = [];
+                            for (const dummyExpense of dummyExpenses) {
+                                try {
+                                    const createResponse = await fetch('/expenses', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify({ ...dummyExpense, company_id: resolvedCompanyId })
+                                    });
 
-                            // Si no hay datos en el backend, crear datos dummy para demostración
-                            if (backendExpenses.length === 0) {
-                                const dummyExpenses = generateDummyExpenses();
-                                console.log('🎯 Creando datos dummy en el backend...');
-
-                                // Crear cada gasto dummy en el backend
-                                const savedExpenses = [];
-                                for (const dummyExpense of dummyExpenses) {
-                                    try {
-                                        const createResponse = await fetch('/expenses', {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                            },
-                                            body: JSON.stringify(dummyExpense)
-                                        });
-
-                                        if (createResponse.ok) {
-                                            const savedExpense = await createResponse.json();
-                                            savedExpenses.push(savedExpense);
-                                        }
-                                    } catch (error) {
-                                        console.error('Error creando gasto dummy:', error);
+                                    if (createResponse.ok) {
+                                        const savedExpense = await createResponse.json();
+                                        savedExpenses.push(savedExpense);
                                     }
+                                } catch (error) {
+                                    console.error('Error creando gasto dummy:', error);
                                 }
-
-                                const normalizedDummy = savedExpenses.map(normalizeExpense);
-                                setExpensesData(normalizedDummy);
-                                console.log('🎯 Datos dummy creados en backend:', normalizedDummy.length);
-                            } else {
-                                const normalizedExpenses = backendExpenses.map(normalizeExpense);
-                                setExpensesData(normalizedExpenses);
-                                console.log('📋 Gastos cargados desde backend:', normalizedExpenses.length);
                             }
+
+                            const normalizedDummy = savedExpenses.map(normalizeExpense);
+                            setExpensesData(normalizedDummy);
+                            saveLocalExpenses(normalizedDummy);
+                            syncDemoMode(true);
+                            console.log('🎯 Datos dummy creados en backend:', normalizedDummy.length);
                         } else {
-                            console.error('Error cargando gastos del backend:', response.status);
-                            // Fallback a localStorage si el backend no está disponible
-                            const savedExpenses = JSON.parse(localStorage.getItem('expensesData') || '[]');
-                            const normalizedExpenses = savedExpenses.map(normalizeExpense);
+                            const normalizedExpenses = backendExpenses.map(normalizeExpense);
                             setExpensesData(normalizedExpenses);
-                            console.log('📋 Gastos cargados desde localStorage (fallback):', normalizedExpenses.length);
+                            saveLocalExpenses(normalizedExpenses);
+                            const hasDemo = normalizedExpenses.some((expense) => {
+                                const metadata = expense?.metadata || {};
+                                return metadata.demo === true || metadata.scenario === 'onboarding';
+                            });
+                            syncDemoMode(hasDemo);
+                            console.log('📋 Gastos cargados desde backend:', normalizedExpenses.length);
                         }
-                    } catch (error) {
-                        console.error('Error conectando al backend:', error);
-                        // Fallback a localStorage si hay error de conexión
-                        const savedExpenses = JSON.parse(localStorage.getItem('expensesData') || '[]');
+                    } else {
+                        console.error('Error cargando gastos del backend:', response.status);
+                        const savedExpenses = loadLocalExpenses();
                         const normalizedExpenses = savedExpenses.map(normalizeExpense);
-                        setExpensesData(normalizedExpenses);
-                        console.log('📋 Gastos cargados desde localStorage (fallback):', normalizedExpenses.length);
+                        const scopedExpenses = normalizedExpenses.filter(exp => exp.company_id === resolvedCompanyId);
+                        setExpensesData(scopedExpenses);
+                        const hasDemo = scopedExpenses.some((expense) => {
+                            const metadata = expense?.metadata || {};
+                            return metadata.demo === true || metadata.scenario === 'onboarding';
+                        });
+                        syncDemoMode(hasDemo);
+                        console.log('📋 Gastos cargados desde localStorage (fallback):', scopedExpenses.length);
                     }
-                };
+                } catch (error) {
+                    console.error('Error conectando al backend:', error);
+                    const savedExpenses = loadLocalExpenses();
+                    const normalizedExpenses = savedExpenses.map(normalizeExpense);
+                    const scopedExpenses = normalizedExpenses.filter(exp => exp.company_id === resolvedCompanyId);
+                    setExpensesData(scopedExpenses);
+                    const hasDemo = scopedExpenses.some((expense) => {
+                        const metadata = expense?.metadata || {};
+                        return metadata.demo === true || metadata.scenario === 'onboarding';
+                    });
+                    syncDemoMode(hasDemo);
+                    console.log('📋 Gastos cargados desde localStorage (fallback):', scopedExpenses.length);
+                }
+            }, [loadLocalExpenses, normalizeExpense, resolvedCompanyId, saveLocalExpenses, syncDemoMode]);
+
+            useEffect(() => {
                 loadExpenses();
-            }, [normalizeExpense]);
+            }, [loadExpenses]);
 
             // Función para predecir categoría automáticamente
             const predictCategory = async (description, amount = null, providerName = null) => {
@@ -3342,7 +4498,8 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                             description: description,
                             amount: amount,
                             provider_name: providerName,
-                            include_history: true
+                            include_history: true,
+                            company_id: resolvedCompanyId,
                         })
                     });
 
@@ -3403,9 +4560,11 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                             estado_conciliacion: 'pendiente',
                             forma_pago: expenseData.forma_pago,
                             paid_by: expenseData.paid_by || 'company_account',
-                            will_have_cfdi: expenseData.will_have_cfdi !== false
+                            will_have_cfdi: expenseData.will_have_cfdi !== false,
+                            company_id: expenseData.company_id || resolvedCompanyId,
                         },
-                        check_existing: true
+                        check_existing: true,
+                        company_id: expenseData.company_id || resolvedCompanyId,
                     };
 
                     const response = await fetch('/expenses/check-duplicates', {
@@ -3522,6 +4681,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                         paid_by: expenseData.paid_by || 'company_account',
                         will_have_cfdi: expenseData.will_have_cfdi !== false,
                         movimientos_bancarios: expenseData.movimientos_bancarios,
+                        company_id: expenseData.company_id || resolvedCompanyId,
                         metadata: {
                             factura_id: expenseData.factura_id,
                             factura_url: hasInvoice ? (expenseData.factura_url || `https://erp.tuempresa.com/facturas/${expenseData.factura_id}`) : null,
@@ -3548,7 +4708,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                         setExpensesData(prevExpenses => {
                             const updatedExpenses = [...prevExpenses, normalizedExpense];
                             // Mantener sync con localStorage como backup
-                            localStorage.setItem('expensesData', JSON.stringify(updatedExpenses));
+                            saveLocalExpenses(updatedExpenses);
                             return updatedExpenses;
                         });
 
@@ -3566,6 +4726,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                     const normalizedExpense = normalizeExpense({
                         id: Date.now().toString(),
                         fecha_creacion: new Date().toISOString(),
+                        company_id: expenseData.company_id || resolvedCompanyId,
                         ...expenseData,
                         estado_factura: estadoFactura,
                         estado_conciliacion: estadoConciliacion,
@@ -3573,9 +4734,9 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                         movimiento_bancario: hasInvoice ? expenseData.movimiento_bancario || null : null
                     });
 
-                    const currentExpenses = JSON.parse(localStorage.getItem('expensesData') || '[]');
+                    const currentExpenses = loadLocalExpenses();
                     const updatedExpenses = [...currentExpenses.map(normalizeExpense), normalizedExpense];
-                    localStorage.setItem('expensesData', JSON.stringify(updatedExpenses));
+                    saveLocalExpenses(updatedExpenses);
                     setExpensesData(updatedExpenses);
 
                     console.warn('⚠️ Gasto guardado en localStorage (fallback):', normalizedExpense);
@@ -3588,7 +4749,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                 if (confirm('¿Estás seguro de que quieres limpiar todos los datos y generar nuevos datos de prueba?')) {
                     try {
                         // TODO: Agregar endpoint DELETE /expenses para limpiar datos del backend
-                        localStorage.removeItem('expensesData');
+                        clearLocalExpenses();
 
                         const newDummyData = generateDummyExpenses();
                         console.log('🎯 Recreando datos dummy en el backend...');
@@ -3602,7 +4763,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                                     headers: {
                                         'Content-Type': 'application/json',
                                     },
-                                    body: JSON.stringify(dummyExpense)
+                                    body: JSON.stringify({ ...dummyExpense, company_id: resolvedCompanyId })
                                 });
 
                                 if (createResponse.ok) {
@@ -3615,7 +4776,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                         }
 
                         const normalizedData = savedExpenses.map(normalizeExpense);
-                        localStorage.setItem('expensesData', JSON.stringify(normalizedData));
+                        saveLocalExpenses(normalizedData);
                         setExpensesData(normalizedData);
                         alert(`✅ Se generaron ${savedExpenses.length} gastos de prueba en el backend`);
 
@@ -3624,7 +4785,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                         // Fallback a localStorage
                         const newDummyData = generateDummyExpenses();
                         const normalizedData = newDummyData.map(normalizeExpense);
-                        localStorage.setItem('expensesData', JSON.stringify(normalizedData));
+                        saveLocalExpenses(normalizedData);
                         setExpensesData(normalizedData);
                         alert(`⚠️ Se generaron ${newDummyData.length} gastos de prueba en localStorage (fallback)`);
                     }
@@ -3714,6 +4875,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                         descripcion: `Gasto en ${proveedor.nombre} - ${getCategoryLabel(proveedor.categoria)}`,
                         monto_total: monto,
                         fecha_gasto: fechaGasto.toISOString().split('T')[0],
+                        company_id: resolvedCompanyId,
                         'proveedor.nombre': proveedor.nombre,
                         categoria: proveedor.categoria,
                         forma_pago: Math.random() > 0.5 ? 'tarjeta_empresa' : 'efectivo',
@@ -3750,16 +4912,16 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
             };
 
             const EXPENSE_ACCOUNT_MAP = {
-                combustible: { cuenta: '6140', nombre: 'Combustibles y lubricantes' },
-                alimentos: { cuenta: '6150', nombre: 'Viáticos y viajes' },
-                transporte: { cuenta: '6130', nombre: 'Servicios básicos (transporte)' },
-                hospedaje: { cuenta: '6150', nombre: 'Viáticos y viajes' },
-                oficina: { cuenta: '6180', nombre: 'Papelería y misceláneos' },
-                tecnologia: { cuenta: '6160', nombre: 'Publicidad y marketing' },
-                marketing: { cuenta: '6160', nombre: 'Publicidad y marketing' },
-                capacitacion: { cuenta: '6150', nombre: 'Viáticos y viajes' },
-                salud: { cuenta: '6190', nombre: 'Gastos no deducibles' },
-                otros: { cuenta: '6190', nombre: 'Gastos no deducibles' }
+                combustible: { cuenta: '6140', nombre: 'Combustibles y lubricantes', descripcion: 'Consumo de combustible para operaciones' },
+                alimentos: { cuenta: '6150', nombre: 'Viáticos y viajes', descripcion: 'Gastos de alimentación en viaje' },
+                transporte: { cuenta: '6130', nombre: 'Servicios de transporte', descripcion: 'Traslados y logística' },
+                hospedaje: { cuenta: '6150', nombre: 'Viáticos y viajes', descripcion: 'Alojamiento del personal' },
+                oficina: { cuenta: '6180', nombre: 'Papelería y misceláneos', descripcion: 'Insumos y servicios de oficina' },
+                tecnologia: { cuenta: '6170', nombre: 'Servicios tecnológicos', descripcion: 'Software, hosting y herramientas digitales' },
+                marketing: { cuenta: '6160', nombre: 'Publicidad y promoción', descripcion: 'Campañas y materiales de marketing' },
+                capacitacion: { cuenta: '6155', nombre: 'Capacitación y desarrollo', descripcion: 'Cursos y certificaciones del personal' },
+                salud: { cuenta: '6195', nombre: 'Gastos médicos y bienestar', descripcion: 'Consultas, seguros o programas de salud' },
+                otros: { cuenta: '6190', nombre: 'Gastos generales', descripcion: 'Otros gastos operativos' }
             };
 
             const TAX_ACCOUNT_MAP = {
@@ -3780,9 +4942,27 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
             };
 
             const PAYMENT_ACCOUNT_MAP = {
-                company_account: { cuenta: '1110', nombre: 'Bancos', tipo: 'activo' },
-                own_account: { cuenta: '2110', nombre: 'Acreedores diversos', tipo: 'pasivo' }
+                company_account: { cuenta: '1110', nombre: 'Bancos', tipo: 'activo', descripcion: 'Pago con cuenta bancaria corporativa' },
+                own_account: { cuenta: '2180', nombre: 'Gastos por comprobar', tipo: 'pasivo', descripcion: 'Pago con recursos del empleado o caja chica' },
+                tarjeta_empresa: { cuenta: '1120', nombre: 'Tarjetas corporativas', tipo: 'activo', descripcion: 'Pago con tarjeta corporativa' }
             };
+
+            const invoiceCounts = useMemo(() => {
+                return expensesData.reduce((acc, expense) => {
+                    const status = (expense.estado_factura || 'pendiente').toLowerCase();
+                    acc[status] = (acc[status] || 0) + 1;
+                    return acc;
+                }, {});
+            }, [expensesData]);
+
+            const bankCounts = useMemo(() => {
+                const pending = expensesData.filter((expense) => (expense.estado_conciliacion || '').toLowerCase() !== 'conciliado_banco');
+                const reconciled = expensesData.length - pending.length;
+                return {
+                    pending: pending.length,
+                    reconciled: reconciled,
+                };
+            }, [expensesData]);
 
             const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
             const toAmount = (value) => round2(value).toFixed(2);
@@ -3790,8 +4970,16 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
             const resolveTaxAccount = (tax) => {
                 const taxType = (tax.type || 'OTRO').toUpperCase();
                 const mapping = TAX_ACCOUNT_MAP[taxType] || TAX_ACCOUNT_MAP.OTRO;
-                return (tax.kind === 'retencion' ? mapping.retencion : mapping.traslado) ||
-                    (tax.kind === 'retencion' ? TAX_ACCOUNT_MAP.OTRO.retencion : TAX_ACCOUNT_MAP.OTRO.traslado);
+                const base = tax.kind === 'retencion' ? mapping.retencion : mapping.traslado;
+                const fallback = tax.kind === 'retencion' ? TAX_ACCOUNT_MAP.OTRO.retencion : TAX_ACCOUNT_MAP.OTRO.traslado;
+                const config = base || fallback;
+                if (!config) return null;
+                return {
+                    ...config,
+                    descripcion: tax.kind === 'retencion'
+                        ? `Retención fiscal aplicada (${taxType})`
+                        : `Impuesto trasladado acreditable (${taxType})`
+                };
             };
 
             const generateAccountingEntries = (expense) => {
@@ -3815,11 +5003,15 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                 const estadoFactura = expense.estado_factura || (willHaveCfdi ? 'pendiente' : 'no_requiere');
                 const paidBy = expense.paid_by || 'company_account';
 
+                const estadoConciliacion = (expense.estado_conciliacion || '').toLowerCase();
+                const isPaid = estadoConciliacion === 'conciliado_banco';
+
                 const movimientos = [];
-                const pushEntry = (cuenta, nombre, debe, haber, tipo) => {
+                const pushEntry = (cuenta, nombre, debe, haber, tipo, descripcion) => {
                     movimientos.push({
                         cuenta,
                         nombre_cuenta: nombre,
+                        descripcion,
                         debe: toAmount(debe),
                         haber: toAmount(haber),
                         tipo,
@@ -3827,7 +5019,14 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                 };
 
                 if (subtotal > 0) {
-                    pushEntry(cuentaGasto.cuenta, cuentaGasto.nombre, subtotal, 0, 'gasto');
+                    pushEntry(
+                        cuentaGasto.cuenta,
+                        cuentaGasto.nombre,
+                        subtotal,
+                        0,
+                        'gasto',
+                        cuentaGasto.descripcion || 'Registro del gasto operativo'
+                    );
                 }
 
                 traslados.forEach((tax) => {
@@ -3835,41 +5034,101 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                     if (!config) return;
                     const amount = round2(tax.amount || 0);
                     if (amount <= 0) return;
-                    pushEntry(config.cuenta, config.nombre, amount, 0, config.tipo);
+                    pushEntry(config.cuenta, config.nombre, amount, 0, config.tipo, config.descripcion);
                 });
 
                 let totalDebits = round2(movimientos.reduce((sum, mov) => sum + parseFloat(mov.debe), 0));
                 if (totalDebits <= 0 && total > 0) {
                     totalDebits = total;
-                    pushEntry(cuentaGasto.cuenta, cuentaGasto.nombre, total, 0, 'gasto');
+                    pushEntry(
+                        cuentaGasto.cuenta,
+                        cuentaGasto.nombre,
+                        total,
+                        0,
+                        'gasto',
+                        cuentaGasto.descripcion || 'Registro del gasto operativo'
+                    );
                 }
 
-                const paymentAccount = PAYMENT_ACCOUNT_MAP[paidBy] || PAYMENT_ACCOUNT_MAP.company_account;
-                const providerAccount = { cuenta: '2100', nombre: 'Proveedores', tipo: 'pasivo' };
+                const resolvePaymentAccount = () => {
+                    const key = paidBy in PAYMENT_ACCOUNT_MAP ? paidBy : 'company_account';
+                    const base = PAYMENT_ACCOUNT_MAP[key] || PAYMENT_ACCOUNT_MAP.company_account;
+                    let descripcion = base.descripcion;
+
+                    if (isPaid) {
+                        descripcion = 'Pago conciliado contra banco';
+                    } else if (estadoFactura === 'facturado') {
+                        descripcion = 'Factura registrada: pendiente de pago al proveedor';
+                    } else if (willHaveCfdi) {
+                        descripcion = 'Gasto por comprobar en espera de CFDI';
+                    } else {
+                        descripcion = base.descripcion;
+                    }
+
+                    return { ...base, descripcion };
+                };
+
+                const paymentAccount = resolvePaymentAccount();
+                const providerAccount = {
+                    cuenta: '2100',
+                    nombre: 'Proveedores',
+                    tipo: 'pasivo',
+                    descripcion: 'Cuenta por pagar al proveedor'
+                };
+                const bankAccount = PAYMENT_ACCOUNT_MAP.company_account;
 
                 if (estadoFactura === 'facturado') {
                     const providerCredit = round2(totalDebits - retencionesSum);
-                    if (providerCredit > 0) {
-                        pushEntry(providerAccount.cuenta, providerAccount.nombre, 0, providerCredit, providerAccount.tipo);
+
+                    if (isPaid) {
+                        if (providerCredit > 0) {
+                            pushEntry(
+                                bankAccount.cuenta,
+                                bankAccount.nombre,
+                                0,
+                                providerCredit,
+                                bankAccount.tipo,
+                                'Pago bancario conciliado al proveedor'
+                            );
+                        }
+                    } else {
+                        if (providerCredit > 0) {
+                            pushEntry(
+                                providerAccount.cuenta,
+                                providerAccount.nombre,
+                                0,
+                                providerCredit,
+                                providerAccount.tipo,
+                                'Factura registrada: obligación con el proveedor'
+                            );
+                        }
                     }
+
                     retenciones.forEach((tax) => {
                         const config = resolveTaxAccount(tax);
                         if (!config) return;
                         const amount = round2(tax.amount || 0);
                         if (amount <= 0) return;
-                        pushEntry(config.cuenta, config.nombre, 0, amount, config.tipo || 'pasivo');
+                        pushEntry(config.cuenta, config.nombre, 0, amount, config.tipo || 'pasivo', config.descripcion);
                     });
                 } else {
                     const paymentCredit = round2(totalDebits - retencionesSum);
                     if (paymentCredit > 0) {
-                        pushEntry(paymentAccount.cuenta, paymentAccount.nombre, 0, paymentCredit, paymentAccount.tipo || 'pasivo');
+                        pushEntry(
+                            paymentAccount.cuenta,
+                            paymentAccount.nombre,
+                            0,
+                            paymentCredit,
+                            paymentAccount.tipo || 'pasivo',
+                            paymentAccount.descripcion
+                        );
                     }
                     retenciones.forEach((tax) => {
                         const config = resolveTaxAccount(tax);
                         if (!config) return;
                         const amount = round2(tax.amount || 0);
                         if (amount <= 0) return;
-                        pushEntry(config.cuenta, config.nombre, 0, amount, config.tipo || 'pasivo');
+                        pushEntry(config.cuenta, config.nombre, 0, amount, config.tipo || 'pasivo', config.descripcion);
                     });
                 }
 
@@ -3965,155 +5224,402 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
             });
 
             return (
-                <div className="max-w-6xl mx-auto p-6 space-y-6">
-                    {/* Header */}
-                    <div className="text-center space-y-4">
-                        <h1 className="text-3xl font-bold text-gray-900">
-                            Registro de Gastos con Voz
-                        </h1>
-                        <p className="text-lg text-gray-600">
-                            Dicta la información de tu gasto y revisa los campos detectados
-                        </p>
-                        <div className="flex justify-center gap-3 flex-wrap">
-                            <button
-                                onClick={() => setShowExpensesDashboard(true)}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                            >
-                                <i className="fas fa-chart-bar mr-2"></i>
-                                Dashboard de Gastos
-                            </button>
-                            <button
-                                onClick={() => setShowPendingInvoices(true)}
-                                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm"
-                            >
-                                <i className="fas fa-file-invoice mr-2"></i>
-                                Facturas Pendientes
-                            </button>
-                            <div className="relative">
+                <div className="min-h-screen bg-slate-50 text-gray-900">
+                    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-slate-200">
+                        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
                                 <button
-                                    onClick={() => setMoreActionsOpen((open) => !open)}
-                                    aria-haspopup="true"
-                                    aria-expanded={moreActionsOpen}
-                                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm flex items-center"
+                                    className="inline-flex md:hidden items-center justify-center h-10 w-10 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"
+                                    onClick={() => {
+                                        setShowNavigationDrawer(true);
+                                        setShowAccountMenu(false);
+                                    }}
+                                    aria-label="Abrir menú de navegación"
                                 >
-                                    <i className="fas fa-ellipsis-h mr-2"></i>
-                                    Más opciones
+                                    <i className="fas fa-bars"></i>
                                 </button>
-                                {moreActionsOpen && (
-                                    <div className="absolute right-0 mt-2 w-56 bg-white shadow-lg rounded-lg border border-gray-200 z-10">
-                                        <ul className="py-2 text-sm text-gray-700">
-                                            <li>
-                                                <button
-                                                    onClick={() => {
-                                                        setShowInvoiceUpload(true);
-                                                        setMoreActionsOpen(false);
-                                                    }}
-                                                    className="w-full text-left px-4 py-2 hover:bg-gray-100"
-                                                >
-                                                    <i className="fas fa-upload mr-2 text-green-600"></i>
-                                                    Cargar Facturas
-                                                </button>
-                                            </li>
-                                            <li>
-                                                <button
-                                                    onClick={() => {
-                                                        setShowReconciliation(true);
-                                                        setMoreActionsOpen(false);
-                                                    }}
-                                                    className="w-full text-left px-4 py-2 hover:bg-gray-100"
-                                                >
-                                                    <i className="fas fa-balance-scale mr-2 text-purple-600"></i>
-                                                    Conciliar Gastos
-                                                </button>
-                                            </li>
-                                            <li>
-                                                <button
-                                                    onClick={() => {
-                                                        setShowBankReconciliation(true);
-                                                        setMoreActionsOpen(false);
-                                                    }}
-                                                    className="w-full text-left px-4 py-2 hover:bg-gray-100"
-                                                >
-                                                    <i className="fas fa-university mr-2 text-teal-600"></i>
-                                                    Conciliación Bancaria
-                                                </button>
-                                            </li>
-                                            <li>
-                                                <button
-                                                    onClick={() => {
-                                                        setShowCompletenessView(true);
-                                                        setMoreActionsOpen(false);
-                                                    }}
-                                                    className="w-full text-left px-4 py-2 hover:bg-gray-100"
-                                                >
-                                                    <i className="fas fa-clipboard-check mr-2 text-indigo-600"></i>
-                                                    Vista Contable
-                                                </button>
-                                            </li>
-                                            <li>
-                                                <button
-                                                    onClick={() => {
-                                                        setShowConversationalAssistant(true);
-                                                        setMoreActionsOpen(false);
-                                                    }}
-                                                    className="w-full text-left px-4 py-2 hover:bg-gray-100"
-                                                >
-                                                    <i className="fas fa-robot mr-2 text-pink-600"></i>
-                                                    Asistente IA
-                                                </button>
-                                            </li>
-                                        </ul>
+                                <div className="flex items-center gap-2">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-semibold">
+                                        MCP
                                     </div>
-                                )}
+                                    <div className="leading-tight">
+                                        <p className="font-semibold text-slate-900">MCP Expenses</p>
+                                        <p className="text-xs text-slate-500">Gasto → Factura → Banco</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="hidden md:flex items-center gap-3">
+                                <div className="flex items-center gap-2 border border-slate-200 rounded-full px-3 py-1 bg-white shadow-sm">
+                                    <i className="fas fa-building text-slate-500"></i>
+                                    <select
+                                        value={companyId}
+                                        onChange={(event) => handleCompanyChange(event.target.value)}
+                                        className="bg-transparent text-sm focus:outline-none focus:ring-0"
+                                    >
+                                        {knownCompanies.map((company) => (
+                                            <option key={company} value={company}>{company}</option>
+                                        ))}
+                                        {!knownCompanies.includes('default') && (
+                                            <option value="default">default</option>
+                                        )}
+                                        <option value="__new__">➕ Registrar empresa…</option>
+                                    </select>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setShowExpensesDashboard(true);
+                                        setShowAccountMenu(false);
+                                    }}
+                                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-100"
+                                >
+                                    <i className="fas fa-chart-line"></i>
+                                    Dashboard
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowInvoiceUpload(true);
+                                        setShowAccountMenu(false);
+                                    }}
+                                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700"
+                                >
+                                    <i className="fas fa-file-upload"></i>
+                                    Cargar facturas
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowReconciliation(true);
+                                        setShowAccountMenu(false);
+                                    }}
+                                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-100"
+                                >
+                                    <i className="fas fa-balance-scale"></i>
+                                    Conciliar gastos
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowBankReconciliation(true);
+                                        setShowAccountMenu(false);
+                                    }}
+                                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-100"
+                                >
+                                    <i className="fas fa-university"></i>
+                                    Bancos
+                                </button>
+                                <div className="relative">
+                                    <button
+                                        onClick={() => {
+                                            setShowAccountMenu((prev) => !prev);
+                                            setShowNavigationDrawer(false);
+                                        }}
+                                        className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300"
+                                        aria-label="Abrir menú de cuenta"
+                                    >
+                                        <i className="fas fa-user"></i>
+                                    </button>
+                                    {showAccountMenu && (
+                                        <div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white shadow-lg z-50">
+                                            <button
+                                                onClick={() => {
+                                                    handleCompanyChange('__new__');
+                                                    setShowAccountMenu(false);
+                                                }}
+                                                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                                            >
+                                                <i className="fas fa-building"></i>
+                                                Registrar empresa
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    alert('Cerrar sesión no está disponible en la demo.');
+                                                    setShowAccountMenu(false);
+                                                }}
+                                                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                                            >
+                                                <i className="fas fa-sign-out-alt"></i>
+                                                Cerrar sesión
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
+                    </header>
+                    {showAccountMenu && (
+                        <div
+                            className="fixed inset-0 z-30 hidden md:block"
+                            onClick={() => setShowAccountMenu(false)}
+                        ></div>
+                    )}
+                    <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+                        <section className="text-center space-y-4">
+                            <h2 className="text-3xl font-bold text-gray-900">📊 Centro de Control de Gastos</h2>
+                            <p className="text-gray-600">Captura por voz o ticket, vincula facturas y concilia con el banco en un solo flujo.</p>
+                            <div className="flex flex-col items-center justify-center gap-3 text-sm text-slate-600 md:flex-row md:gap-4">
+                                <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm">
+                                    <i className="fas fa-building text-slate-500"></i>
+                                    <span className="font-medium text-slate-700">Empresa: {resolvedCompanyId}</span>
+                                    <button
+                                        onClick={() => {
+                                            setShowNavigationDrawer(true);
+                                            setShowAccountMenu(false);
+                                        }}
+                                        className="text-xs font-semibold text-blue-600 hover:underline"
+                                        type="button"
+                                    >
+                                        Cambiar
+                                    </button>
+                                </div>
+                                {demoMode ? (
+                                    <span className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                                        <i className="fas fa-rocket"></i>
+                                        Estás en modo demo
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-2 rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-600">
+                                        <i className="fas fa-plug"></i>
+                                        Registrando en empresa real
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex justify-center gap-3 flex-wrap">
+                                <button
+                                    onClick={() => {
+                                        setShowExpensesDashboard(true);
+                                        if (demoMode) {
+                                            markMissionComplete('4');
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                                >
+                                    <i className="fas fa-chart-bar mr-2"></i>
+                                    Dashboard de Gastos
+                                </button>
+                                <button
+                                    onClick={() => setShowPendingInvoices(true)}
+                                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm"
+                                >
+                                    <i className="fas fa-file-invoice mr-2"></i>
+                                    Facturas Pendientes
+                                </button>
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setMoreActionsOpen((open) => !open)}
+                                        aria-haspopup="true"
+                                        aria-expanded={moreActionsOpen}
+                                        className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm flex items-center"
+                                    >
+                                        <i className="fas fa-ellipsis-h mr-2"></i>
+                                        Más opciones
+                                    </button>
+                                    {moreActionsOpen && (
+                                        <div className="absolute right-0 mt-2 w-56 bg-white shadow-lg rounded-lg border border-gray-200 z-10">
+                                            <ul className="py-2 text-sm text-gray-700">
+                                                <li>
+                                                    <button
+                                                        onClick={() => {
+                                                            setShowInvoiceUpload(true);
+                                                            setMoreActionsOpen(false);
+                                                        }}
+                                                        className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                                    >
+                                                        <i className="fas fa-upload mr-2 text-green-600"></i>
+                                                        Cargar Facturas
+                                                    </button>
+                                                </li>
+                                                <li>
+                                                    <button
+                                                        onClick={() => {
+                                                            setShowReconciliation(true);
+                                                            setMoreActionsOpen(false);
+                                                        }}
+                                                        className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                                    >
+                                                        <i className="fas fa-balance-scale mr-2 text-purple-600"></i>
+                                                        Conciliar Gastos
+                                                    </button>
+                                                </li>
+                                                <li>
+                                                    <button
+                                                        onClick={() => {
+                                                            setShowBankReconciliation(true);
+                                                            setMoreActionsOpen(false);
+                                                        }}
+                                                        className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                                    >
+                                                        <i className="fas fa-university mr-2 text-teal-600"></i>
+                                                        Conciliación Bancaria
+                                                    </button>
+                                                </li>
+                                                <li>
+                                                    <button
+                                                        onClick={() => {
+                                                            setShowCompletenessView(true);
+                                                            setMoreActionsOpen(false);
+                                                        }}
+                                                        className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                                    >
+                                                        <i className="fas fa-clipboard-check mr-2 text-indigo-600"></i>
+                                                        Vista Contable
+                                                    </button>
+                                                </li>
+                                                <li>
+                                                    <button
+                                                        onClick={() => {
+                                                            setShowConversationalAssistant(true);
+                                                            setMoreActionsOpen(false);
+                                                        }}
+                                                        className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                                    >
+                                                        <i className="fas fa-robot mr-2 text-pink-600"></i>
+                                                        Asistente IA
+                                                    </button>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </section>
 
+                    {demoMode && activeMission && missionDetails[activeMission] && (
+                        (() => {
+                            const mission = missionDetails[activeMission];
+                            const missionCompleted = completedMissions.includes(activeMission);
+                            return (
+                                <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-left space-y-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <p className="text-sm font-semibold text-blue-700">Guía del demo</p>
+                                            <h3 className="text-lg font-bold text-slate-900">🎯 {mission.title}</h3>
+                                            <p className="text-sm text-slate-600">{mission.description}</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="text-slate-400 hover:text-slate-600"
+                                            aria-label="Ocultar guía de misión"
+                                            onClick={() => goToMission(null)}
+                                        >
+                                            <i className="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                    <ul className="space-y-1 text-sm text-slate-600 list-disc list-inside">
+                                        {mission.steps.map((step, index) => (
+                                            <li key={index}>{step}</li>
+                                        ))}
+                                    </ul>
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        {mission.action && (
+                                            <button
+                                                type="button"
+                                                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700"
+                                                onClick={() => handleMissionAction(activeMission)}
+                                            >
+                                                <i className="fas fa-location-arrow"></i>
+                                                {mission.ctaLabel}
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold ${missionCompleted ? 'bg-emerald-100 text-emerald-700 cursor-default' : 'bg-emerald-500 text-white hover:bg-emerald-600'}`}
+                                            onClick={() => markMissionComplete(activeMission)}
+                                            disabled={missionCompleted}
+                                        >
+                                            <i className={`fas ${missionCompleted ? 'fa-check' : 'fa-flag-checkered'}`}></i>
+                                            {missionCompleted ? 'Misión completada' : 'Marcar misión como completada'}
+                                        </button>
+                                        {mission.next && (
+                                            <button
+                                                type="button"
+                                                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-300"
+                                                onClick={() => goToMission(mission.next)}
+                                            >
+                                                <i className="fas fa-arrow-right"></i>
+                                                Ir a misión {mission.next}
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            className="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline"
+                                            onClick={() => { window.location.href = '/onboarding'; }}
+                                        >
+                                            <i className="fas fa-arrow-left"></i>
+                                            Volver al onboarding
+                                        </button>
+                                    </div>
+                                    {missionCompleted && (
+                                        <p className="text-xs text-emerald-600">¡Excelente! Marca la misión como completada en el onboarding o continúa con la siguiente misión.</p>
+                                    )}
+                                </div>
+                            );
+                        })()
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="bg-white border border-gray-200 rounded-lg p-4 text-left">
+                            <p className="text-xs text-gray-500 uppercase tracking-wide">Gastos demo</p>
+                            <p className="text-2xl font-bold text-gray-900">{expensesData.length}</p>
+                        </div>
+                        <div className="bg-white border border-gray-200 rounded-lg p-4 text-left">
+                            <p className="text-xs text-gray-500 uppercase tracking-wide">Facturados</p>
+                            <p className="text-lg font-semibold text-emerald-600">{invoiceCounts.facturado || 0}</p>
+                            <p className="text-xs text-emerald-700">Pendientes: {invoiceCounts.pendiente || 0}</p>
+                        </div>
+                        <div className="bg-white border border-gray-200 rounded-lg p-4 text-left">
+                            <p className="text-xs text-gray-500 uppercase tracking-wide">Sin factura</p>
+                            <p className="text-lg font-semibold text-amber-600">{invoiceCounts['sin_factura'] || 0}</p>
+                            <p className="text-xs text-amber-700">Idea: completa misión 2</p>
+                        </div>
+                        <div className="bg-white border border-gray-200 rounded-lg p-4 text-left">
+                            <p className="text-xs text-gray-500 uppercase tracking-wide">Conciliación bancaria</p>
+                            <p className="text-lg font-semibold text-blue-700">{bankCounts.reconciled} conciliados</p>
+                            <p className="text-xs text-slate-600">Pendientes: {bankCounts.pending}</p>
+                        </div>
                     </div>
 
                     {/* Selección de método de entrada */}
-                    <div className="bg-white rounded-lg shadow-md p-8">
+                    <div id="capture-mode-section" className="bg-white rounded-lg shadow-md p-6 sm:p-8">
                         <div className="text-center space-y-6">
-                            <h3 className="text-xl font-semibold text-gray-800">¿Cómo quieres registrar el gasto?</h3>
+                            <h3 className="text-xl font-semibold text-gray-800">Elige cómo quieres registrar el gasto</h3>
 
                             {/* Botones de selección de modo */}
-                            <div className="flex justify-center gap-4">
+                            <div className="flex flex-col sm:flex-row sm:justify-center gap-3 sm:gap-4">
                                 <button
                                     onClick={() => setInputMode('voice')}
-                                    className={`flex flex-col items-center p-6 rounded-lg border-2 transition-all ${
+                                    className={`flex flex-col items-center w-full sm:w-auto sm:min-w-[180px] px-5 py-5 sm:px-6 sm:py-6 rounded-lg border-2 transition-all ${
                                         inputMode === 'voice'
                                         ? 'border-blue-500 bg-blue-50 text-blue-700'
                                         : 'border-gray-300 bg-white text-gray-600 hover:border-blue-300'
                                     }`}
                                 >
                                     <i className="fas fa-microphone text-3xl mb-2"></i>
-                                    <span className="font-medium">Voz</span>
-                                    <span className="text-xs text-center">Dictado por voz</span>
+                                    <span className="font-medium">Voz (dictado)</span>
+                                    <span className="text-xs text-center">Habla y nosotros llenamos el gasto</span>
                                 </button>
 
                                 <button
                                     onClick={() => setInputMode('ocr')}
-                                    className={`flex flex-col items-center p-6 rounded-lg border-2 transition-all ${
+                                    className={`flex flex-col items-center w-full sm:w-auto sm:min-w-[180px] px-5 py-5 sm:px-6 sm:py-6 rounded-lg border-2 transition-all ${
                                         inputMode === 'ocr'
                                         ? 'border-green-500 bg-green-50 text-green-700'
                                         : 'border-gray-300 bg-white text-gray-600 hover:border-green-300'
                                     }`}
                                 >
                                     <i className="fas fa-camera text-3xl mb-2"></i>
-                                    <span className="font-medium">Subir Ticket</span>
-                                    <span className="text-xs text-center">OCR automático</span>
+                                    <span className="font-medium">Subir ticket (OCR)</span>
+                                    <span className="text-xs text-center">Leemos tickets y facturas automáticamente</span>
                                 </button>
 
                                 <button
                                     onClick={() => setInputMode('text')}
-                                    className={`flex flex-col items-center p-6 rounded-lg border-2 transition-all ${
+                                    className={`flex flex-col items-center w-full sm:w-auto sm:min-w-[180px] px-5 py-5 sm:px-6 sm:py-6 rounded-lg border-2 transition-all ${
                                         inputMode === 'text'
                                         ? 'border-purple-500 bg-purple-50 text-purple-700'
                                         : 'border-gray-300 bg-white text-gray-600 hover:border-purple-300'
                                     }`}
                                 >
                                     <i className="fas fa-keyboard text-3xl mb-2"></i>
-                                    <span className="font-medium">Texto</span>
-                                    <span className="text-xs text-center">Escribir directo</span>
+                                    <span className="font-medium">Texto (manual)</span>
+                                    <span className="text-xs text-center">Escribe los datos directamente</span>
                                 </button>
                             </div>
 
@@ -4121,7 +5627,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
                             <div className="mt-8">
                                 {inputMode === 'voice' && (
                                     <div className="space-y-4">
-                                        <div className="relative">
+                                        <div className="relative flex justify-center">
                                             <button
                                                 onClick={handleToggleRecording}
                                                 className={`w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl transition-all duration-200 ${
@@ -4155,7 +5661,7 @@ const { useState, useCallback, useRef, useEffect, useMemo } = React;
 
                                 {inputMode === 'ocr' && (
                                     <div className="space-y-4">
-                                        <div className="border-2 border-dashed border-green-300 rounded-lg p-8 bg-green-50">
+                                        <div className="border-2 border-dashed border-green-300 rounded-lg p-5 sm:p-8 bg-green-50">
                                             <input
                                                 type="file"
                                                 id="ocr-file-upload"
@@ -4866,32 +6372,44 @@ Ejemplo: 'Compra de gasolina por 500 pesos en Pemex, pagado con tarjeta de empre
                                     )}
                                 </button>
 
-                                <button
-                                    onClick={handleSendToOdoo}
-                                    disabled={missingRequiredFields.length > 0 || isSaving || isSending || isCheckingDuplicates}
-                                    className={`px-6 py-2 text-sm font-medium rounded-md transition-colors ${
-                                        missingRequiredFields.length === 0 && !isSaving && !isSending && !isCheckingDuplicates
-                                            ? 'text-white bg-blue-600 hover:bg-blue-700'
-                                            : 'text-gray-400 bg-gray-200 cursor-not-allowed'
-                                    }`}
-                                >
-                                    {isCheckingDuplicates ? (
-                                        <>
-                                            <i className="fas fa-search fa-spin mr-2"></i>
-                                            Verificando duplicados...
-                                        </>
-                                    ) : isSending ? (
-                                        <>
-                                            <i className="fas fa-spinner fa-spin mr-2"></i>
-                                            Enviando a Odoo...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <i className="fas fa-paper-plane mr-2"></i>
-                                            Enviar a Odoo
-                                        </>
-                                    )}
-                                </button>
+                                {demoMode && (
+                                    <button
+                                        onClick={handleSaveDemoExpense}
+                                        className="px-6 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 transition-colors"
+                                    >
+                                        <i className="fas fa-floppy-disk mr-2"></i>
+                                        Guardar gasto demo
+                                    </button>
+                                )}
+
+                                {!demoMode && (
+                                    <button
+                                        onClick={handleSendToOdoo}
+                                        disabled={missingRequiredFields.length > 0 || isSaving || isSending || isCheckingDuplicates}
+                                        className={`px-6 py-2 text-sm font-medium rounded-md transition-colors ${
+                                            missingRequiredFields.length === 0 && !isSaving && !isSending && !isCheckingDuplicates
+                                                ? 'text-white bg-blue-600 hover:bg-blue-700'
+                                                : 'text-gray-400 bg-gray-200 cursor-not-allowed'
+                                        }`}
+                                    >
+                                        {isCheckingDuplicates ? (
+                                            <>
+                                                <i className="fas fa-search fa-spin mr-2"></i>
+                                                Verificando duplicados...
+                                            </>
+                                        ) : isSending ? (
+                                            <>
+                                                <i className="fas fa-spinner fa-spin mr-2"></i>
+                                                Enviando a Odoo...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <i className="fas fa-paper-plane mr-2"></i>
+                                                Enviar a Odoo
+                                            </>
+                                        )}
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -4936,6 +6454,7 @@ Ejemplo: 'Compra de gasolina por 500 pesos en Pemex, pagado con tarjeta de empre
                                     setSelectedCategoryFilter={setSelectedCategoryFilter}
                                     categorias={CATEGORIAS_DISPONIBLES}
                                     getCategoryInfo={getCategoryInfo}
+                                    onOpenQuickView={setQuickViewExpense}
                                 />
                             </div>
                         </div>
@@ -4995,12 +6514,19 @@ Ejemplo: 'Compra de gasolina por 500 pesos en Pemex, pagado con tarjeta de empre
                                 <InvoiceUploadContent
                                     expensesData={expensesData}
                                     setExpensesData={setExpensesData}
+                                    normalizeExpenseFn={normalizeExpense}
+                                    companyId={resolvedCompanyId}
                                 />
                             </div>
                         </div>
                     )}
 
-                    {/* Modal de Conciliación */}
+                    <p className="mt-10 text-center text-xs text-gray-500">
+                        Cuando quieras, cambia de la empresa demo a tu empresa real para registrar gastos auténticos.
+                    </p>
+                </main>
+
+                {/* Modal de Conciliación */}
                     {showReconciliation && (
                         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                             <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -5022,6 +6548,9 @@ Ejemplo: 'Compra de gasolina por 500 pesos en Pemex, pagado con tarjeta de empre
 
                                 <ReconciliationContent
                                     expensesData={expensesData}
+                                    onOpenBulkUpload={() => {
+                                        setShowInvoiceUpload(true);
+                                    }}
                                 />
                             </div>
                         </div>
@@ -5051,6 +6580,15 @@ Ejemplo: 'Compra de gasolina por 500 pesos en Pemex, pagado con tarjeta de empre
                                 <BankReconciliationContent
                                     expensesData={expensesData}
                                     onUpdateExpense={updateExpense}
+                                    companyId={resolvedCompanyId}
+                                    onMissionComplete={() => {
+                                        if (demoMode) {
+                                            markMissionComplete('3');
+                                            if (activeMission === '3') {
+                                                goToMission('4');
+                                            }
+                                        }
+                                    }}
                                 />
                             </div>
                         </div>
@@ -5100,7 +6638,319 @@ Ejemplo: 'Compra de gasolina por 500 pesos en Pemex, pagado con tarjeta de empre
                             console.log('Non-reconciliation marked:', result);
                             // Aquí podrías actualizar el estado local del gasto
                         }}
+                        companyId={resolvedCompanyId}
                     />
+
+                    {quickViewExpense && (
+                        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black bg-opacity-50 p-4">
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
+                                <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-6">
+                                    <div>
+                                        <p className="text-xs uppercase tracking-wide text-slate-500">Estado del gasto</p>
+                                        <h2 className="text-2xl font-semibold text-slate-900">{quickViewExpense.descripcion}</h2>
+                                        <p className="text-sm text-slate-500">{formatCurrency(quickViewExpense.monto_total)} · {quickViewExpense.fecha_gasto || 'Sin fecha'}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setQuickViewExpense(null)}
+                                        className="text-slate-400 hover:text-slate-600"
+                                        aria-label="Cerrar visualizador"
+                                    >
+                                        <i className="fas fa-times text-xl"></i>
+                                    </button>
+                                </div>
+
+                                <div className="p-6 space-y-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div className="border border-blue-100 rounded-xl p-3 bg-blue-50">
+                                            <p className="text-xs uppercase font-semibold text-blue-600">Factura</p>
+                                            <p className="text-sm font-semibold text-blue-800 mt-1 capitalize">{(quickViewExpense.estado_factura || 'pendiente').replace(/_/g, ' ')}</p>
+                                            <p className="text-xs text-blue-600 mt-1">
+                                                {quickViewExpense.estado_factura === 'facturado'
+                                                    ? 'Factura registrada correctamente'
+                                                    : quickViewExpense.estado_factura === 'sin_factura'
+                                                        ? 'Marcado como sin factura'
+                                                        : 'Aún falta vincular CFDI'}
+                                            </p>
+                                        </div>
+                                        <div className="border border-emerald-100 rounded-xl p-3 bg-emerald-50">
+                                            <p className="text-xs uppercase font-semibold text-emerald-600">Banco</p>
+                                            <p className="text-sm font-semibold text-emerald-800 mt-1 capitalize">{(quickViewExpense.estado_conciliacion || 'pendiente').replace(/_/g, ' ')}</p>
+                                            <p className="text-xs text-emerald-600 mt-1">
+                                                {quickViewExpense.estado_conciliacion === 'conciliado_banco'
+                                                    ? 'Ya vinculado a un movimiento bancario'
+                                                    : 'Pendiente de conciliación bancaria'}
+                                            </p>
+                                        </div>
+                                        <div className="border border-purple-100 rounded-xl p-3 bg-purple-50 sm:col-span-2">
+                                            <p className="text-xs uppercase font-semibold text-purple-600">Flujo contable</p>
+                                            <div className="flex items-center gap-2 text-sm text-purple-700 mt-2">
+                                                <i className="fas fa-route"></i>
+                                                <span>{(quickViewExpense.workflow_status || 'capturado').replace(/_/g, ' ')}</span>
+                                            </div>
+                                            {quickViewExpense.categoria && (
+                                                <p className="text-xs text-purple-600 mt-1">Categoría: {quickViewExpense.categoria}</p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <p className="text-xs uppercase font-semibold text-slate-500">Avance del flujo</p>
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                                            {[
+                                                {
+                                                    label: 'Captura',
+                                                    icon: 'fa-flag-checkered',
+                                                    color: 'text-blue-500',
+                                                    progress: 100,
+                                                },
+                                                {
+                                                    label: 'Factura',
+                                                    icon: quickViewExpense.estado_factura === 'facturado' ? 'fa-check-circle' : 'fa-file-invoice',
+                                                    color: quickViewExpense.estado_factura === 'facturado' ? 'text-green-500' : 'text-yellow-500',
+                                                    progress: quickViewExpense.estado_factura === 'facturado' ? 100 : quickViewExpense.estado_factura === 'pendiente' ? 45 : 70,
+                                                },
+                                                {
+                                                    label: 'Banco',
+                                                    icon: quickViewExpense.estado_conciliacion === 'conciliado_banco' ? 'fa-coins' : 'fa-university',
+                                                    color: quickViewExpense.estado_conciliacion === 'conciliado_banco' ? 'text-emerald-500' : 'text-emerald-400',
+                                                    progress: quickViewExpense.estado_conciliacion === 'conciliado_banco' ? 100 : quickViewExpense.estado_factura === 'facturado' ? 40 : 10,
+                                                }
+                                            ].map((step) => (
+                                                <div key={step.label} className="flex-1">
+                                                    <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
+                                                        <i className={`fas ${step.icon} ${step.color}`}></i>
+                                                        <span>{step.label}</span>
+                                                    </div>
+                                                    <div className="h-2 bg-slate-100 rounded-full mt-2">
+                                                        <div className="h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-600" style={{ width: `${step.progress}%` }}></div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <button
+                                            onClick={() => {
+                                                setQuickViewExpense(null);
+                                                setShowInvoiceUpload(true);
+                                            }}
+                                            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-blue-50 text-blue-700 rounded-lg border border-blue-200 hover:bg-blue-100"
+                                        >
+                                            <i className="fas fa-file-upload"></i>
+                                            Vincular factura
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setQuickViewExpense(null);
+                                                setShowReconciliation(true);
+                                            }}
+                                            className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-200 hover:bg-emerald-100"
+                                        >
+                                            <i className="fas fa-scale-balanced"></i>
+                                            Resolver en conciliación
+                                        </button>
+                                    </div>
+
+                                    <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 text-xs text-slate-600 space-y-1">
+                                        <p><strong>Proveedor:</strong> {quickViewExpense.proveedor?.nombre || 'Sin proveedor'}</p>
+                                        <p><strong>RFC:</strong> {quickViewExpense.rfc || '—'}</p>
+                                        <p><strong>Forma de pago:</strong> {quickViewExpense.forma_pago || '—'}</p>
+                                        <p><strong>Pagado por:</strong> {quickViewExpense.paid_by || '—'}</p>
+                                        {Array.isArray(quickViewExpense.movimientos_bancarios) && quickViewExpense.movimientos_bancarios.length > 0 && (
+                                            <p><strong>Movimientos vinculados:</strong> {quickViewExpense.movimientos_bancarios.length}</p>
+                                        )}
+                                    </div>
+
+                                    {quickViewExpense.asientos_contables && (
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-xs uppercase font-semibold text-slate-500">Asiento contable</p>
+                                                    <p className="text-sm font-semibold text-slate-800">
+                                                        {quickViewExpense.asientos_contables.numero_poliza || 'Póliza sin folio'}
+                                                    </p>
+                                                    <p className="text-xs text-slate-500">
+                                                        {quickViewExpense.asientos_contables.fecha_asiento || 'Fecha no definida'} · {quickViewExpense.asientos_contables.tipo_poliza || 'Sin tipo'}
+                                                    </p>
+                                                </div>
+                                                <span className={`inline-flex items-center gap-2 px-2 py-1 text-xs font-semibold rounded-full ${quickViewExpense.asientos_contables.balanceado ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
+                                                    <i className={`fas ${quickViewExpense.asientos_contables.balanceado ? 'fa-check' : 'fa-triangle-exclamation'}`}></i>
+                                                    {quickViewExpense.asientos_contables.balanceado ? 'Balanceado' : 'Revisar diferencias'}
+                                                </span>
+                                            </div>
+
+                                            <div className="border border-slate-200 rounded-lg overflow-hidden">
+                                                <table className="min-w-full text-xs">
+                                                    <thead className="bg-slate-100 text-slate-600 uppercase">
+                                                        <tr>
+                                                            <th className="px-3 py-2 text-left font-semibold">Cuenta</th>
+                                                            <th className="px-3 py-2 text-left font-semibold">Descripción</th>
+                                                            <th className="px-3 py-2 text-right font-semibold">Debe</th>
+                                                            <th className="px-3 py-2 text-right font-semibold">Haber</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-200 bg-white">
+                                                        {quickViewExpense.asientos_contables.movimientos.slice(0, 4).map((mov, idx) => (
+                                                            <tr key={`${mov.cuenta}-${idx}`}>
+                                                                <td className="px-3 py-2 text-slate-700 font-mono text-[11px]">{mov.cuenta}</td>
+                                                            <td className="px-3 py-2 text-slate-600">{mov.descripcion || mov.nombre_cuenta}</td>
+                                                                <td className="px-3 py-2 text-right text-slate-700">${Number(mov.debe || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                                                                <td className="px-3 py-2 text-right text-slate-700">${Number(mov.haber || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                    <tfoot className="bg-slate-50 text-slate-600">
+                                                        <tr>
+                                                            <td colSpan={2} className="px-3 py-2 text-right font-semibold">Totales</td>
+                                                            <td className="px-3 py-2 text-right font-semibold text-slate-800">${Number(quickViewExpense.asientos_contables.total_debe || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                                                            <td className="px-3 py-2 text-right font-semibold text-slate-800">${Number(quickViewExpense.asientos_contables.total_haber || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+                                            </div>
+
+                                            <button
+                                                onClick={() => {
+                                                    setQuickViewExpense(null);
+                                                    setShowCompletenessView(true);
+                                                }}
+                                                className="inline-flex items-center gap-2 text-xs font-semibold text-purple-600 hover:text-purple-700"
+                                            >
+                                                <i className="fas fa-book-open"></i>
+                                                Ver asiento completo
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {showNavigationDrawer && (
+                        <div className="fixed inset-0 z-50 md:hidden">
+                            <div
+                                className="absolute inset-0 bg-black/40"
+                                onClick={() => setShowNavigationDrawer(false)}
+                            ></div>
+                            <div className="absolute left-0 top-0 bottom-0 w-80 max-w-[85%] bg-white shadow-2xl p-6 space-y-6 overflow-y-auto">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-semibold">
+                                            MCP
+                                        </div>
+                                        <div className="text-sm leading-tight">
+                                            <p className="font-semibold text-slate-900">MCP Expenses</p>
+                                            <p className="text-xs text-slate-500">Control total de gastos</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowNavigationDrawer(false)}
+                                        className="h-9 w-9 inline-flex items-center justify-center rounded-full bg-slate-100 text-slate-600"
+                                        aria-label="Cerrar menú"
+                                    >
+                                        <i className="fas fa-times"></i>
+                                    </button>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Empresa</p>
+                                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2">
+                                            <i className="fas fa-building text-slate-500"></i>
+                                            <select
+                                                value={companyId}
+                                                onChange={(event) => handleCompanyChange(event.target.value, { closeDrawer: true })}
+                                                className="flex-1 bg-transparent text-sm focus:outline-none"
+                                            >
+                                                {knownCompanies.map((company) => (
+                                                    <option key={company} value={company}>{company}</option>
+                                                ))}
+                                                {!knownCompanies.includes('default') && (
+                                                    <option value="default">default</option>
+                                                )}
+                                                <option value="__new__">➕ Registrar empresa…</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <p className="text-xs font-semibold text-slate-500 uppercase">Acciones rápidas</p>
+                                        <button
+                                            onClick={() => {
+                                                setShowExpensesDashboard(true);
+                                                setShowNavigationDrawer(false);
+                                            }}
+                                            className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                        >
+                                            <i className="fas fa-chart-bar text-blue-500"></i>
+                                            Dashboard de gastos
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setShowInvoiceUpload(true);
+                                                setShowNavigationDrawer(false);
+                                            }}
+                                            className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                        >
+                                            <i className="fas fa-file-upload text-green-500"></i>
+                                            Cargar facturas
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setShowReconciliation(true);
+                                                setShowNavigationDrawer(false);
+                                            }}
+                                            className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                        >
+                                            <i className="fas fa-balance-scale text-purple-500"></i>
+                                            Conciliar gastos
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setShowBankReconciliation(true);
+                                                setShowNavigationDrawer(false);
+                                            }}
+                                            className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                        >
+                                            <i className="fas fa-university text-teal-500"></i>
+                                            Conciliación bancaria
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <p className="text-xs font-semibold text-slate-500 uppercase">Cuenta</p>
+                                        <button
+                                            onClick={() => {
+                                                handleCompanyChange('__new__', { closeDrawer: true });
+                                            }}
+                                            className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                        >
+                                            <i className="fas fa-building text-slate-500"></i>
+                                            Registrar nueva empresa
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                alert('Cerrar sesión no está disponible en la demo.');
+                                                setShowNavigationDrawer(false);
+                                            }}
+                                            className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                        >
+                                            <i className="fas fa-sign-out-alt text-slate-500"></i>
+                                            Cerrar sesión
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-1 text-xs text-slate-500">
+                                        <p>Empresa activa: <span className="font-semibold text-slate-700">{resolvedCompanyId}</span></p>
+                                        {demoMode
+                                            ? <p>Modo demo activo. Completa las misiones para conocer el flujo.</p>
+                                            : <p>Modo real: cualquier cambio se refleja en tu instancia.</p>}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };

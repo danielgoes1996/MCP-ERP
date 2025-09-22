@@ -4,16 +4,29 @@ This is the entry point for the MCP (Model Context Protocol) Server that acts as
 a universal layer between AI agents and business systems.
 """
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi.responses import RedirectResponse
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Literal
 import uvicorn
 import logging
 import tempfile
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+import math
+import re
+
+# Cargar variables de entorno
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    logging.info("Variables de entorno cargadas desde .env")
+except ImportError:
+    logging.warning("python-dotenv no instalado, usando variables del sistema")
 
 # Import our core MCP handler and reconciliation helpers
 from core.mcp_handler import handle_mcp_request
@@ -30,6 +43,9 @@ from core.internal_db import (
     register_expense_invoice,
     mark_expense_invoiced as db_mark_expense_invoiced,
     mark_expense_without_invoice as db_mark_expense_without_invoice,
+    register_user_account,
+    get_company_demo_snapshot,
+    fetch_candidate_expenses_for_invoice,
 )
 from config.config import config
 
@@ -49,29 +65,54 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle application lifespan to bootstrap the internal catalog."""
+
+    try:
+        initialize_internal_database()
+        logger.info("Internal account catalog initialised")
+        yield
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.exception("Error initialising internal database: %s", exc)
+        raise
+
+
 app = FastAPI(
     title="MCP Server",
     description="Universal layer between AI agents and business systems",
     version="1.0.0",
     docs_url="/docs",  # Swagger UI
-    redoc_url="/redoc"  # ReDoc
+    redoc_url="/redoc",  # ReDoc
+    lifespan=lifespan,
 )
 
 # Mount static files for web interface
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Import and mount invoicing agent router
+try:
+    from modules.invoicing_agent.api import router as invoicing_router
+    app.include_router(invoicing_router)
+    logger.info("Invoicing agent module loaded successfully")
+except ImportError as e:
+    logger.warning(f"Invoicing agent module not available: {e}")
 
-@app.on_event("startup")
-async def bootstrap_internal_catalog() -> None:
-    """Ensure the internal database and account catalog are ready."""
+# Import and mount advanced invoicing API
+try:
+    from api.advanced_invoicing_api import router as advanced_invoicing_router
+    app.include_router(advanced_invoicing_router)
+    logger.info("Advanced invoicing API loaded successfully")
+except ImportError as e:
+    logger.warning(f"Advanced invoicing API not available: {e}")
 
-    try:
-        initialize_internal_database()
-        logger.info("Internal account catalog initialised")
-    except Exception as exc:  # pragma: no cover - defensive logging
-        logger.exception("Error initialising internal database: %s", exc)
-        raise
-
+# Import and mount client management API
+try:
+    from api.client_management_api import router as client_management_router
+    app.include_router(client_management_router)
+    logger.info("Client management API loaded successfully")
+except ImportError as e:
+    logger.warning(f"Client management API not available: {e}")
 
 class MCPRequest(BaseModel):
     """
@@ -99,6 +140,7 @@ class BankSuggestionExpense(BaseModel):
     provider_name: Optional[str] = None
     paid_by: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    company_id: str = "default"
 
 
 class BankSuggestionResponse(BaseModel):
@@ -112,6 +154,7 @@ class BankReconciliationFeedback(BaseModel):
     decision: str
     notes: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    company_id: str = "default"
 
 
 class ExpenseCreate(BaseModel):
@@ -120,6 +163,7 @@ class ExpenseCreate(BaseModel):
     monto_total: float
     fecha_gasto: Optional[str] = None
     categoria: Optional[str] = None
+    company_id: str = "default"
 
     # Información del proveedor
     proveedor: Optional[Dict[str, Any]] = None
@@ -144,6 +188,10 @@ class ExpenseCreate(BaseModel):
 
     # Metadatos adicionales
     metadata: Optional[Dict[str, Any]] = None
+    is_advance: bool = False
+    is_ppd: bool = False
+    asset_class: Optional[str] = None
+    payment_terms: Optional[str] = None
 
 
 class ExpenseResponse(BaseModel):
@@ -152,6 +200,7 @@ class ExpenseResponse(BaseModel):
     monto_total: float
     fecha_gasto: Optional[str] = None
     categoria: Optional[str] = None
+    company_id: str
 
     # Información del proveedor
     proveedor: Optional[Dict[str, Any]] = None
@@ -160,6 +209,7 @@ class ExpenseResponse(BaseModel):
     # Información fiscal
     tax_info: Optional[Dict[str, Any]] = None
     asientos_contables: Optional[List[Dict[str, Any]]] = None
+    accounting: Optional[Dict[str, Any]] = None
 
     # Estados del workflow
     workflow_status: str
@@ -173,9 +223,19 @@ class ExpenseResponse(BaseModel):
 
     # Movimientos bancarios asociados
     movimientos_bancarios: Optional[List[Dict[str, Any]]] = None
+    payments: Optional[List[Dict[str, Any]]] = None
+    total_pagado: float = 0.0
+    fecha_ultimo_pago: Optional[str] = None
 
     # Metadatos
     metadata: Optional[Dict[str, Any]] = None
+    is_advance: bool
+    is_ppd: bool
+    asset_class: Optional[str] = None
+    payment_terms: Optional[str] = None
+    scenario: Optional[str] = None
+    scenario_label: Optional[str] = None
+    asiento_definitivo: Optional[bool] = None
     created_at: str
     updated_at: str
 
@@ -192,6 +252,31 @@ class ExpenseInvoicePayload(BaseModel):
 
 class ExpenseActionRequest(BaseModel):
     actor: Optional[str] = None
+
+
+class OnboardingRequest(BaseModel):
+    method: Literal["whatsapp", "email"]
+    identifier: str
+    full_name: Optional[str] = None
+
+
+class DemoSnapshot(BaseModel):
+    total_expenses: int
+    total_amount: float
+    invoice_breakdown: Dict[str, int] = Field(default_factory=dict)
+    last_expense_date: Optional[str] = None
+
+
+class OnboardingResponse(BaseModel):
+    company_id: str
+    user_id: int
+    identifier: str
+    identifier_type: str
+    full_name: Optional[str] = None
+    already_exists: bool
+    demo_snapshot: DemoSnapshot
+    demo_expenses: List[ExpenseResponse] = Field(default_factory=list)
+    next_steps: List[str] = Field(default_factory=list)
 
 
 def _build_expense_response(record: Dict[str, Any]) -> ExpenseResponse:
@@ -224,6 +309,7 @@ def _build_expense_response(record: Dict[str, Any]) -> ExpenseResponse:
         "will_have_cfdi",
         "categoria",
         "fecha_gasto",
+        "company_id",
     ]:
         metadata.pop(key, None)
 
@@ -245,11 +331,163 @@ def _build_expense_response(record: Dict[str, Any]) -> ExpenseResponse:
         will_have_cfdi=bool(record.get("will_have_cfdi", True)),
         movimientos_bancarios=movimientos,
         metadata=metadata or None,
+        company_id=record.get("company_id", "default"),
         created_at=record.get("created_at"),
         updated_at=record.get("updated_at"),
     )
 
 
+def _parse_iso_date(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        try:
+            return datetime.strptime(value, "%Y-%m-%d")
+        except ValueError:
+            return None
+
+
+def _score_invoice_candidate(
+    *,
+    invoice_total: float,
+    invoice_date: Optional[datetime],
+    invoice_rfc: Optional[str],
+    candidate: Dict[str, Any],
+) -> Dict[str, Any]:
+    amount_diff = abs(candidate["amount"] - invoice_total)
+    score = 0
+
+    if math.isclose(candidate["amount"], invoice_total, rel_tol=0.0, abs_tol=0.01):
+        score += 70
+    elif amount_diff <= 1.0:
+        score += 50
+    else:
+        # Too large difference, unlikely to match
+        score -= 20
+
+    days_diff: Optional[int] = None
+    candidate_date = _parse_iso_date(candidate.get("expense_date"))
+    if invoice_date and candidate_date:
+        days_diff = abs((candidate_date.date() - invoice_date.date()).days)
+        if days_diff == 0:
+            score += 25
+        elif days_diff <= 3:
+            score += 15
+        elif days_diff <= 7:
+            score += 5
+        else:
+            score -= 5
+
+    candidate_rfc = (candidate.get("provider_rfc") or "").strip().upper()
+    invoice_rfc_normalized = (invoice_rfc or "").strip().upper()
+    if invoice_rfc_normalized and candidate_rfc:
+        if candidate_rfc == invoice_rfc_normalized:
+            score += 20
+        else:
+            score -= 10
+
+    return {
+        "expense_id": candidate["id"],
+        "descripcion": candidate["descripcion"],
+        "monto_total": candidate["amount"],
+        "fecha_gasto": candidate.get("expense_date"),
+        "provider_name": candidate.get("provider_name"),
+        "provider_rfc": candidate_rfc or None,
+        "invoice_status": candidate.get("invoice_status"),
+        "bank_status": candidate.get("bank_status"),
+        "match_score": score,
+        "amount_diff": amount_diff,
+        "days_diff": days_diff,
+    }
+
+
+def _match_invoice_to_expense(
+    *,
+    company_id: str,
+    invoice: "InvoiceMatchInput",
+    global_auto_mark: bool,
+) -> "InvoiceMatchResult":
+    filename = invoice.filename
+    if invoice.total is None:
+        return InvoiceMatchResult(
+            filename=filename,
+            uuid=invoice.uuid,
+            status="error",
+            message="El CFDI no contiene un total válido",
+        )
+
+    candidates = fetch_candidate_expenses_for_invoice(company_id)
+    invoice_date = _parse_iso_date(invoice.issued_at)
+    scored_candidates = [
+        _score_invoice_candidate(
+            invoice_total=invoice.total,
+            invoice_date=invoice_date,
+            invoice_rfc=invoice.rfc_emisor,
+            candidate=candidate,
+        )
+        for candidate in candidates
+    ]
+
+    scored_candidates = [c for c in scored_candidates if c["match_score"] > 0]
+    scored_candidates.sort(key=lambda item: item["match_score"], reverse=True)
+    logger.debug(
+        "Invoice bulk-match: %s candidates -> %s",
+        invoice.filename or invoice.uuid,
+        scored_candidates,
+    )
+
+    result = InvoiceMatchResult(
+        filename=filename,
+        uuid=invoice.uuid,
+        status="no_match",
+        candidates=[InvoiceMatchCandidate(**candidate) for candidate in scored_candidates[:3]],
+    )
+
+    if not scored_candidates:
+        result.message = "No se encontraron gastos con monto compatible"
+        return result
+
+    top_score = scored_candidates[0]["match_score"]
+    runner_up = scored_candidates[1]["match_score"] if len(scored_candidates) > 1 else None
+
+    high_confidence = top_score >= 80 and (runner_up is None or (top_score - runner_up) >= 15)
+    moderate_confidence = top_score >= 65 and (runner_up is None or (top_score - runner_up) >= 10)
+
+    if not (high_confidence or moderate_confidence):
+        result.status = "needs_review"
+        result.message = "Se encontraron candidatos pero requiere revisión manual"
+        return result
+
+    expense_id = scored_candidates[0]["expense_id"]
+    try:
+        record = register_expense_invoice(
+            expense_id,
+            uuid=invoice.uuid,
+            folio=invoice.folio,
+            url=invoice.url,
+            issued_at=invoice.issued_at,
+            status="registrada",
+            raw_xml=invoice.raw_xml,
+            actor="bulk_matcher",
+        )
+        if not record:
+            raise ValueError("Gasto no encontrado al registrar la factura")
+
+        if (invoice.auto_mark_invoiced and global_auto_mark) or high_confidence:
+            record = db_mark_expense_invoiced(expense_id, actor="bulk_matcher") or record
+
+        expense_response = _build_expense_response(record)
+        result.status = "linked"
+        result.expense = expense_response
+        result.message = "Factura conciliada con el gasto"
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.exception("Error conciliando factura masiva: %s", exc)
+        result.status = "error"
+        result.message = f"Error registrando la factura: {exc}"
+
+    return result
 class InvoiceParseResponse(BaseModel):
     subtotal: float
     total: float
@@ -281,6 +519,7 @@ class CategoryPredictionRequest(BaseModel):
     amount: Optional[float] = None
     provider_name: Optional[str] = None
     include_history: bool = True
+    company_id: str = "default"
 
 
 class CategoryPredictionResponse(BaseModel):
@@ -292,16 +531,71 @@ class CategoryPredictionResponse(BaseModel):
     sugerencias_autocompletado: List[Dict[str, Any]] = Field(default_factory=list)
 
 
+class InvoiceMatchInput(BaseModel):
+    filename: Optional[str] = None
+    uuid: Optional[str] = None
+    total: float
+    issued_at: Optional[str] = None
+    rfc_emisor: Optional[str] = None
+    folio: Optional[str] = None
+    raw_xml: Optional[str] = None
+    url: Optional[str] = None
+    auto_mark_invoiced: bool = True
+
+
+class InvoiceMatchCandidate(BaseModel):
+    expense_id: int
+    descripcion: str
+    monto_total: float
+    fecha_gasto: Optional[str]
+    provider_name: Optional[str]
+    provider_rfc: Optional[str] = None
+    invoice_status: str
+    bank_status: str
+    match_score: int
+    amount_diff: float
+    days_diff: Optional[int] = None
+
+
+class InvoiceMatchResult(BaseModel):
+    filename: Optional[str] = None
+    uuid: Optional[str] = None
+    status: Literal["linked", "needs_review", "no_match", "error", "unsupported"]
+    message: Optional[str] = None
+    expense: Optional[ExpenseResponse] = None
+    candidates: List[InvoiceMatchCandidate] = Field(default_factory=list)
+
+
+class BulkInvoiceMatchRequest(BaseModel):
+    company_id: str = "default"
+    invoices: List[InvoiceMatchInput]
+    auto_mark_invoiced: bool = True
+
+
+class BulkInvoiceMatchResponse(BaseModel):
+    company_id: str
+    processed: int
+    results: List[InvoiceMatchResult]
+
+
 @app.get("/")
 async def root():
     """
-    Root endpoint - serves the web interface.
+    Root endpoint - redirects to Advanced Ticket Dashboard.
 
     Returns:
-        HTMLResponse: The main web interface
+        RedirectResponse: Redirect to the advanced ticket dashboard
     """
-    logger.info("Web interface accessed")
-    return FileResponse("static/index.html")
+    logger.info("Root accessed - redirecting to Advanced Ticket Dashboard")
+    return RedirectResponse(url="/advanced-ticket-dashboard.html", status_code=302)
+
+
+@app.get("/onboarding")
+async def onboarding_page() -> FileResponse:
+    """Serve the onboarding experience."""
+
+    logger.info("Onboarding interface accessed")
+    return FileResponse("static/onboarding.html")
 
 
 @app.get("/voice-expenses")
@@ -314,6 +608,30 @@ async def voice_expenses():
     """
     logger.info("Voice expenses interface accessed")
     return FileResponse("static/voice-expenses.html")
+
+
+@app.get("/advanced-ticket-dashboard.html")
+async def advanced_ticket_dashboard():
+    """
+    Advanced ticket dashboard endpoint - serves the invoicing agent dashboard.
+
+    Returns:
+        HTMLResponse: The advanced ticket dashboard interface
+    """
+    logger.info("Advanced ticket dashboard interface accessed")
+    return FileResponse("static/advanced-ticket-dashboard.html")
+
+
+@app.get("/dashboard")
+async def dashboard_redirect():
+    """
+    Legacy dashboard redirect - redirects to Advanced Ticket Dashboard.
+
+    Returns:
+        RedirectResponse: Redirect to the advanced ticket dashboard
+    """
+    logger.info("Legacy dashboard accessed - redirecting to Advanced Ticket Dashboard")
+    return RedirectResponse(url="/advanced-ticket-dashboard.html", status_code=302)
 
 
 @app.post("/simple_expense")
@@ -844,31 +1162,39 @@ async def ocr_intake(
         # Read file content
         content = await file.read()
 
-        # Call Node.js OCR service
-        import httpx
+        # Use our Python OCR service directly
+        import base64
+        import time
+        base64_image = base64.b64encode(content).decode('utf-8')
 
-        files = {"file": (file.filename, content, file.content_type)}
-        data = {
-            "paid_by": paid_by,
-            "will_have_cfdi": will_have_cfdi
+        # Use our Python OCR service
+        from core.advanced_ocr_service import AdvancedOCRService
+        ocr_service = AdvancedOCRService()
+
+        ocr_result = await ocr_service.extract_text_intelligent(base64_image, "ticket")
+
+        # Extract fields from OCR text
+        if ocr_result.text:
+            extracted_fields = ocr_service.extract_fields_from_lines(ocr_result.text.split('\n'))
+        else:
+            extracted_fields = {}
+
+        # Create response in expected format
+        intake_id = f"intake_{int(time.time())}"
+        result = {
+            "intake_id": intake_id,
+            "message": "OCR procesado exitosamente",
+            "route": "expense_creation",
+            "confidence": ocr_result.confidence,
+            "ocr_confidence": ocr_result.confidence,
+            "fields": extracted_fields,
+            "raw_text": ocr_result.text,
+            "backend": ocr_result.backend.value,
+            "processing_time_ms": ocr_result.processing_time_ms
         }
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "http://localhost:3001/ocr/intake",
-                files=files,
-                data=data,
-                timeout=60.0
-            )
-
-        if response.status_code == 201:
-            result = response.json()
-            logger.info(f"OCR intake successful - ID: {result.get('intake_id')}, Route: {result.get('route')}")
-            return JSONResponse(content=result)
-        else:
-            error_msg = f"OCR intake service error: {response.status_code}"
-            logger.error(error_msg)
-            raise HTTPException(status_code=500, detail=error_msg)
+        logger.info(f"OCR intake successful - ID: {intake_id}, Fields: {list(extracted_fields.keys())}")
+        return JSONResponse(content=result, status_code=201)
 
     except Exception as e:
         logger.error(f"Error in OCR intake: {str(e)}")
@@ -945,6 +1271,30 @@ async def list_supported_methods():
         "invoice_parse": {
             "description": "Analizar CFDI XML para extraer impuestos (POST /invoices/parse)",
             "parameters": ["file (multipart/form-data)"]
+        },
+        "invoicing_upload_ticket": {
+            "description": "Subir ticket para facturación automática (POST /invoicing/tickets)",
+            "parameters": ["file (optional)", "text_content (optional)", "user_id (optional)"]
+        },
+        "invoicing_ticket_status": {
+            "description": "Ver estado de un ticket (GET /invoicing/tickets/{id})",
+            "parameters": ["ticket_id"]
+        },
+        "invoicing_bulk_upload": {
+            "description": "Carga masiva de tickets (POST /invoicing/bulk-match)",
+            "parameters": ["tickets_list", "auto_process"]
+        },
+        "whatsapp_webhook": {
+            "description": "Webhook para mensajes WhatsApp (POST /invoicing/webhooks/whatsapp)",
+            "parameters": ["message_data"]
+        },
+        "invoicing_merchants": {
+            "description": "Gestión de merchants para facturación (GET/POST /invoicing/merchants)",
+            "parameters": ["merchant_data (for POST)"]
+        },
+        "invoicing_jobs": {
+            "description": "Ver jobs de procesamiento (GET /invoicing/jobs)",
+            "parameters": ["company_id"]
         }
     }
 
@@ -984,10 +1334,18 @@ async def list_supported_methods():
 
 
 @app.get("/bank_reconciliation/movements")
-async def get_bank_movements(limit: int = 100, include_matched: bool = True) -> Dict[str, Any]:
+async def get_bank_movements(
+    limit: int = 100,
+    include_matched: bool = True,
+    company_id: str = "default",
+) -> Dict[str, Any]:
     """Return bank movements stored in the internal database."""
 
-    movements = list_bank_movements(limit=limit, include_matched=include_matched)
+    movements = list_bank_movements(
+        limit=limit,
+        include_matched=include_matched,
+        company_id=company_id,
+    )
     return {"movements": movements, "count": len(movements)}
 
 
@@ -997,7 +1355,10 @@ async def bank_reconciliation_suggestions(expense: BankSuggestionExpense) -> Ban
 
     try:
         logger.debug("Generating bank reconciliation suggestions for %s", expense.expense_id)
-        suggestions = suggest_bank_matches(expense.model_dump())
+        suggestions = suggest_bank_matches(
+            expense.model_dump(),
+            company_id=expense.company_id,
+        )
         return BankSuggestionResponse(suggestions=suggestions)
     except Exception as exc:  # pragma: no cover - defensive logging
         logger.exception("Bank reconciliation suggestion error: %s", exc)
@@ -1019,9 +1380,82 @@ async def bank_reconciliation_feedback(feedback: BankReconciliationFeedback) -> 
         decision=decision,
         notes=feedback.notes,
         metadata=feedback.metadata,
+        company_id=feedback.company_id,
     )
 
     return {"success": True}
+
+
+def _validate_onboarding_identifier(payload: OnboardingRequest) -> Dict[str, str]:
+    identifier = payload.identifier.strip()
+    if payload.method == "whatsapp":
+        digits = re.sub(r"\D", "", identifier)
+        if len(digits) < 10 or len(digits) > 15:
+            raise HTTPException(status_code=400, detail="Número de WhatsApp inválido (usa 10 a 15 dígitos)")
+        return {"normalized": digits, "identifier_type": "whatsapp"}
+
+    email = identifier.lower()
+    if "@" not in email:
+        raise HTTPException(status_code=400, detail="Correo electrónico inválido")
+    allowed_domains = {
+        "gmail.com",
+        "gmail.com.mx",
+        "hotmail.com",
+        "hotmail.es",
+        "outlook.com",
+        "outlook.es",
+        "live.com",
+        "live.com.mx",
+    }
+    domain = email.split("@")[-1]
+    if domain not in allowed_domains:
+        raise HTTPException(status_code=400, detail="Solo se permiten correos Gmail u Hotmail")
+    return {"normalized": email, "identifier_type": "email"}
+
+
+@app.post("/onboarding/register", response_model=OnboardingResponse)
+async def onboarding_register(payload: OnboardingRequest) -> OnboardingResponse:
+    """Register a new user via onboarding and seed demo data."""
+
+    details = _validate_onboarding_identifier(payload)
+
+    try:
+        user_record = register_user_account(
+            identifier=details["normalized"],
+            identifier_type=details["identifier_type"],
+            display_name=payload.full_name,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("Error registrando usuario onboarding: %s", exc)
+        raise HTTPException(status_code=500, detail="No se pudo registrar el usuario") from exc
+
+    company_id = user_record["company_id"]
+    already_exists = not user_record.get("created", False)
+
+    records = fetch_expense_records(company_id=company_id, limit=10)
+    demo_expenses = [_build_expense_response(record) for record in records]
+    snapshot_raw = get_company_demo_snapshot(company_id)
+    snapshot = DemoSnapshot(**snapshot_raw)
+
+    next_steps = [
+        "Revisa los gastos de ejemplo desde la vista de voz.",
+        "Prueba la conciliación bancaria con los movimientos demo.",
+        "Conecta tu empresa real cuando estés listo.",
+    ]
+
+    return OnboardingResponse(
+        company_id=company_id,
+        user_id=int(user_record["id"]),
+        identifier=user_record["identifier"],
+        identifier_type=user_record["identifier_type"],
+        full_name=user_record.get("display_name") or payload.full_name,
+        already_exists=already_exists,
+        demo_snapshot=snapshot,
+        demo_expenses=demo_expenses,
+        next_steps=next_steps,
+    )
 
 
 @app.post("/invoices/parse", response_model=InvoiceParseResponse)
@@ -1041,6 +1475,49 @@ async def parse_invoice(file: UploadFile = File(...)) -> InvoiceParseResponse:
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("Invoice parsing error: %s", exc)
         raise HTTPException(status_code=500, detail="Error interno al analizar la factura")
+
+
+@app.post("/invoices/bulk-match", response_model=BulkInvoiceMatchResponse)
+async def bulk_invoice_match(request: BulkInvoiceMatchRequest) -> BulkInvoiceMatchResponse:
+    if not request.invoices:
+        raise HTTPException(status_code=400, detail="No se recibieron facturas para conciliar")
+
+    results: List[InvoiceMatchResult] = []
+
+    for invoice in request.invoices:
+        if invoice.total is None:
+            results.append(
+                InvoiceMatchResult(
+                    filename=invoice.filename,
+                    uuid=invoice.uuid,
+                    status="error",
+                    message="El CFDI no incluye un total numérico",
+                )
+            )
+            continue
+
+        if invoice.raw_xml is None and invoice.uuid is None:
+            results.append(
+                InvoiceMatchResult(
+                    filename=invoice.filename,
+                    status="unsupported",
+                    message="Archivo sin datos de CFDI. Aporta XML o UUID para conciliar",
+                )
+            )
+            continue
+
+        match_result = _match_invoice_to_expense(
+            company_id=request.company_id,
+            invoice=invoice,
+            global_auto_mark=request.auto_mark_invoiced,
+        )
+        results.append(match_result)
+
+    return BulkInvoiceMatchResponse(
+        company_id=request.company_id,
+        processed=len(results),
+        results=results,
+    )
 
 
 @app.post("/expenses", response_model=ExpenseResponse)
@@ -1083,6 +1560,8 @@ async def create_expense(expense: ExpenseCreate) -> ExpenseResponse:
         if expense.movimientos_bancarios:
             metadata_extra['movimientos_bancarios'] = expense.movimientos_bancarios
 
+        metadata_extra.pop('company_id', None)
+
         expense_id = record_internal_expense(
             description=expense.descripcion,
             amount=expense.monto_total,
@@ -1102,6 +1581,7 @@ async def create_expense(expense: ExpenseCreate) -> ExpenseResponse:
             will_have_cfdi=expense.will_have_cfdi,
             bank_status=expense.estado_conciliacion,
             metadata=metadata_extra,
+            company_id=expense.company_id,
         )
 
         record = fetch_expense_record(expense_id)
@@ -1121,6 +1601,7 @@ async def list_expenses(
     mes: Optional[str] = None,
     categoria: Optional[str] = None,
     estatus: Optional[str] = None,
+    company_id: str = "default",
 ) -> List[ExpenseResponse]:
     """Listar gastos desde la base de datos."""
 
@@ -1136,6 +1617,7 @@ async def list_expenses(
             month=mes,
             category=categoria,
             invoice_status=estatus,
+            company_id=company_id,
         )
         return [_build_expense_response(record) for record in records]
 
@@ -1186,6 +1668,8 @@ async def update_expense(expense_id: int, expense: ExpenseCreate) -> ExpenseResp
         if expense.movimientos_bancarios:
             metadata_extra['movimientos_bancarios'] = expense.movimientos_bancarios
 
+        metadata_extra.pop('company_id', None)
+
         updates = {
             "description": expense.descripcion,
             "amount": expense.monto_total,
@@ -1204,6 +1688,7 @@ async def update_expense(expense_id: int, expense: ExpenseCreate) -> ExpenseResp
             "tax_total": expense.tax_info.get('total') if expense.tax_info else None,
             "tax_metadata": expense.tax_info,
             "metadata": metadata_extra,
+            "company_id": expense.company_id,
         }
 
         record = db_update_expense_record(expense_id, updates)
@@ -1284,8 +1769,9 @@ async def check_expense_duplicates(request: DuplicateCheckRequest) -> DuplicateC
 
         # Obtener gastos existentes si se solicita
         existing_expenses = []
+        company_scope = request.new_expense.company_id
         if request.check_existing:
-            records = fetch_expense_records(limit=200)
+            records = fetch_expense_records(limit=200, company_id=company_scope)
             for record in records:
                 metadata = record.get("metadata") or {}
                 proveedor = metadata.get("proveedor") or (
@@ -1312,6 +1798,7 @@ async def check_expense_duplicates(request: DuplicateCheckRequest) -> DuplicateC
             'categoria': request.new_expense.categoria,
             'proveedor': request.new_expense.proveedor,
             'rfc': request.new_expense.rfc,
+            'company_id': company_scope,
         }
 
         # Detectar duplicados
@@ -1351,7 +1838,7 @@ async def predict_expense_category(request: CategoryPredictionRequest) -> Catego
         # Obtener historial de gastos si se solicita
         expense_history = []
         if request.include_history:
-            records = fetch_expense_records(limit=50)
+            records = fetch_expense_records(limit=50, company_id=request.company_id)
             for record in records:
                 metadata = record.get("metadata") or {}
                 provider = metadata.get('proveedor')

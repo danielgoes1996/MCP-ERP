@@ -13,7 +13,7 @@ import math
 from datetime import datetime
 from difflib import SequenceMatcher
 from itertools import combinations
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 from core.internal_db import list_bank_movements
 
@@ -142,23 +142,93 @@ def _normalized_movement(movement: Dict[str, Any]) -> Dict[str, Any]:
     return normalized
 
 
+def _generate_group_id(movements: Iterable[Dict[str, Any]]) -> str:
+    identifiers = sorted(
+        {
+            str(item.get("movement_id") or item.get("id"))
+            for item in movements
+            if item.get("movement_id") or item.get("id")
+        }
+    )
+    return "+".join(identifiers)
+
+
+def _extract_linked_ids(expense: Dict[str, Any]) -> Set[str]:
+    linked: Set[str] = set()
+    for key in ("movimientos_bancarios",):
+        items = expense.get(key)
+        if isinstance(items, list):
+            for entry in items:
+                if isinstance(entry, dict):
+                    movement_id = entry.get("movement_id") or entry.get("id")
+                    if movement_id:
+                        linked.add(str(movement_id))
+                elif isinstance(entry, str):
+                    linked.add(entry)
+
+    metadata = expense.get("metadata")
+    if isinstance(metadata, dict):
+        items = metadata.get("movimientos_bancarios")
+        if isinstance(items, list):
+            for entry in items:
+                if isinstance(entry, dict):
+                    movement_id = entry.get("movement_id") or entry.get("id")
+                    if movement_id:
+                        linked.add(str(movement_id))
+                elif isinstance(entry, str):
+                    linked.add(entry)
+
+    return linked
+
+
+def _select_combination_candidates(
+    candidate_movements: List[Dict[str, Any]],
+    expense_amount: float,
+) -> List[Dict[str, Any]]:
+    if not candidate_movements:
+        return []
+
+    if expense_amount <= 0:
+        return candidate_movements[:12]
+
+    tolerance = max(20.0, expense_amount * 0.03)
+    filtered = [
+        movement
+        for movement in candidate_movements
+        if 0 < movement.get("amount", 0.0) <= (expense_amount + tolerance)
+    ]
+
+    filtered.sort(key=lambda m: (abs(expense_amount - m["amount"]), m["amount"]))
+    return filtered[:15]
+
+
 def _combine_movements(
     candidate_movements: List[Dict[str, Any]],
     expense_amount: float,
     expense_date: Optional[str],
     expense_text: str,
     expense: Dict[str, Any],
+    *,
+    linked_ids: Optional[Set[str]] = None,
 ) -> List[Dict[str, Any]]:
     suggestions: List[Dict[str, Any]] = []
-    tolerance = max(10.0, expense_amount * 0.015)  # 1.5% or $10
+    tolerance = max(10.0, expense_amount * 0.015)
+    linked_ids = linked_ids or set()
+    seen_group_ids: Set[str] = set()
+
+    combination_candidates = _select_combination_candidates(candidate_movements, expense_amount)
 
     for size in (2, 3):
-        if len(candidate_movements) < size:
+        if len(combination_candidates) < size:
             continue
-        for combo in combinations(candidate_movements, size):
+        for combo in combinations(combination_candidates, size):
             combined_amount = sum(item["amount"] for item in combo)
             diff = abs(expense_amount - combined_amount)
             if diff > tolerance:
+                continue
+
+            group_id = _generate_group_id(combo)
+            if not group_id or group_id in seen_group_ids:
                 continue
 
             amount_score = _amount_score(expense_amount, combined_amount)
@@ -166,16 +236,35 @@ def _combine_movements(
             text_score = max(_text_score(expense_text, movement.get("description")) for movement in combo)
             payment_score = max(_payment_mode_score(expense, movement) for movement in combo)
 
+            expense_dt = _parse_date(expense_date)
+            combo_dates = [
+                _parse_date(movement.get("movement_date"))
+                for movement in combo
+                if movement.get("movement_date")
+            ]
+            span_days = None
+            if len(combo_dates) >= 2 and all(date is not None for date in combo_dates):
+                days = sorted(date.date() for date in combo_dates if date)
+                span_days = abs((days[-1] - days[0]).days)
+                if span_days > 10:
+                    continue
+
             aggregate = (
                 amount_score * 0.55
                 + date_score * 0.25
                 + text_score * 0.15
                 + payment_score * 0.05
             )
-            confidence = round(aggregate * 100, 2)
+            combo_ids: Set[str] = set()
+            for movement in combo:
+                identifier = movement.get("movement_id") or movement.get("id")
+                if identifier:
+                    combo_ids.add(str(identifier))
+
+            link_bonus = 0.08 if linked_ids and combo_ids & linked_ids else 0.0
+            confidence = round(min(1.0, aggregate + link_bonus) * 100, 2)
 
             diff_days_values = []
-            expense_dt = _parse_date(expense_date)
             for movement in combo:
                 movement_dt = _parse_date(movement.get("movement_date"))
                 if expense_dt and movement_dt:
@@ -192,14 +281,22 @@ def _combine_movements(
                 diff_days=diff_days,
             )
             reasons.insert(0, f"Pago en {size} cargos")
+            if linked_ids and combo_ids & linked_ids:
+                reasons.append("Coincide con movimientos registrados en el gasto")
+            if span_days and span_days > 0:
+                reasons.append(f"Cargos repartidos en {span_days} días")
 
             suggestions.append(
                 {
                     "type": "combination",
                     "movements": list(combo),
                     "movement": combo[0],
+                    "movement_ids": sorted(combo_ids),
+                    "group_id": group_id,
                     "combined_amount": round(combined_amount, 2),
                     "confidence": confidence,
+                    "split_payment": True,
+                    "linked_match": bool(linked_ids and combo_ids & linked_ids),
                     "reasons": reasons,
                     "score_breakdown": {
                         "amount": round(amount_score, 4),
@@ -209,6 +306,7 @@ def _combine_movements(
                     },
                 }
             )
+            seen_group_ids.add(group_id)
 
     return suggestions
 
@@ -218,18 +316,30 @@ def suggest_bank_matches(
     *,
     limit: int = 5,
     movements: Optional[Iterable[Dict[str, Any]]] = None,
+    company_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Return bank movement suggestions ordered by confidence."""
 
+    normalized_company_id = (
+        company_id
+        or expense.get("company_id")
+        or (expense.get("metadata") or {}).get("company_id")
+        or "default"
+    )
+
     candidate_movements = [
         _normalized_movement(item)
-        for item in (movements or list_bank_movements(limit=200))
+        for item in (
+            movements
+            or list_bank_movements(limit=200, company_id=normalized_company_id)
+        )
     ]
     amount = float(expense.get("amount") or expense.get("monto_total") or 0.0)
     expense_description = expense.get("description") or expense.get("descripcion") or ""
     expense_provider = expense.get("provider_name") or expense.get("proveedor") or expense.get("proveedor.nombre") or ""
     text_to_match = f"{expense_description} {expense_provider}".strip()
     expense_date = expense.get("date") or expense.get("fecha_gasto")
+    linked_ids = _extract_linked_ids(expense)
 
     suggestions: List[Dict[str, Any]] = []
 
@@ -253,34 +363,53 @@ def suggest_bank_matches(
             + text_score * 0.15
             + payment_score * 0.05
         )
-        confidence = round(aggregate * 100, 2)
+        identifier = movement.get("movement_id") or movement.get("id")
+        linked_match = bool(identifier and str(identifier) in linked_ids)
+        link_bonus = 0.06 if linked_match else 0.0
+        confidence = round(min(1.0, aggregate + link_bonus) * 100, 2)
+
+        group_id = _generate_group_id([movement])
+        reasons = _build_reasons(
+            amount_score=amount_score,
+            date_score=date_score,
+            text_score=text_score,
+            payment_score=payment_score,
+            amount_match=math.isclose(amount, movement_amount, rel_tol=0.01),
+            diff_days=diff_days,
+        )
+        if linked_match:
+            reasons.append("Movimiento registrado en el gasto")
 
         suggestions.append(
             {
                 "type": "single",
                 "movements": [movement],
                 "movement": movement,
+                "movement_ids": [str(identifier)] if identifier else [],
+                "group_id": group_id,
                 "combined_amount": round(movement_amount, 2),
                 "confidence": confidence,
+                "split_payment": False,
+                "linked_match": linked_match,
                 "score_breakdown": {
                     "amount": round(amount_score, 4),
                     "date": round(date_score, 4),
                     "text": round(text_score, 4),
                     "payment": round(payment_score, 4),
                 },
-                "reasons": _build_reasons(
-                    amount_score=amount_score,
-                    date_score=date_score,
-                    text_score=text_score,
-                    payment_score=payment_score,
-                    amount_match=math.isclose(amount, movement_amount, rel_tol=0.01),
-                    diff_days=diff_days,
-                ),
+                "reasons": reasons,
             }
         )
 
     suggestions.extend(
-        _combine_movements(candidate_movements, amount, expense_date, text_to_match, expense)
+        _combine_movements(
+            candidate_movements,
+            amount,
+            expense_date,
+            text_to_match,
+            expense,
+            linked_ids=linked_ids,
+        )
     )
 
     suggestions.sort(key=lambda item: item["confidence"], reverse=True)
