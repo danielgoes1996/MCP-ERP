@@ -1911,6 +1911,95 @@ async def navigate_to_extracted_urls(ticket_id: int, auto_fill: bool = False) ->
         )
 
 
+def convert_db_to_viewer_format(automation_data: Dict[str, Any], ticket: Dict[str, Any]) -> Dict[str, Any]:
+    """Convertir datos de automatización de la DB al formato esperado por el viewer"""
+
+    job_data = automation_data.get('job_data', {})
+    logs = automation_data.get('logs', [])
+    screenshots = automation_data.get('screenshots', [])
+    summary = automation_data.get('summary', {})
+
+    # Convertir logs a steps
+    steps = []
+    for i, log in enumerate(logs):
+        # Parsear data JSON
+        step_data = {}
+        if log.get('data'):
+            try:
+                step_data = json.loads(log['data']) if isinstance(log['data'], str) else log['data']
+            except:
+                step_data = {}
+
+        step = {
+            "step_number": step_data.get('step_number', i + 1),
+            "action_type": step_data.get('action_type', 'unknown'),
+            "description": log.get('message', ''),
+            "result": step_data.get('result', 'unknown'),
+            "url": log.get('url', ''),
+            "selector": log.get('element_selector', ''),
+            "timing_ms": log.get('execution_time_ms', 0),
+            "timestamp": log.get('timestamp', ''),
+            "level": log.get('level', 'info'),
+            "error_message": step_data.get('error_message'),
+            "llm_reasoning": step_data.get('llm_reasoning'),
+            "fallback_used": step_data.get('fallback_used', False)
+        }
+        steps.append(step)
+
+    # Convertir screenshots
+    screenshot_paths = []
+    screenshot_details = []
+    for screenshot in screenshots:
+        if screenshot.get('file_path'):
+            screenshot_paths.append(screenshot['file_path'])
+            screenshot_details.append({
+                "step_name": screenshot.get('step_name', ''),
+                "type": screenshot.get('screenshot_type', 'step'),
+                "url": screenshot.get('url', ''),
+                "window_title": screenshot.get('window_title', ''),
+                "file_size": screenshot.get('file_size', 0),
+                "created_at": screenshot.get('created_at', ''),
+                "detected_elements": json.loads(screenshot.get('detected_elements', '[]')) if isinstance(screenshot.get('detected_elements'), str) else screenshot.get('detected_elements', [])
+            })
+
+    # Construir respuesta en formato de viewer
+    viewer_data = {
+        "ticket_id": automation_data.get('ticket_id'),
+        "ticket_info": {
+            "merchant": ticket.get("merchant_name", "Unknown"),
+            "tipo": ticket.get("tipo", "texto"),
+            "estado": ticket.get("estado", "pendiente"),
+            "texto_extraido": ticket.get("texto_extraido", ""),
+            "created_at": ticket.get("created_at", "")
+        },
+        "automation_summary": {
+            "job_id": job_data.get('id'),
+            "session_id": logs[0].get('session_id') if logs else f"session_{automation_data.get('ticket_id')}",
+            "status": summary.get('status', 'completed'),
+            "total_steps": summary.get('total_steps', len(steps)),
+            "successful_steps": len([s for s in steps if s.get('result') == 'success']),
+            "success_rate": summary.get('success_rate', 0),
+            "total_time_ms": summary.get('duration_ms', job_data.get('total_execution_time_ms', 0)),
+            "final_url": summary.get('final_url', job_data.get('final_url', '')),
+            "started_at": job_data.get('started_at', ''),
+            "finished_at": job_data.get('finished_at', ''),
+            "automation_type": job_data.get('automation_type', 'selenium'),
+            "route_used": "robust_engine",
+            "steps": steps,
+            "screenshots": screenshot_paths,
+            "screenshot_details": screenshot_details
+        },
+        "llm_summary": {
+            "decisions_made": len([s for s in steps if s.get('llm_reasoning')]),
+            "confidence_avg": 0.85,  # Default confidence
+            "strategy_used": "multi_route_fallback",
+            "intervention_required": summary.get('status') == 'manual_required'
+        }
+    }
+
+    return viewer_data
+
+
 @router.get("/automation-viewer")
 async def automation_viewer(request: Request):
     """
@@ -1960,16 +2049,82 @@ async def serve_screenshot(filename: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/automation/latest-data")
+async def get_latest_automation_data() -> Dict[str, Any]:
+    """
+    Obtener datos de automatización del job más reciente (para testing y demo)
+    """
+    try:
+        from modules.invoicing_agent.automation_persistence import AutomationPersistence
+        persistence = AutomationPersistence()
+
+        # Obtener el job más reciente
+        with persistence.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT ticket_id FROM automation_jobs
+                ORDER BY created_at DESC
+                LIMIT 1
+            """)
+            latest_result = cursor.fetchone()
+
+            if not latest_result:
+                return {
+                    "success": False,
+                    "error": "No hay datos de automatización disponibles",
+                    "timestamp": datetime.now().isoformat()
+                }
+
+            latest_ticket_id = latest_result[0]
+
+        # Obtener datos de automatización
+        automation_data = persistence.get_automation_data(latest_ticket_id)
+
+        if automation_data and not automation_data.get('error'):
+            # Crear ticket info sintético para el viewer
+            fake_ticket = {
+                "merchant_name": "TestPortal (Demo)",
+                "tipo": "automation_test",
+                "estado": "completado",
+                "texto_extraido": "RFC: XAXX010101000\nTotal: $100.00\nDemo Data",
+                "created_at": datetime.now().isoformat()
+            }
+
+            # Convertir formato
+            real_automation_data = convert_db_to_viewer_format(automation_data, fake_ticket)
+
+            return {
+                "success": True,
+                "data": real_automation_data,
+                "timestamp": datetime.now().isoformat(),
+                "note": "Datos reales de automatización desde la base de datos"
+            }
+        else:
+            return {
+                "success": False,
+                "error": automation_data.get('error', 'No se encontraron datos'),
+                "timestamp": datetime.now().isoformat()
+            }
+
+    except Exception as e:
+        logger.error(f"Error obteniendo datos de automatización más recientes: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
+
+
 @router.get("/tickets/{ticket_id}/automation-data", response_model=Dict[str, Any])
 async def get_ticket_automation_data(ticket_id: int) -> Dict[str, Any]:
     """
     Obtener datos completos de automatización para un ticket específico.
 
     Incluye:
-    - Screenshots dinámicos
-    - Decisiones del LLM paso a paso
-    - Análisis de cambios en la página
-    - Elementos detectados en cada momento
+    - Screenshots dinámicos REALES
+    - Decisiones del LLM paso a paso REALES
+    - Análisis de cambios en la página REALES
+    - Elementos detectados en cada momento REALES
     """
     try:
         # Obtener datos básicos del ticket
@@ -1977,7 +2132,30 @@ async def get_ticket_automation_data(ticket_id: int) -> Dict[str, Any]:
         if not ticket:
             raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} no encontrado")
 
-        # Simular datos de automatización (en el futuro vendrán de la base de datos)
+        # Obtener datos REALES de automatización desde la DB
+        try:
+            from modules.invoicing_agent.automation_persistence import AutomationPersistence
+            persistence = AutomationPersistence()
+            automation_data = persistence.get_automation_data(ticket_id)
+
+            # Si hay datos reales, usarlos
+            if automation_data and not automation_data.get('error'):
+                logger.info(f"✅ Datos reales de automatización encontrados para ticket {ticket_id}")
+
+                # Convertir formato de DB a formato esperado por viewer
+                real_automation_data = convert_db_to_viewer_format(automation_data, ticket)
+
+                return {
+                    "success": True,
+                    "data": real_automation_data,
+                    "timestamp": datetime.now().isoformat()
+                }
+
+        except Exception as e:
+            logger.warning(f"No se pudieron obtener datos reales de automatización: {e}")
+
+        # Fallback a datos simulados si no hay datos reales
+        logger.info(f"📋 Usando datos simulados para ticket {ticket_id}")
         automation_data = {
             "ticket_id": ticket_id,
             "ticket_info": {

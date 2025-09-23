@@ -1,0 +1,76 @@
+{
+  "timestamp": "2025-09-21T22:37:39.884756",
+  "database_path": "data/mcp_internal.db",
+  "checks": {
+    "database_exists": {
+      "level": "INFO",
+      "message": "Database exists and is accessible: data/mcp_internal.db",
+      "database_exists": true
+    },
+    "database_size": {
+      "level": "MEDIUM",
+      "message": "Medium database (168.2MB) - expect moderate migration time",
+      "size_mb": 168.2109375,
+      "estimated_time_minutes": 2
+    },
+    "disk_space": {
+      "level": "LOW",
+      "message": "Sufficient disk space available: 364608.6MB"
+    },
+    "database_lock": {
+      "level": "LOW",
+      "message": "No database locks detected - migration safe"
+    },
+    "data_integrity": {
+      "level": "HIGH",
+      "message": "Foreign key violations found: 106",
+      "violation_count": 106,
+      "violations_preview": [
+        [
+          "expense_events",
+          1,
+          "expense_records",
+          0
+        ],
+        [
+          "expense_events",
+          2,
+          "expense_records",
+          0
+        ],
+        [
+          "expense_events",
+          3,
+          "expense_records",
+          0
+        ]
+      ],
+      "recommendation": "Fix data inconsistencies before migration"
+    },
+    "existing_migrations": {
+      "level": "LOW",
+      "message": "Migration system ready. Latest: 0008_add_merchant_category_columns",
+      "latest_migration": "0008_add_merchant_category_columns",
+      "total_migrations": 8
+    },
+    "backup_status": {
+      "level": "HIGH",
+      "message": "No backups found",
+      "recommendation": "Create backup before migration"
+    },
+    "active_connections": {
+      "level": "LOW",
+      "message": "No active database connections detected"
+    }
+  },
+  "overall": {
+    "migration_safe": true,
+    "risk_level": "MEDIUM",
+    "message": "Some risks identified: data_integrity, backup_status",
+    "high_issues": [
+      "data_integrity",
+      "backup_status"
+    ],
+    "action_required": "PROCEED with caution - monitor closely"
+  }
+}

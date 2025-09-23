@@ -30,6 +30,12 @@ except ImportError:
     OPENAI_AVAILABLE = False
 
 try:
+    from .robust_automation_engine import RobustAutomationEngine
+    ROBUST_ENGINE_AVAILABLE = True
+except ImportError:
+    ROBUST_ENGINE_AVAILABLE = False
+
+try:
     from selenium import webdriver
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
@@ -99,13 +105,66 @@ class WebAutomationWorker:
             logger.error(f"Error configurando driver: {e}")
             raise
 
+    async def process_merchant_invoice_robust(
+        self,
+        merchant: Dict[str, Any],
+        ticket_data: Dict[str, Any],
+        ticket_id: int,
+        alternative_urls: List[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Procesar facturación usando el motor robusto de automatización.
+        """
+        try:
+            # Almacenar datos del ticket para acceso posterior
+            self.current_ticket_data = ticket_data
+
+            portal_url = merchant.get("portal_url")
+            if not portal_url:
+                return {
+                    "success": False,
+                    "error": f"No se definió portal_url para {merchant.get('nombre', 'merchant')}"
+                }
+
+            # Usar el método robusto de navegación
+            result = await self.navigate_to_portal(
+                url=portal_url,
+                ticket_id=ticket_id,  # ✅ Pasar ticket_id para habilitar motor robusto
+                merchant_name=merchant.get("nombre"),
+                take_screenshot=True,
+                auto_fill=True,
+                ticket_text=ticket_data.get("texto_extraido", "")
+            )
+
+            if result.get("success"):
+                return {
+                    "success": True,
+                    "portal_url": portal_url,
+                    "merchant": merchant.get("nombre"),
+                    "automation_details": result,
+                    "message": f"Facturación automatizada exitosa para {merchant.get('nombre')}"
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"No se pudo automatizar la facturación: {result.get('error', 'Unknown error')}",
+                    "automation_details": result
+                }
+
+        except Exception as e:
+            logger.error(f"Error en automatización robusta: {str(e)}")
+            return {
+                "success": False,
+                "error": f"Error crítico en automatización: {str(e)}"
+            }
+
     async def process_merchant_invoice(
         self,
         merchant: Dict[str, Any],
         ticket_data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Procesar facturación en portal web del merchant.
+        Procesar facturación en portal web del merchant (método legacy).
         """
         try:
             # Almacenar datos del ticket para acceso posterior
@@ -833,7 +892,129 @@ class WebAutomationWorker:
             logger.debug(f"No se encontró elemento con selector {selector}: {e}")
             return None
 
+    async def navigate_to_portal_robust(
+        self,
+        url: str,
+        ticket_id: int,
+        merchant_name: str = None,
+        take_screenshot: bool = True,
+        auto_fill: bool = False,
+        ticket_text: str = None
+    ) -> Dict[str, Any]:
+        """
+        Navegar usando el motor de automatización robusto (nuevo método).
+
+        Implementa todo el checklist técnico:
+        - Detección de múltiples rutas (header, hero, footer)
+        - Validación de visibilidad
+        - Manejo de pestañas y redirecciones
+        - Política de fallback ordenada
+        - Logs y screenshots detallados
+        - Integración LLM para decisiones
+        - Manejo robusto de errores
+        """
+
+        if not ROBUST_ENGINE_AVAILABLE:
+            logger.warning("Motor robusto no disponible, usando método legacy")
+            return await self.navigate_to_portal_legacy(url, merchant_name, take_screenshot, auto_fill, ticket_text)
+
+        try:
+            logger.info(f"🤖 Iniciando navegación robusta para ticket {ticket_id} a {url}")
+
+            # Configurar driver
+            self.driver = self.setup_driver(headless=not take_screenshot)
+
+            # Crear motor robusto
+            robust_engine = RobustAutomationEngine(self.driver, ticket_id)
+
+            # Navegar usando el checklist técnico con múltiples URLs
+            result = await robust_engine.navigate_to_invoicing_portal(url, alternative_urls)
+
+            if result["success"]:
+                logger.info(f"✅ Navegación robusta exitosa usando ruta: {result.get('route_used', 'unknown')}")
+
+                # Si auto_fill está habilitado, continuar con llenado de formularios
+                if auto_fill and ticket_text:
+                    form_result = await self._auto_fill_with_robust_engine(robust_engine, ticket_text)
+                    result["auto_fill_result"] = form_result
+
+            else:
+                logger.error(f"❌ Navegación robusta falló: {result.get('error', 'unknown error')}")
+
+            # Añadir resumen detallado
+            result["automation_summary"] = robust_engine.get_automation_summary()
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error en navegación robusta: {str(e)}")
+            return {
+                "success": False,
+                "error": f"Motor robusto falló: {str(e)}",
+                "fallback_to_legacy": True
+            }
+        finally:
+            if self.driver:
+                try:
+                    self.driver.quit()
+                except:
+                    pass
+
+    async def _auto_fill_with_robust_engine(self, robust_engine, ticket_text: str) -> Dict[str, Any]:
+        """Auto-llenar formularios usando el motor robusto"""
+        try:
+            # Detectar formularios en la página actual
+            forms = self.driver.find_elements(By.TAG_NAME, "form")
+            if not forms:
+                return {"success": False, "error": "No se encontraron formularios"}
+
+            # Por ahora, usar el método legacy de extracción de campos
+            # En el futuro, esto también usará el motor robusto
+            form_fields = self.detect_form_fields()
+
+            if form_fields:
+                extracted_values = await self.extract_fields_with_llm(form_fields, ticket_text)
+                if extracted_values and extracted_values.get('extracted_data'):
+                    fill_result = self.fill_form_fields(form_fields, extracted_values['extracted_data'])
+                    return {
+                        "success": True,
+                        "fields_filled": len(fill_result.get('filled_fields', [])),
+                        "fill_result": fill_result,
+                        "extracted_data": extracted_values['extracted_data']
+                    }
+
+            return {"success": False, "error": "No se pudieron extraer datos para llenar"}
+
+        except Exception as e:
+            logger.error(f"Error en auto-fill robusto: {str(e)}")
+            return {"success": False, "error": str(e)}
+
     async def navigate_to_portal(
+        self,
+        url: str,
+        ticket_id: int = None,
+        merchant_name: str = None,
+        take_screenshot: bool = True,
+        auto_fill: bool = False,
+        ticket_text: str = None
+    ) -> Dict[str, Any]:
+        """
+        Método principal de navegación - usa motor robusto si está disponible,
+        fallback a legacy si no.
+        """
+
+        # Si tenemos ticket_id y motor robusto disponible, usar método robusto
+        if ticket_id and ROBUST_ENGINE_AVAILABLE:
+            return await self.navigate_to_portal_robust(
+                url, ticket_id, merchant_name, take_screenshot, auto_fill, ticket_text
+            )
+        else:
+            # Fallback a método legacy
+            return await self.navigate_to_portal_legacy(
+                url, merchant_name, take_screenshot, auto_fill, ticket_text
+            )
+
+    async def navigate_to_portal_legacy(
         self,
         url: str,
         merchant_name: str = None,
@@ -842,7 +1023,7 @@ class WebAutomationWorker:
         ticket_text: str = None
     ) -> Dict[str, Any]:
         """
-        Navegar a un portal de facturación y verificar accesibilidad.
+        Navegar a un portal de facturación y verificar accesibilidad (método legacy).
 
         Args:
             url: URL del portal de facturación
@@ -2840,6 +3021,7 @@ async def process_web_automation(
 ) -> Dict[str, Any]:
     """
     Función principal para llamar desde el worker de facturación.
+    Ahora usa el motor robusto si está disponible.
 
     Args:
         merchant: Datos del merchant
@@ -2854,8 +3036,19 @@ async def process_web_automation(
             "error": "Selenium no está disponible. Instala con: pip install selenium"
         }
 
-    worker = WebAutomationWorker()
-    return await worker.process_merchant_invoice(merchant, ticket_data)
+    # Usar motor robusto si está disponible y tenemos ticket_id
+    ticket_id = ticket_data.get('id')
+    if ticket_id and ROBUST_ENGINE_AVAILABLE:
+        logger.info(f"🤖 Usando motor robusto para ticket {ticket_id}")
+
+        worker = WebAutomationWorker()
+        # Pasar ticket_id para habilitar motor robusto
+        return await worker.process_merchant_invoice_robust(merchant, ticket_data, ticket_id)
+    else:
+        # Fallback a método legacy
+        logger.info("Usando motor legacy")
+        worker = WebAutomationWorker()
+        return await worker.process_merchant_invoice(merchant, ticket_data)
 
 
 # Función específica para navegación a portales
