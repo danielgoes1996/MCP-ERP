@@ -19,7 +19,9 @@ RUN pip install --no-cache-dir \
     redis \
     rq \
     prometheus-client \
-    gunicorn
+    gunicorn \
+    pdfplumber \
+    pymupdf
 
 # Copiar código fuente
 COPY . .
