@@ -1,0 +1,523 @@
+{
+  "opening_balance": 38587.42,
+  "closing_balance": 41306.44,
+  "transaction_count": 85,
+  "total_credits": 52472.12,
+  "total_debits": 49753.1,
+  "total_incomes": 45240.12,
+  "total_expenses": 24354.38,
+  "total_transfers": 32630.72,
+  "detected_bank": "inbursa",
+  "transactions": [
+    {
+      "date": "2025-07-01",
+      "description": "OPENAI *CHATGPT SUBSCR US 20.0 USD /TC 18.94",
+      "amount": -378.85,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-02",
+      "description": "DEPOSITO SPEI JORGE LUIS GONZALEZ SORIA Mercado Pago W 722969020780695105 1257328 MERCADO*PAGO CLAVE DE RASTREO CPO117130257328",
+      "amount": 1000.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-02",
+      "description": "DEPOSITO SPEI EDSON ERBERTH VELAZQUEZ VILLA SANTANDER 014680605915832747 9124378 TRANSFERENCIA A DANIEL GOMEZ CLAVE DE RASTREO 2025070240014TRAPP020417690810",
+      "amount": 1152.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-02",
+      "description": "APPLE.COM/BILL US",
+      "amount": -215.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-03",
+      "description": "DEPOSITO SPEI JAQUELINNE TORRES PILLADO MULTIVA BANCO 132180000082753354 2730 pago de miel CLAVE DE RASTREO 25184604738064",
+      "amount": 1071.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-03",
+      "description": "BUBBLE STARTER PLAN US 32.0 USD /TC 18.86",
+      "amount": -603.48,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-04",
+      "description": "STRIPE *CARRETA VERDE MX",
+      "amount": -10.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-04",
+      "description": "DOMICILIACION AEC810901298 AMERICAN EXPRESS CO MEXICO SA DE CV",
+      "amount": -15397.59,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-05",
+      "description": "DEPOSITO SPEI FABIOLA PALACIOS ZARATE BBVA MEXICO 012680029090255377 405250 TomasitaMilenio CLAVE DE RASTREO MBAN01002507070061191624",
+      "amount": 867.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-07",
+      "description": "TRASPASO SPEI INBURED DANIEL GOMEZ ESCOBEDO BANAMEX 002975010119127719 20250707 Envases Vidrio 036INBU07072025216401619 RFC NO DISPONIBLE",
+      "amount": -2973.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-08",
+      "description": "DEPOSITO SPEI ANDREA GONZALEZ ARREDONDO MIFEL 042680016007072526 80725 Transferencia a Pollenbeemx CLAVE DE RASTREO 20250708400420000MIFB000064364",
+      "amount": 1000.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-08",
+      "description": "TRASPASO SPEI INBURED DANIEL ALEJANDRO GOMEZ ESCOBEDO BBVA MEXICO 012975673822515430 20250708 Envases Prestamo 036INBU08072025216568551 RFC NO DISPONIBLE",
+      "amount": -20059.32,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-09",
+      "description": "DEPOSITO SPEI JAQUELINNE TORRES PILLADO MULTIVA BANCO 132180000082753354 2730 pago de miel CLAVE DE RASTREO 25190885020799",
+      "amount": 1071.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-09",
+      "description": "DEPOSITO SPEI FRANCISCO MORENO ARTEAGA BBVA MEXICO 012680015187422739 906250 x CLAVE DE RASTREO MBAN01002507090076662391",
+      "amount": 231.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-09",
+      "description": "DEPOSITO EFECTIVO CORRESPONSAL Edison 1235 Monterrey NL MX",
+      "amount": 3480.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-09",
+      "description": "DEPOSITO SPEI CARMORE SA DE CV BBVA MEXICO 012680001172046558 90725 CARRETA 2025 80 CLAVE DE RASTREO BNET01002507090034028231",
+      "amount": 3817.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-10",
+      "description": "STRIPE *WWW FINKOK COM MX",
+      "amount": -185.22,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-10",
+      "description": "DEPOSITO SPEI JESUS DAVID ESCOBEDO AGUILAR BBVA MEXICO 012680028428645097 906250 miel CLAVE DE RASTREO MBAN01002507110082941950",
+      "amount": 200.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-11",
+      "description": "STR*ODOO TECHNOLOGIES MX",
+      "amount": -632.2,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-11",
+      "description": "DEPOSITO SPEI JOSE IVAN JASSO FALCON Mercado Pago W 722969028492001283 4433042 MERCADO*PAGO CLAVE DE RASTREO CPO118254433042",
+      "amount": 1778.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-11",
+      "description": "Google One US",
+      "amount": -39.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-12",
+      "description": "DEPOSITO SPEI ALBERTO BAEZA RODRIGUEZ Mercado Pago W 722969010874504073 7736522 CORTE AL 1 MAY 25 CLAVE DE RASTREO CPO118357890556",
+      "amount": 725.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-14",
+      "description": "RECARGA PASE TUTAG MX",
+      "amount": -200.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-14",
+      "description": "MUEVE CIUDAD CR MX",
+      "amount": -100.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-14",
+      "description": "MERCADO PAGO 5 MX",
+      "amount": -149.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-14",
+      "description": "DLO*DIDI RIDES MX",
+      "amount": -63.75,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-14",
+      "description": "TRASPASO ENTRE CUENTAS TRASPASO DE (EFE) - 0244 - DE GAMALIEL ALFONSO AZAMAR NERIA A TU CUENTA (CTEMP) - 50060655259",
+      "amount": 1357.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-14",
+      "description": "TRASPASO ENTRE CUENTAS TRASPASO DE (EFE) - 0244 - DE GAMALIEL ALFONSO AZAMAR NERIA A TU CUENTA (CTEMP) - 50060655259",
+      "amount": 798.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-14",
+      "description": "STRIPE *UBER TRIP MX",
+      "amount": -113.65,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-15",
+      "description": "RECARGA PASE TUTAG MX",
+      "amount": -300.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-15",
+      "description": "MUEVE CIUDAD CR MX",
+      "amount": -100.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-15",
+      "description": "DLO*DIDI RIDES MX",
+      "amount": -53.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-15",
+      "description": "DEPOSITO SPEI ANA LAURA RAMIREZ SANCHEZ Mercado Pago W 722969010156477857 8411975 MERCADO*PAGO CLAVE DE RASTREO CPO118178411975",
+      "amount": 1500.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-15",
+      "description": "DEPOSITO SPEI RENE ROQUE FLORES BBVA MEXICO 012225015090176744 906250 pago de miel CLAVE DE RASTREO MBAN01002507150055139496",
+      "amount": 1867.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-15",
+      "description": "D J*WSJ US 2.0 USD /TC (cid:128)(cid:41)(cid:69)(cid:2)(cid:113)(cid:8)(cid:69)(cid:26)(cid:66)(cid:37)(cid:85)(cid:9)(cid:116)(cid:13)(cid:93)(cid:64)(cid:68)(cid:48)(cid:77)(cid:43) 18.75 (cid:128)(cid:62)(cid:11)(cid:108)(cid:18)(cid:106)(cid:39)(cid:3)(cid:73)(cid:29)(cid:38)(cid:81)(cid:115)(cid:53)(cid:78)(cid:18)(cid:80)(cid:120)(cid:78)(cid:86)",
+      "amount": -37.51,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-15",
+      "description": "MC DONALD S POLANCO MX (cid:127)(cid:123)(cid:67)(cid:91)(cid:95)(cid:27)(cid:31)(cid:19)(cid:83)(cid:107)(cid:107)(cid:75)(cid:63)(cid:35)(cid:27)(cid:35)(cid:39)(cid:75)(cid:71)(cid:43)",
+      "amount": -139.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-15",
+      "description": "DEPOSITO SPEI TERESA PIEDRA VICTORIA BBVA MEXICO 012180004754671369 1507250 Pago NATURALMENTE CLAVE DE RASTREO BNET01002507150035488311",
+      "amount": 1529.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-15",
+      "description": "DOMICILIACION TME840315KT6 TELEFONOS DE MEXICO S.A.B DE C.V.",
+      "amount": -389.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-16",
+      "description": "APPLE.COM/BILL US",
+      "amount": -49.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-16",
+      "description": "DEPOSITO SPEI INOEL CRESCENCIANO MELITON Mercado Pago W 722969010727109570 5572916 MERCADO*PAGO CLAVE DE RASTREO CPO118357181651",
+      "amount": 1228.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-17",
+      "description": "TH PETROCENTRO II PTE MX",
+      "amount": -107.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-17",
+      "description": "TELCEL 6MPS ECOM MX",
+      "amount": -1006.81,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-17",
+      "description": "GASOL PETROCENTRO II MX",
+      "amount": -85.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-17",
+      "description": "PAYPAL*GOOGLE ROUTIN MX",
+      "amount": -189.99,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-18",
+      "description": "DEPOSITO SPEI FOOD HUB SAN MIGUEL S. DE R.L. DE C.V. BANREGIO 058240000003147840 700032 Transferencia de FOOD HUB SAN MIGUEL S CLAVE DE RASTREO 058-18/07/2025/18-181RDZX833",
+      "amount": 1245.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-18",
+      "description": "TRASPASO ENTRE CUENTAS TRASPASO DE (EFE) - 4895 - DE MA DE LOS ANGELES MATEHUALA RODRIGUEZ A TU CUENTA (CTEMP) - 50060655259",
+      "amount": 502.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-18",
+      "description": "STRIPE *UBER TRIP MX",
+      "amount": -25.76,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-18",
+      "description": "DEPOSITO SPEI CESAR IVAN LAGUNA YELMI BBVA MEXICO 012180015669822551 1207250 Pantiz Mieles CLAVE DE RASTREO MBAN01002507210073366641",
+      "amount": 1566.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-19",
+      "description": "DEPOSITO SPEI INOEL CRESCENCIANO MELITON Mercado Pago W 722969010727109570 5572916 MERCADO*PAGO CLAVE DE RASTREO CPO119197075160",
+      "amount": 500.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-20",
+      "description": "STRIPE *UBER TRIP MX",
+      "amount": -54.9,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-21",
+      "description": "ADOBE 2 MX",
+      "amount": -249.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-21",
+      "description": "DEPOSITO SPEI SOFIA ALINE LOPEZ MACIAS BBVA MEXICO 012680014786708460 405250 mielAline CLAVE DE RASTREO MBAN01002507210083936839",
+      "amount": 450.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-21",
+      "description": "OPENAI US 5.01 USD /TC 18.81",
+      "amount": -94.26,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-21",
+      "description": "DEPOSITO SPEI JULIETA ANA GONZALEZ UREVIGE BANORTE 072680004324875051 210725 Fractura 0089 CLAVE DE RASTREO 8846APR2202507214275710644",
+      "amount": 2112.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-22",
+      "description": "DEPOSITO SPEI EDGAR ELIO HERNANDEZ PALMA Mercado Pago W 722969010494180709 6110943 MERCADO*PAGO CLAVE DE RASTREO CPO118976110943",
+      "amount": 1020.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-24",
+      "description": "9-0725-PRL TRASPASO SPEI INBURED DEQSA LAB BBVA MEXICO 012680001068464082 20250724 COT-0539-0725-PRL 036INBU24072025219064761 RFC NO DISPONIBLE",
+      "amount": -2366.4,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-24",
+      "description": "LOVABLE US 25.0 USD /TC 18.74",
+      "amount": -468.47,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-25",
+      "description": "WM EXPRESS PAB CAMPSTR MX",
+      "amount": -93.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-25",
+      "description": "DEPOSITO SPEI ROSAS PINEDA AIMEE SCOTIABANK 044685256044790336 250725 Transferencia a Carreta CLAVE DE RASTREO 2025072540044B36L0000388860970",
+      "amount": 295.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-25",
+      "description": "DEPOSITO SPEI ROSAS PINEDA AIMEE SCOTIABANK 044685256044790336 250725 Transferencia a Carreta CLAVE DE RASTREO 2025072540044B36L0000388892423",
+      "amount": 100.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-26",
+      "description": "SQSP* INV191444507 US",
+      "amount": -342.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-27",
+      "description": "DEPOSITO SPEI YOLIDABEH CAMPA REMIGIO BANORTE 072180012774167306 250727 Pago miel y granola CLAVE DE RASTREO 3843CP04202507274291843645",
+      "amount": 5261.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-28",
+      "description": "DEPOSITO SPEI GREEN MARKET MINISUP ER SA DE CV BBVA MEXICO 012680001189125721 2807250 Green Market CLAVE DE RASTREO BNET01002507280038531258",
+      "amount": 798.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-28",
+      "description": "DEPOSITO SPEI GREEN MARKET MINISUP ER SA DE CV BBVA MEXICO 012680001189125721 2807250 Green Market CLAVE DE RASTREO BNET01002507280038531952",
+      "amount": 1428.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-28",
+      "description": "DEPOSITO SPEI GREEN MARKET MINISUP ER SA DE CV BBVA MEXICO 012680001189125721 2807250 Green Market CLAVE DE RASTREO BNET01002507280038531631",
+      "amount": 2646.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-28",
+      "description": "DEPOSITO SPEI MALINALI MOSQUEIRA AGUILAR Mercado Pago W 722969010756038528 1465904 MERCADO*PAGO CLAVE DE RASTREO CPO120181465904",
+      "amount": 1082.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-28",
+      "description": "DEPOSITO EFECTIVO CORRESPONSAL Edison 1235 Monterrey NL MX",
+      "amount": 1195.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-29",
+      "description": "CEA QRO APP 2 MX",
+      "amount": -458.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-29",
+      "description": "CEA QRO APP 2 MX",
+      "amount": -236.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-29",
+      "description": "DEPOSITO SPEI IRMA GEORGINA LOPEZ FERNANDEZ HSBC 021680040677152766 290725 Miel CLAVE DE RASTREO HSB1097797",
+      "amount": 1000.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-29",
+      "description": "DEPOSITO SPEI IRMA GEORGINA LOPEZ FERNANDEZ HSBC 021680040677152766 2970736 Pago miel CLAVE DE RASTREO HSB1098251",
+      "amount": 1000.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-29",
+      "description": "DEPOSITO SPEI IRMA GEORGINA LOPEZ FERNANDEZ (cid:128)(cid:41)(cid:69)(cid:10)(cid:113)(cid:8)(cid:69)(cid:26)(cid:66)(cid:37)(cid:85)(cid:9)(cid:116)(cid:16)(cid:93)(cid:63)(cid:73)(cid:45)(cid:77)(cid:43) HSBC 021680040677152766 (cid:128)(cid:62)(cid:11)(cid:108)(cid:18)(cid:105)(cid:39)(cid:8)(cid:79)(cid:12)(cid:55)(cid:79)(cid:29)(cid:104)(cid:73)(cid:49)(cid:76)(cid:22)(cid:14)(cid:86) 2907251 Pago credito (cid:127)(cid:123)(cid:67)(cid:99)(cid:87)(cid:59)(cid:51)(cid:43)(cid:59)(cid:123)(cid:107)(cid:99)(cid:55)(cid:75)(cid:75)(cid:87)(cid:67)(cid:123)(cid:87)(cid:43) CLAVE DE RASTREO HSB1098675",
+      "amount": 270.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-30",
+      "description": "CONEKTA*ENVIOSPERROS MX",
+      "amount": -225.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-30",
+      "description": "DEPOSITO SPEI EDSON ERBERTH VELAZQUEZ VILLA SANTANDER 014680605915832747 9848000 TRANSFERENCIA A CARRETA VERDE CLAVE DE RASTREO 2025073040014TRAPP000417236610",
+      "amount": 783.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-31",
+      "description": "OFFICE DEPOT CITADINA MX",
+      "amount": -4.5,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-31",
+      "description": "PYTHAGORA TECHNOLOGIES US 49.0 USD /TC 18.86",
+      "amount": -924.05,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-31",
+      "description": "OPENAI *CHATGPT SUBSCR US 20.0 USD /TC 18.86",
+      "amount": -377.16,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-31",
+      "description": "DEPOSITO SPEI ALBERTO BAEZA RODRIGUEZ Mercado Pago W 722969010874504073 7736522 R00093 CLAVE DE RASTREO CPO120534920782",
+      "amount": 1417.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-31",
+      "description": "DEPOSITO SPEI CARMORE SA DE CV BBVA MEXICO 012680001172046558 310725 CARRETA 2025 96 CLAVE DE RASTREO BNET01002507310039779884",
+      "amount": 3007.0,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-31",
+      "description": "COMISION POR MOVIMIENTOS INBURED COMISION POR MOVIMIENTOS INBURED",
+      "amount": -13.5,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-31",
+      "description": "IVA COMISION POR MOVIMIENTOS INBURED",
+      "amount": -2.16,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-31",
+      "description": "INTERESES GANADOS",
+      "amount": 124.12,
+      "transaction_type": "credit"
+    },
+    {
+      "date": "2025-07-31",
+      "description": "ISR RETENIDO",
+      "amount": -10.57,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-31",
+      "description": "COMISION MANEJO DE CUENTA",
+      "amount": -200.0,
+      "transaction_type": "debit"
+    },
+    {
+      "date": "2025-07-31",
+      "description": "IVA COMISION MANEJO DE CUENTA",
+      "amount": -32.0,
+      "transaction_type": "debit"
+    }
+  ]
+}
