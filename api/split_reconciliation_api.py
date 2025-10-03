@@ -27,7 +27,7 @@ from core.split_reconciliation_service import (
     undo_split,
     get_split_summary,
 )
-from core.auth_jwt import User, get_current_user, require_role
+from core.auth_jwt import User, get_current_user, require_role, enforce_tenant_isolation
 
 logger = logging.getLogger(__name__)
 
@@ -70,10 +70,13 @@ async def create_one_to_many_split_endpoint(
     - Expenses must not be already reconciled (simple)
     """
     try:
-        result = create_one_to_many_split(request, user_id=current_user.id)
+        # 🔐 Enforce tenant isolation
+        tenant_id = enforce_tenant_isolation(current_user)
+
+        result = create_one_to_many_split(request, user_id=current_user.id, tenant_id=tenant_id)
 
         logger.info(
-            f"✅ User {current_user.username} created one-to-many split {result.split_group_id}: "
+            f"✅ User {current_user.username} (tenant={tenant_id}) created one-to-many split {result.split_group_id}: "
             f"movement {request.movement_id} → {len(request.expenses)} expenses"
         )
 
@@ -125,10 +128,13 @@ async def create_many_to_one_split_endpoint(
     - Movements must not be already reconciled (simple)
     """
     try:
-        result = create_many_to_one_split(request, user_id=current_user.id)
+        # 🔐 Enforce tenant isolation
+        tenant_id = enforce_tenant_isolation(current_user)
+
+        result = create_many_to_one_split(request, user_id=current_user.id, tenant_id=tenant_id)
 
         logger.info(
-            f"✅ User {current_user.username} created many-to-one split {result.split_group_id}: "
+            f"✅ User {current_user.username} (tenant={tenant_id}) created many-to-one split {result.split_group_id}: "
             f"{len(request.movements)} movements → expense {request.expense_id}"
         )
 
@@ -170,7 +176,10 @@ async def get_split_details_endpoint(
     - Notes and metadata
     """
     try:
-        details = get_split_details(split_group_id)
+        # 🔐 Enforce tenant isolation
+        tenant_id = enforce_tenant_isolation(current_user)
+
+        details = get_split_details(split_group_id, tenant_id=tenant_id)
 
         if not details:
             raise HTTPException(
@@ -211,7 +220,10 @@ async def list_splits_endpoint(
     List of split details ordered by creation date (newest first)
     """
     try:
-        splits = list_splits(split_type=split_type, is_complete=is_complete, limit=limit)
+        # 🔐 Enforce tenant isolation
+        tenant_id = enforce_tenant_isolation(current_user)
+
+        splits = list_splits(split_type=split_type, is_complete=is_complete, limit=limit, tenant_id=tenant_id)
         return splits
 
     except Exception as e:
@@ -249,7 +261,10 @@ async def undo_split_endpoint(
     - message: Confirmation message
     """
     try:
-        success = undo_split(split_group_id)
+        # 🔐 Enforce tenant isolation
+        tenant_id = enforce_tenant_isolation(current_user)
+
+        success = undo_split(split_group_id, tenant_id=tenant_id)
 
         if not success:
             raise HTTPException(
@@ -257,7 +272,7 @@ async def undo_split_endpoint(
                 detail=f"Split group {split_group_id} not found"
             )
 
-        logger.info(f"✅ User {current_user.username} undone split {split_group_id}")
+        logger.info(f"✅ User {current_user.username} (tenant={tenant_id}) undone split {split_group_id}")
 
         return {
             "success": True,
@@ -297,7 +312,10 @@ async def get_split_summary_endpoint(
     **Use case:** Dashboard overview of split reconciliation activity
     """
     try:
-        summary = get_split_summary()
+        # 🔐 Enforce tenant isolation
+        tenant_id = enforce_tenant_isolation(current_user)
+
+        summary = get_split_summary(tenant_id=tenant_id)
         return summary
 
     except Exception as e:

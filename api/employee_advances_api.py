@@ -17,7 +17,7 @@ from core.employee_advances_models import (
     AdvanceStatus
 )
 from core.employee_advances_service import get_employee_advances_service
-from core.auth_jwt import User, get_current_user, require_role, filter_by_scope
+from core.auth_jwt import User, get_current_user, require_role, filter_by_scope, enforce_tenant_isolation
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +56,9 @@ async def create_advance(
     ```
     """
     try:
+        # 🔐 Enforce tenant isolation
+        tenant_id = enforce_tenant_isolation(current_user)
+
         # 🔒 Authorization: Employees can only create advances for themselves
         if current_user.role == 'employee':
             if request.employee_id != current_user.employee_id:
@@ -65,9 +68,9 @@ async def create_advance(
                 )
 
         service = get_employee_advances_service()
-        result = service.create_advance(request)
+        result = service.create_advance(request, tenant_id=tenant_id)
 
-        logger.info(f"✅ User {current_user.username} created advance {result.id} for employee {request.employee_name}")
+        logger.info(f"✅ User {current_user.username} (tenant={tenant_id}) created advance {result.id} for employee {request.employee_name}")
 
         return result
 
@@ -125,11 +128,14 @@ async def reimburse_advance(
     - If partial: status = `partial`
     """
     try:
+        # 🔐 Enforce tenant isolation
+        tenant_id = enforce_tenant_isolation(current_user)
+
         service = get_employee_advances_service()
-        result = service.reimburse_advance(request)
+        result = service.reimburse_advance(request, tenant_id=tenant_id)
 
         logger.info(
-            f"✅ User {current_user.username} reimbursed ${request.reimbursement_amount:.2f} "
+            f"✅ User {current_user.username} (tenant={tenant_id}) reimbursed ${request.reimbursement_amount:.2f} "
             f"for advance {request.advance_id}. New status: {result.status}"
         )
 
@@ -166,8 +172,11 @@ async def get_advance(
     - Accountants/Admins can view any advance
     """
     try:
+        # 🔐 Enforce tenant isolation
+        tenant_id = enforce_tenant_isolation(current_user)
+
         service = get_employee_advances_service()
-        result = service.get_advance_by_id(advance_id)
+        result = service.get_advance_by_id(advance_id, tenant_id=tenant_id)
 
         if not result:
             raise HTTPException(
@@ -218,14 +227,17 @@ async def list_advances(
     List of advances ordered by creation date (newest first)
     """
     try:
+        # 🔐 Enforce tenant isolation
+        tenant_id = enforce_tenant_isolation(current_user)
+
         # 🔒 Apply scope filtering
         if current_user.role == 'employee':
             # Force filter to current user's employee_id
             employee_id = current_user.employee_id
-            logger.info(f"Employee {current_user.username} viewing own advances (employee_id={employee_id})")
+            logger.info(f"Employee {current_user.username} (tenant={tenant_id}) viewing own advances (employee_id={employee_id})")
 
         service = get_employee_advances_service()
-        results = service.list_advances(status=status, employee_id=employee_id, limit=limit)
+        results = service.list_advances(status=status, employee_id=employee_id, limit=limit, tenant_id=tenant_id)
 
         return results
 
@@ -257,6 +269,9 @@ async def get_employee_summary(
     - List of all advances
     """
     try:
+        # 🔐 Enforce tenant isolation
+        tenant_id = enforce_tenant_isolation(current_user)
+
         # 🔒 Employees can only view their own summary
         if current_user.role == 'employee':
             if employee_id != current_user.employee_id:
@@ -266,7 +281,7 @@ async def get_employee_summary(
                 )
 
         service = get_employee_advances_service()
-        result = service.get_advances_by_employee(employee_id)
+        result = service.get_advances_by_employee(employee_id, tenant_id=tenant_id)
 
         return result
 
@@ -299,10 +314,13 @@ async def get_advances_summary(
     **Use case:** Dashboard overview
     """
     try:
-        service = get_employee_advances_service()
-        result = service.get_summary()
+        # 🔐 Enforce tenant isolation
+        tenant_id = enforce_tenant_isolation(current_user)
 
-        logger.info(f"User {current_user.username} viewed advances summary")
+        service = get_employee_advances_service()
+        result = service.get_summary(tenant_id=tenant_id)
+
+        logger.info(f"User {current_user.username} (tenant={tenant_id}) viewed advances summary")
 
         return result
 

@@ -35,6 +35,7 @@ class User(BaseModel):
     email: str
     full_name: str
     role: str
+    tenant_id: int  # ← Multi-tenancy support
     employee_id: Optional[int] = None
     is_active: bool = True
 
@@ -95,7 +96,7 @@ def get_user_by_username(username: str) -> Optional[User]:
 
     try:
         cursor.execute("""
-            SELECT id, username, email, full_name, role, employee_id, is_active
+            SELECT id, username, email, full_name, role, tenant_id, employee_id, is_active
             FROM users
             WHERE username = ? AND is_active = TRUE
         """, (username,))
@@ -116,7 +117,7 @@ def get_user_by_id(user_id: int) -> Optional[User]:
 
     try:
         cursor.execute("""
-            SELECT id, username, email, full_name, role, employee_id, is_active
+            SELECT id, username, email, full_name, role, tenant_id, employee_id, is_active
             FROM users
             WHERE id = ? AND is_active = TRUE
         """, (user_id,))
@@ -140,7 +141,7 @@ def authenticate_user(username: str, password: str) -> Optional[User]:
 
     try:
         cursor.execute("""
-            SELECT id, username, email, full_name, role, employee_id,
+            SELECT id, username, email, full_name, role, tenant_id, employee_id,
                    is_active, password_hash, failed_login_attempts, locked_until
             FROM users
             WHERE username = ? OR email = ?
@@ -205,6 +206,7 @@ def authenticate_user(username: str, password: str) -> Optional[User]:
             email=user_data['email'],
             full_name=user_data['full_name'],
             role=user_data['role'],
+            tenant_id=user_data['tenant_id'],
             employee_id=user_data.get('employee_id'),
             is_active=user_data['is_active']
         )
@@ -226,6 +228,7 @@ def create_access_token(user: User) -> str:
         "sub": user.id,
         "username": user.username,
         "role": user.role,
+        "tenant_id": user.tenant_id,  # ← Include tenant_id in JWT
         "jti": jti,
         "exp": expires
     }
@@ -372,3 +375,54 @@ def filter_by_scope(user: User, resource: str, query_filters: dict) -> dict:
         return query_filters
     finally:
         conn.close()
+
+
+# =====================================================
+# TENANT ISOLATION
+# =====================================================
+
+def enforce_tenant_isolation(current_user: User, resource_tenant_id: Optional[int] = None) -> int:
+    """
+    Enforce tenant isolation - ensures users can only access their own tenant's data
+
+    Args:
+        current_user: Current authenticated user
+        resource_tenant_id: Tenant ID of the resource being accessed (if known)
+
+    Returns:
+        Tenant ID to use for filtering queries
+
+    Raises:
+        HTTPException 403: If user tries to access another tenant's data
+
+    Usage:
+        tenant_id = enforce_tenant_isolation(current_user)
+        results = db.query(f"SELECT * FROM table WHERE tenant_id = {tenant_id}")
+    """
+    # Superusers (role='superadmin') can access any tenant
+    if current_user.role == 'superadmin':
+        return resource_tenant_id if resource_tenant_id else current_user.tenant_id
+
+    # Regular users can only access their own tenant
+    if resource_tenant_id and resource_tenant_id != current_user.tenant_id:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Access denied: Cannot access tenant {resource_tenant_id}"
+        )
+
+    return current_user.tenant_id
+
+
+def get_tenant_filter(current_user: User) -> dict:
+    """
+    Get tenant filter for database queries
+
+    Returns:
+        Dictionary with tenant_id filter
+
+    Usage:
+        filters = get_tenant_filter(current_user)
+        # filters = {'tenant_id': 1}
+    """
+    tenant_id = enforce_tenant_isolation(current_user)
+    return {'tenant_id': tenant_id}

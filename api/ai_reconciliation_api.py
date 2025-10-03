@@ -8,7 +8,7 @@ from typing import List, Dict, Any
 import logging
 
 from core.ai_reconciliation_service import get_ai_reconciliation_service
-from core.auth_jwt import User, get_current_user, require_role
+from core.auth_jwt import User, get_current_user, require_role, enforce_tenant_isolation
 
 logger = logging.getLogger(__name__)
 
@@ -76,13 +76,16 @@ async def get_reconciliation_suggestions(
     ```
     """
     try:
+        # 🔐 Enforce tenant isolation
+        tenant_id = enforce_tenant_isolation(current_user)
+
         ai_service = get_ai_reconciliation_service()
-        suggestions = ai_service.get_all_suggestions(limit=limit)
+        suggestions = ai_service.get_all_suggestions(limit=limit, tenant_id=tenant_id)
 
         # Filter by minimum confidence
         filtered = [s for s in suggestions if s['confidence_score'] >= min_confidence]
 
-        logger.info(f"Generated {len(filtered)} AI suggestions (min_confidence={min_confidence})")
+        logger.info(f"User {current_user.username} (tenant={tenant_id}) generated {len(filtered)} AI suggestions (min_confidence={min_confidence})")
 
         return filtered
 
@@ -107,10 +110,13 @@ async def get_one_to_many_suggestions(
     **Use case:** Find cases where a single bank payment covers multiple expenses
     """
     try:
-        ai_service = get_ai_reconciliation_service()
-        suggestions = ai_service.suggest_one_to_many_splits(limit=limit)
+        # 🔐 Enforce tenant isolation
+        tenant_id = enforce_tenant_isolation(current_user)
 
-        logger.info(f"User {current_user.username} viewed {len(suggestions)} one-to-many suggestions")
+        ai_service = get_ai_reconciliation_service()
+        suggestions = ai_service.suggest_one_to_many_splits(limit=limit, tenant_id=tenant_id)
+
+        logger.info(f"User {current_user.username} (tenant={tenant_id}) viewed {len(suggestions)} one-to-many suggestions")
 
         return suggestions
 
@@ -135,10 +141,13 @@ async def get_many_to_one_suggestions(
     **Use case:** Find cases where multiple payments (installments) pay for one expense
     """
     try:
-        ai_service = get_ai_reconciliation_service()
-        suggestions = ai_service.suggest_many_to_one_splits(limit=limit)
+        # 🔐 Enforce tenant isolation
+        tenant_id = enforce_tenant_isolation(current_user)
 
-        logger.info(f"User {current_user.username} viewed {len(suggestions)} many-to-one suggestions")
+        ai_service = get_ai_reconciliation_service()
+        suggestions = ai_service.suggest_many_to_one_splits(limit=limit, tenant_id=tenant_id)
+
+        logger.info(f"User {current_user.username} (tenant={tenant_id}) viewed {len(suggestions)} many-to-one suggestions")
 
         return suggestions
 
@@ -174,8 +183,11 @@ async def auto_apply_suggestion(
     - success: True/False
     """
     try:
+        # 🔐 Enforce tenant isolation
+        tenant_id = enforce_tenant_isolation(current_user)
+
         ai_service = get_ai_reconciliation_service()
-        suggestions = ai_service.get_all_suggestions(limit=50)
+        suggestions = ai_service.get_all_suggestions(limit=50, tenant_id=tenant_id)
 
         if suggestion_index >= len(suggestions):
             raise HTTPException(
@@ -220,7 +232,7 @@ async def auto_apply_suggestion(
                 ],
                 notes=f"Auto-applied AI suggestion (confidence: {suggestion['confidence_score']}%)"
             )
-            result = create_one_to_many_split(request, user_id=current_user.id)
+            result = create_one_to_many_split(request, user_id=current_user.id, tenant_id=tenant_id)
 
         else:  # many_to_one
             request = SplitManyToOneRequest(
@@ -237,9 +249,9 @@ async def auto_apply_suggestion(
                 ],
                 notes=f"Auto-applied AI suggestion (confidence: {suggestion['confidence_score']}%)"
             )
-            result = create_many_to_one_split(request, user_id=current_user.id)
+            result = create_many_to_one_split(request, user_id=current_user.id, tenant_id=tenant_id)
 
-        logger.info(f"✅ Admin {current_user.username} auto-applied suggestion {suggestion_index}: {result.split_group_id}")
+        logger.info(f"✅ Admin {current_user.username} (tenant={tenant_id}) auto-applied suggestion {suggestion_index}: {result.split_group_id}")
 
         return {
             "success": True,
