@@ -1,0 +1,459 @@
+<!-- 🌐 HEADER GLOBAL - SISTEMA MCP -->
+<!-- Componente reutilizable para todas las páginas -->
+
+<style>
+/* Global Header Styles */
+.mcp-global-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 0;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.mcp-header-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    height: 60px;
+}
+
+.mcp-logo {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: white;
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+.mcp-logo-icon {
+    width: 32px;
+    height: 32px;
+    margin-right: 10px;
+    background: white;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #667eea;
+    font-weight: bold;
+}
+
+.mcp-nav-menu {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 30px;
+}
+
+.mcp-nav-item {
+    position: relative;
+}
+
+.mcp-nav-link {
+    color: white;
+    text-decoration: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9em;
+}
+
+.mcp-nav-link:hover {
+    background: rgba(255,255,255,0.1);
+    transform: translateY(-1px);
+}
+
+.mcp-nav-link.active {
+    background: rgba(255,255,255,0.2);
+    font-weight: 600;
+}
+
+.mcp-nav-icon {
+    font-size: 1.1em;
+}
+
+.mcp-user-menu {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.mcp-user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255,255,255,0.9);
+    font-size: 0.9em;
+}
+
+.mcp-user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.mcp-logout-btn {
+    color: rgba(255,255,255,0.8);
+    text-decoration: none;
+    padding: 6px 12px;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    font-size: 0.85em;
+}
+
+.mcp-logout-btn:hover {
+    background: rgba(255,255,255,0.1);
+    color: white;
+    border-color: rgba(255,255,255,0.5);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .mcp-header-container {
+        padding: 0 15px;
+    }
+
+    .mcp-nav-menu {
+        gap: 15px;
+    }
+
+    .mcp-nav-link {
+        font-size: 0.8em;
+        padding: 6px 12px;
+    }
+
+    .mcp-nav-text {
+        display: none;
+    }
+
+    .mcp-user-info span {
+        display: none;
+    }
+}
+
+/* Breadcrumbs */
+.mcp-breadcrumbs {
+    background: rgba(255,255,255,0.95);
+    padding: 10px 20px;
+    font-size: 0.85em;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.mcp-breadcrumbs-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #666;
+}
+
+.mcp-breadcrumb-link {
+    color: #667eea;
+    text-decoration: none;
+}
+
+.mcp-breadcrumb-link:hover {
+    text-decoration: underline;
+}
+
+.mcp-breadcrumb-separator {
+    color: #999;
+}
+</style>
+
+<header class="mcp-global-header">
+    <div class="mcp-header-container">
+        <!-- Logo -->
+        <a href="/dashboard" class="mcp-logo">
+            <div class="mcp-logo-icon">M</div>
+            <span>MCP System</span>
+        </a>
+
+        <!-- Navigation Menu -->
+        <nav>
+            <ul class="mcp-nav-menu">
+                <li class="mcp-nav-item">
+                    <a href="/dashboard" class="mcp-nav-link" data-page="dashboard">
+                        <span class="mcp-nav-icon">📊</span>
+                        <span class="mcp-nav-text">Dashboard</span>
+                    </a>
+                </li>
+                <li class="mcp-nav-item">
+                    <a href="/voice-expenses" class="mcp-nav-link" data-page="voice-expenses">
+                        <span class="mcp-nav-icon">🎤</span>
+                        <span class="mcp-nav-text">Gastos</span>
+                    </a>
+                </li>
+                <li class="mcp-nav-item">
+                    <a href="/bank-reconciliation" class="mcp-nav-link" data-page="bank-reconciliation">
+                        <span class="mcp-nav-icon">🏦</span>
+                        <span class="mcp-nav-text">Bancos</span>
+                    </a>
+                </li>
+                <li class="mcp-nav-item">
+                    <a href="/automation-viewer" class="mcp-nav-link" data-page="automation-viewer">
+                        <span class="mcp-nav-icon">🤖</span>
+                        <span class="mcp-nav-text">Automatización</span>
+                    </a>
+                </li>
+                <li class="mcp-nav-item">
+                    <a href="/client-settings" class="mcp-nav-link" data-page="client-settings">
+                        <span class="mcp-nav-icon">⚙️</span>
+                        <span class="mcp-nav-text">Configuración</span>
+                    </a>
+                </li>
+                <li class="mcp-nav-item">
+                    <a href="/admin" class="mcp-nav-link" data-page="admin">
+                        <span class="mcp-nav-icon">👨‍💼</span>
+                        <span class="mcp-nav-text">Admin</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- User Menu -->
+        <div class="mcp-user-menu">
+            <!-- 🏢 Tenant Info (Multi-tenancy) -->
+            <div class="mcp-tenant-info" id="mcp-tenant-info" style="display: none;">
+                <div style="display: flex; align-items: center; gap: 6px; font-size: 0.85em; color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 4px;">
+                    <i class="fas fa-building"></i>
+                    <span id="mcp-tenant-name">Empresa</span>
+                </div>
+            </div>
+
+            <div class="mcp-user-info">
+                <div class="mcp-user-avatar">U</div>
+                <span id="mcp-username">Usuario</span>
+            </div>
+            <a href="/auth/logout" class="mcp-logout-btn">Salir</a>
+        </div>
+    </div>
+</header>
+
+<!-- Breadcrumbs (opcional) -->
+<div class="mcp-breadcrumbs" id="mcp-breadcrumbs" style="display: none;">
+    <div class="mcp-breadcrumbs-container">
+        <a href="/dashboard" class="mcp-breadcrumb-link">Dashboard</a>
+        <span class="mcp-breadcrumb-separator">></span>
+        <span id="mcp-current-page">Página Actual</span>
+    </div>
+</div>
+
+<script>
+// 🚀 FUNCIONALIDAD DEL HEADER GLOBAL
+
+class MCPGlobalHeader {
+    constructor() {
+        this.init();
+    }
+
+    init() {
+        this.setActiveNavItem();
+        this.loadUserInfo();
+        this.setupBreadcrumbs();
+        this.handleNavigation();
+    }
+
+    // Marcar item activo en navegación
+    setActiveNavItem() {
+        const currentPath = window.location.pathname;
+        const navLinks = document.querySelectorAll('.mcp-nav-link');
+
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            const page = link.getAttribute('data-page');
+
+            if (currentPath.includes(page) ||
+                (currentPath === '/' && page === 'dashboard') ||
+                (currentPath.includes('advanced-ticket-dashboard') && page === 'dashboard')) {
+                link.classList.add('active');
+            }
+        });
+    }
+
+    // Cargar información del usuario y tenant
+    async loadUserInfo() {
+        try {
+            // Load user data
+            const response = await fetch('/auth/me');
+            if (response.ok) {
+                const user = await response.json();
+                const usernameEl = document.getElementById('mcp-username');
+                const avatarEl = document.querySelector('.mcp-user-avatar');
+
+                if (usernameEl && user.full_name) {
+                    usernameEl.textContent = user.full_name;
+                }
+
+                if (avatarEl && user.full_name) {
+                    avatarEl.textContent = user.full_name.charAt(0).toUpperCase();
+                }
+            }
+
+            // 🏢 Load tenant data from localStorage
+            const tenantData = localStorage.getItem('tenant_data');
+            if (tenantData) {
+                try {
+                    const tenant = JSON.parse(tenantData);
+                    const tenantInfoEl = document.getElementById('mcp-tenant-info');
+                    const tenantNameEl = document.getElementById('mcp-tenant-name');
+
+                    if (tenant && tenant.name) {
+                        tenantNameEl.textContent = tenant.name;
+                        tenantInfoEl.style.display = 'block';
+                    }
+                } catch (e) {
+                    console.error('Error parsing tenant data:', e);
+                }
+            }
+        } catch (error) {
+            console.log('User info not available:', error);
+        }
+    }
+
+    // Configurar breadcrumbs
+    setupBreadcrumbs() {
+        const pageTitles = {
+            '/dashboard': 'Dashboard',
+            '/voice-expenses': 'Gastos por Voz',
+            '/bank-reconciliation': 'Conciliación Bancaria',
+            '/automation-viewer': 'Visor de Automatización',
+            '/client-settings': 'Configuración Cliente',
+            '/admin': 'Panel de Administración',
+            '/onboarding': 'Registro'
+        };
+
+        const currentPath = window.location.pathname;
+        const breadcrumbsEl = document.getElementById('mcp-breadcrumbs');
+        const currentPageEl = document.getElementById('mcp-current-page');
+
+        if (currentPath !== '/dashboard' && currentPath !== '/') {
+            const pageTitle = pageTitles[currentPath] || 'Página';
+            if (currentPageEl) {
+                currentPageEl.textContent = pageTitle;
+            }
+            if (breadcrumbsEl) {
+                breadcrumbsEl.style.display = 'block';
+            }
+        }
+    }
+
+    // Manejar navegación con confirmación si hay cambios
+    handleNavigation() {
+        const navLinks = document.querySelectorAll('.mcp-nav-link');
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                // Verificar si hay cambios sin guardar
+                if (this.hasUnsavedChanges()) {
+                    if (!confirm('¿Estás seguro de salir? Los cambios no guardados se perderán.')) {
+                        e.preventDefault();
+                        return false;
+                    }
+                }
+            });
+        });
+    }
+
+    // Verificar cambios sin guardar (para override en páginas específicas)
+    hasUnsavedChanges() {
+        // Las páginas individuales pueden override este método
+        return window.mcpHasUnsavedChanges || false;
+    }
+
+    // Mostrar notificación de éxito/error
+    showNotification(message, type = 'success') {
+        const notification = document.createElement('div');
+        notification.className = `mcp-notification mcp-notification-${type}`;
+        notification.innerHTML = `
+            <span>${message}</span>
+            <button onclick="this.parentElement.remove()">×</button>
+        `;
+
+        // Agregar estilos si no existen
+        if (!document.querySelector('#mcp-notification-styles')) {
+            const styles = document.createElement('style');
+            styles.id = 'mcp-notification-styles';
+            styles.textContent = `
+                .mcp-notification {
+                    position: fixed;
+                    top: 70px;
+                    right: 20px;
+                    padding: 12px 16px;
+                    border-radius: 6px;
+                    color: white;
+                    z-index: 1001;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    animation: slideIn 0.3s ease;
+                }
+                .mcp-notification-success { background: #4CAF50; }
+                .mcp-notification-error { background: #f44336; }
+                .mcp-notification-warning { background: #ff9800; }
+                .mcp-notification button {
+                    background: none;
+                    border: none;
+                    color: white;
+                    cursor: pointer;
+                    font-size: 18px;
+                    padding: 0;
+                }
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(styles);
+        }
+
+        document.body.appendChild(notification);
+
+        // Auto-remove después de 5 segundos
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+}
+
+// Inicializar header global cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', () => {
+    window.mcpHeader = new MCPGlobalHeader();
+
+    // Verificar parámetros URL para notificaciones
+    const urlParams = new URLSearchParams(window.location.search);
+
+    if (urlParams.get('success') === 'expense_created') {
+        window.mcpHeader.showNotification('¡Gasto creado exitosamente!', 'success');
+    }
+
+    if (urlParams.get('welcome') === 'true') {
+        window.mcpHeader.showNotification('¡Bienvenido al sistema MCP!', 'success');
+    }
+
+    if (urlParams.get('error')) {
+        window.mcpHeader.showNotification(urlParams.get('error'), 'error');
+    }
+});
+</script>

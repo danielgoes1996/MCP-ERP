@@ -49,6 +49,7 @@ class Token(BaseModel):
     token_type: str = "bearer"
     expires_in: int
     user: User
+    tenant: Optional[dict] = None  # 🏢 Multi-tenancy: Tenant information
 
 
 # =====================================================
