@@ -1,6 +1,6 @@
 """Core API models (minimal baseline)."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, validator
@@ -250,3 +250,136 @@ class ExpenseResponseMinimal(BaseModel):
     amount: float
     invoice_status: str
     bank_status: str
+
+
+class ProveedorData(BaseModel):
+    """Estructura para datos del proveedor."""
+    nombre: str
+    rfc: Optional[str] = None
+
+
+class ExpenseCreate(BaseModel):
+    """Request model for creating expenses via POST /expenses."""
+
+    # Campos obligatorios
+    descripcion: str = Field(..., min_length=1, description="Descripción del gasto")
+    monto_total: float = Field(..., gt=0, description="Monto total del gasto")
+    fecha_gasto: str = Field(..., description="Fecha del gasto en formato ISO (YYYY-MM-DD)")
+
+    # Información del proveedor
+    proveedor: Optional[ProveedorData] = Field(None, description="Datos del proveedor")
+    rfc: Optional[str] = Field(None, description="RFC del proveedor (12-13 caracteres alfanuméricos)")
+
+    # Categorización
+    categoria: Optional[str] = Field(None, description="Categoría del gasto")
+
+    # Información fiscal
+    tax_info: Optional[Dict[str, Any]] = Field(None, description="Información fiscal (UUID, totales, etc)")
+
+    # Información contable
+    asientos_contables: Optional[List[Dict[str, Any]]] = Field(None, description="Asientos contables generados")
+
+    # Estados del workflow
+    workflow_status: str = Field("draft", description="Estado del workflow")
+    estado_factura: str = Field("pendiente", description="Estado de facturación")
+    estado_conciliacion: str = Field("pendiente", description="Estado de conciliación bancaria")
+
+    # Información de pago
+    forma_pago: Optional[str] = Field(None, description="Forma de pago (tarjeta, efectivo, transferencia)")
+    paid_by: str = Field("company_account", description="Quién pagó el gasto")
+    will_have_cfdi: bool = Field(True, description="Si se espera factura CFDI")
+    payment_account_id: Optional[int] = Field(None, description="ID de cuenta de pago")
+
+    # Información bancaria
+    movimientos_bancarios: Optional[List[Dict[str, Any]]] = Field(None, description="Movimientos bancarios asociados")
+
+    # Metadata adicional
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Metadata adicional")
+    company_id: str = Field("default", description="ID de la empresa")
+
+    # Validadores
+    @validator('fecha_gasto')
+    def validate_fecha_gasto(cls, value: str) -> str:
+        """Valida que la fecha sea válida y no futura."""
+        try:
+            fecha = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            # Permitir fechas hasta 1 día en el futuro (por zonas horarias)
+            if fecha > datetime.now() + timedelta(days=1):
+                raise ValueError('La fecha del gasto no puede ser futura')
+            return value
+        except (ValueError, AttributeError) as e:
+            raise ValueError(f'Formato de fecha inválido. Use formato ISO (YYYY-MM-DD): {e}')
+
+    @validator('rfc')
+    def validate_rfc(cls, value: Optional[str]) -> Optional[str]:
+        """Valida formato básico de RFC mexicano."""
+        if value is None:
+            return value
+
+        value = value.strip().upper()
+
+        # RFC debe ser alfanumérico de 12 o 13 caracteres
+        if not value.isalnum():
+            raise ValueError('RFC debe contener solo letras y números')
+
+        if len(value) not in [12, 13]:
+            raise ValueError('RFC debe tener 12 (moral) o 13 (física) caracteres')
+
+        return value
+
+    @validator('monto_total')
+    def validate_monto_total(cls, value: float) -> float:
+        """Valida que el monto sea razonable."""
+        if value <= 0:
+            raise ValueError('El monto debe ser mayor a cero')
+
+        # Límite máximo razonable: 10 millones de pesos
+        if value > 10_000_000:
+            raise ValueError('El monto excede el límite máximo permitido (10,000,000 MXN)')
+
+        return value
+
+    @validator('categoria')
+    def validate_categoria(cls, value: Optional[str]) -> Optional[str]:
+        """Normaliza la categoría."""
+        if value:
+            return value.strip().lower()
+        return value
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "descripcion": "Gasolina para vehículo de reparto",
+                "monto_total": 850.50,
+                "fecha_gasto": "2025-01-15",
+                "proveedor": {
+                    "nombre": "Gasolinera PEMEX",
+                    "rfc": "PEM840212XY1"
+                },
+                "rfc": "PEM840212XY1",
+                "categoria": "combustibles",
+                "forma_pago": "tarjeta",
+                "paid_by": "company_account",
+                "will_have_cfdi": True,
+                "workflow_status": "draft",
+                "estado_factura": "pendiente",
+                "estado_conciliacion": "pendiente",
+                "company_id": "default"
+            }
+        }
+
+
+class ExpenseCreateEnhanced(ExpenseCreate):
+    """Extended expense creation with duplicate detection and ML features."""
+
+    check_duplicates: bool = Field(True, description="Verificar duplicados antes de crear")
+    ml_features: Optional[Dict[str, Any]] = Field(None, description="Features ML para detección")
+    auto_action_on_duplicates: Optional[str] = Field(None, description="Acción automática si hay duplicados")
+
+
+class ExpenseResponseEnhanced(ExpenseResponse):
+    """Extended expense response with duplicate detection info."""
+
+    duplicate_ids: Optional[List[int]] = Field(None, description="IDs de posibles duplicados")
+    similarity_score: Optional[float] = Field(None, description="Score de similitud con duplicados")
+    risk_level: Optional[str] = Field(None, description="Nivel de riesgo de duplicado")

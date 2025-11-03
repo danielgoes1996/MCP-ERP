@@ -2937,33 +2937,40 @@ async def create_expense(
     expense: ExpenseCreate,
     tenancy_context: TenancyContext = Depends(get_tenancy_context)
 ) -> ExpenseResponse:
-    """Crear un nuevo gasto en la base de datos."""
+    """
+    Crear un nuevo gasto en la base de datos.
+
+    Este endpoint crea un gasto con validaciones automáticas de:
+    - Monto > 0 y < 10M MXN
+    - RFC válido (12-13 caracteres alfanuméricos)
+    - Fecha no futura
+    - Mapeo automático de categoría a cuenta contable
+
+    Args:
+        expense: Datos del gasto a crear
+        tenancy_context: Contexto de tenencia (inyectado)
+
+    Returns:
+        ExpenseResponse con los datos del gasto creado
+
+    Raises:
+        ValidationError: Si los datos no pasan validación
+        ServiceError: Si hay error en la BD
+    """
+    from core.category_mappings import get_account_code_for_category
+
     endpoint = "POST /expenses"
     log_endpoint_entry(endpoint, amount=expense.monto_total, company_id=expense.company_id)
 
     try:
-        # Business logic validation
-        if expense.monto_total <= 0:
-            raise ValidationError("El monto del gasto debe ser mayor a cero")
+        # Nota: Las validaciones de monto, fecha y RFC ya están en el modelo Pydantic
+        # y se ejecutan automáticamente antes de llegar aquí
 
-        provider_name = (expense.proveedor or {}).get("nombre") if expense.proveedor else None
+        # Extraer nombre del proveedor
+        provider_name = expense.proveedor.nombre if expense.proveedor else None
 
-        account_code = "6180"
-        if expense.categoria:
-            account_mapping = {
-                'combustible': '6140',
-                'combustibles': '6140',
-                'viajes': '6150',
-                'viaticos': '6150',
-                'alimentos': '6150',
-                'servicios': '6130',
-                'oficina': '6180',
-                'honorarios': '6110',
-                'renta': '6120',
-                'publicidad': '6160',
-                'marketing': '6160'
-            }
-            account_code = account_mapping.get(expense.categoria.lower(), account_code)
+        # Mapeo automático de categoría a cuenta contable
+        account_code = get_account_code_for_category(expense.categoria)
 
         invoice_uuid = None
         if expense.tax_info and expense.tax_info.get('uuid'):
