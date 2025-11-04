@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clasificación Inteligente de Gastos</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+
+    <script>
+        (function suppressTailwindWarning() {
+            const originalWarn = console.warn;
+            console.warn = function (...args) {
+                if (typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com should not be used in production')) {
+                    return;
+                }
+                originalWarn.apply(console, args);
+            };
+        })();
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/contaflow-theme.css">
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script src="/static/components/components.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Global Header -->
+    <div data-include="/static/components/global-header.html"></div>
+
+    <main id="app-root" class="py-6"></main>
+
+    <script src="/static/complete-expenses.js" defer></script>
+</body>
+</html>

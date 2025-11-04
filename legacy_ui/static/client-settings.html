@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración de Cliente · ContaFlow</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/contaflow-theme.css">
+    <script src="/static/components/components.js"></script>
+
+    <!-- Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .success { @apply bg-green-100 text-green-800 border-green-200; }
+        .error { @apply bg-red-100 text-red-800 border-red-200; }
+        .warning { @apply bg-yellow-100 text-yellow-800 border-yellow-200; }
+        .info { @apply bg-blue-100 text-blue-800 border-blue-200; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Global Header -->
+    <div data-include="/static/components/global-header.html"></div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50"></div>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Cliente Info Card -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-8 card-hover fade-in">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-gray-900">
+                    <i class="fas fa-building mr-2 text-blue-500"></i>
+                    Información del Cliente
+                </h2>
+                <span id="client-status" class="px-3 py-1 rounded-full text-sm font-medium">
+                    Sin configurar
+                </span>
+            </div>
+            <div id="client-summary" class="text-gray-600">
+                <p>No se han configurado datos fiscales para este cliente.</p>
+            </div>
+        </div>
+
+        <!-- Tabs Navigation -->
+        <div class="bg-white rounded-xl shadow-md mb-8 fade-in">
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8 px-6" aria-label="Tabs">
+                    <button onclick="switchTab('fiscal')" id="tab-fiscal" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                        <i class="fas fa-file-invoice mr-2"></i>
+                        Datos Fiscales
+                    </button>
+                    <button onclick="switchTab('portals')" id="tab-portals" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                        <i class="fas fa-key mr-2"></i>
+                        Credenciales de Portales
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Fiscal Data Tab -->
+            <div id="fiscal-tab" class="tab-content p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-6">Configurar Datos Fiscales</h3>
+
+                <form id="fiscal-form" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- RFC -->
+                        <div>
+                            <label for="rfc" class="block text-sm font-medium text-gray-700 mb-2">
+                                RFC *
+                            </label>
+                            <input
+                                type="text"
+                                id="rfc"
+                                name="rfc"
+                                placeholder="Ej: EMP850315ABC"
+                                maxlength="13"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
+                                required
+                            >
+                            <p class="text-xs text-gray-500 mt-1">Formato: 3-4 letras + 6 dígitos + 3 caracteres</p>
+                        </div>
+
+                        <!-- Email -->
+                        <div>
+                            <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                                Email de Facturación *
+                            </label>
+                            <input
+                                type="email"
+                                id="email"
+                                name="email"
+                                placeholder="facturacion@empresa.com"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                required
+                            >
+                        </div>
+
+                        <!-- Razón Social -->
+                        <div class="md:col-span-2">
+                            <label for="razon_social" class="block text-sm font-medium text-gray-700 mb-2">
+                                Razón Social *
+                            </label>
+                            <input
+                                type="text"
+                                id="razon_social"
+                                name="razon_social"
+                                placeholder="Empresa SA de CV"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                required
+                            >
+                        </div>
+
+                        <!-- Domicilio Fiscal -->
+                        <div class="md:col-span-2">
+                            <label for="domicilio_fiscal" class="block text-sm font-medium text-gray-700 mb-2">
+                                Domicilio Fiscal *
+                            </label>
+                            <input
+                                type="text"
+                                id="domicilio_fiscal"
+                                name="domicilio_fiscal"
+                                placeholder="Av. Reforma 123, Col. Centro, CDMX"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                required
+                            >
+                        </div>
+
+                        <!-- Régimen Fiscal -->
+                        <div>
+                            <label for="regimen_fiscal" class="block text-sm font-medium text-gray-700 mb-2">
+                                Régimen Fiscal *
+                            </label>
+                            <select
+                                id="regimen_fiscal"
+                                name="regimen_fiscal"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                required
+                            >
+                                <option value="">Seleccionar régimen</option>
+                                <option value="601">601 - General de Ley Personas Morales</option>
+                                <option value="603">603 - Personas Morales con Fines no Lucrativos</option>
+                                <option value="605">605 - Sueldos y Salarios e Ingresos Asimilados a Salarios</option>
+                                <option value="606">606 - Arrendamiento</option>
+                                <option value="608">608 - Demás ingresos</option>
+                                <option value="610">610 - Residentes en el Extranjero sin Establecimiento Permanente en México</option>
+                                <option value="611">611 - Ingresos por Dividendos (socios y accionistas)</option>
+                                <option value="612">612 - Personas Físicas con Actividades Empresariales y Profesionales</option>
+                                <option value="614">614 - Ingresos por intereses</option>
+                                <option value="616">616 - Sin obligaciones fiscales</option>
+                                <option value="620">620 - Sociedades Cooperativas de Producción que optan por diferir sus ingresos</option>
+                                <option value="621">621 - Incorporación Fiscal</option>
+                                <option value="622">622 - Actividades Agrícolas, Ganaderas, Silvícolas y Pesqueras</option>
+                                <option value="623">623 - Opcional para Grupos de Sociedades</option>
+                                <option value="624">624 - Coordinados</option>
+                                <option value="628">628 - Hidrocarburos</option>
+                                <option value="629">629 - De los Regímenes Fiscales Preferentes y de las Empresas Multinacionales</option>
+                                <option value="630">630 - Enajenación de acciones en bolsa de valores</option>
+                            </select>
+                        </div>
+
+                        <!-- Código Postal -->
+                        <div>
+                            <label for="codigo_postal" class="block text-sm font-medium text-gray-700 mb-2">
+                                Código Postal
+                            </label>
+                            <input
+                                type="text"
+                                id="codigo_postal"
+                                name="codigo_postal"
+                                placeholder="06000"
+                                maxlength="5"
+                                pattern="[0-9]{5}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            >
+                        </div>
+
+                        <!-- Teléfono -->
+                        <div>
+                            <label for="telefono" class="block text-sm font-medium text-gray-700 mb-2">
+                                Teléfono
+                            </label>
+                            <input
+                                type="tel"
+                                id="telefono"
+                                name="telefono"
+                                placeholder="5555551234"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            >
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-4">
+                        <button
+                            type="button"
+                            onclick="loadFiscalData()"
+                            class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                        >
+                            <i class="fas fa-sync-alt mr-2"></i>Recargar
+                        </button>
+                        <button
+                            type="submit"
+                            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            <i class="fas fa-save mr-2"></i>Guardar Datos Fiscales
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Portals Tab -->
+            <div id="portals-tab" class="tab-content p-6 hidden">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-lg font-semibold text-gray-900">Credenciales de Portales</h3>
+                    <button
+                        onclick="showAddPortalModal()"
+                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                        <i class="fas fa-plus mr-2"></i>Agregar Portal
+                    </button>
+                </div>
+
+                <!-- Portales List -->
+                <div id="portals-list" class="space-y-4">
+                    <!-- Los portales se cargarán aquí -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal para Agregar Portal -->
+    <div id="portal-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">Agregar Credenciales de Portal</h3>
+                    <button onclick="hideAddPortalModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <form id="portal-form" class="space-y-4">
+                    <div>
+                        <label for="portal-merchant" class="block text-sm font-medium text-gray-700 mb-2">
+                            Portal/Merchant *
+                        </label>
+                        <select
+                            id="portal-merchant"
+                            name="merchant"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            required
+                        >
+                            <option value="">Seleccionar portal</option>
+                            <option value="OXXO">OXXO - factura.oxxo.com</option>
+                            <option value="WALMART">Walmart - factura.walmart.com.mx</option>
+                            <option value="COSTCO">Costco - facturaelectronica.costco.com.mx</option>
+                            <option value="7ELEVEN">7-Eleven - facturacion.7-eleven.com.mx</option>
+                            <option value="SORIANA">Soriana - facturacion.soriana.com</option>
+                            <option value="HOME_DEPOT">Home Depot - homedepot.com.mx/facturacion</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="portal-username" class="block text-sm font-medium text-gray-700 mb-2">
+                            Usuario/Email *
+                        </label>
+                        <input
+                            type="text"
+                            id="portal-username"
+                            name="username"
+                            placeholder="usuario o email"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            required
+                        >
+                    </div>
+
+                    <div>
+                        <label for="portal-password" class="block text-sm font-medium text-gray-700 mb-2">
+                            Contraseña *
+                        </label>
+                        <div class="relative">
+                            <input
+                                type="password"
+                                id="portal-password"
+                                name="password"
+                                placeholder="contraseña del portal"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                required
+                            >
+                            <button
+                                type="button"
+                                onclick="togglePassword('portal-password')"
+                                class="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                            >
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-4 pt-4">
+                        <button
+                            type="button"
+                            onclick="hideAddPortalModal()"
+                            class="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            type="submit"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            <i class="fas fa-save mr-2"></i>Guardar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===============================================================
+        // CONFIGURACIÓN Y ESTADO
+        // ===============================================================
+
+        const appState = {
+            currentClientId: 'default-client-001',
+            currentTab: 'fiscal',
+            fiscalData: null,
+            portals: []
+        };
+
+        // API Base URL - Usar endpoint simulado por ahora
+        const API_BASE = '/api/v1/clients';
+
+        // ===============================================================
+        // INICIALIZACIÓN
+        // ===============================================================
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+
+        function initializeApp() {
+            console.log('🚀 Iniciando Configuración de Cliente');
+
+            // Cargar datos fiscales
+            loadFiscalData();
+
+            // Cargar portales
+            loadPortals();
+
+            // Configurar formularios
+            setupForms();
+
+            // Activar primer tab
+            switchTab('fiscal');
+        }
+
+        // ===============================================================
+        // GESTIÓN DE TABS
+        // ===============================================================
+
+        function switchTab(tabName) {
+            // Actualizar estado
+            appState.currentTab = tabName;
+
+            // Ocultar todos los tabs
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+
+            // Remover clase activa de todos los botones
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('border-blue-500', 'text-blue-600');
+                button.classList.add('border-transparent', 'text-gray-500');
+            });
+
+            // Mostrar tab activo
+            document.getElementById(`${tabName}-tab`).classList.remove('hidden');
+
+            // Activar botón
+            const activeButton = document.getElementById(`tab-${tabName}`);
+            activeButton.classList.remove('border-transparent', 'text-gray-500');
+            activeButton.classList.add('border-blue-500', 'text-blue-600');
+        }
+
+        // ===============================================================
+        // GESTIÓN DE DATOS FISCALES
+        // ===============================================================
+
+        async function loadFiscalData() {
+            try {
+                showToast('Cargando datos fiscales...', 'info');
+
+                // Cargar desde localStorage por ahora
+                const savedData = localStorage.getItem('client_fiscal_data');
+
+                if (savedData) {
+                    const fiscalData = JSON.parse(savedData);
+
+                    // Llenar formulario
+                    document.getElementById('rfc').value = fiscalData.rfc || '';
+                    document.getElementById('email').value = fiscalData.email || '';
+                    document.getElementById('razon_social').value = fiscalData.razon_social || '';
+                    document.getElementById('domicilio_fiscal').value = fiscalData.domicilio_fiscal || '';
+                    document.getElementById('regimen_fiscal').value = fiscalData.regimen_fiscal || '';
+                    document.getElementById('codigo_postal').value = fiscalData.codigo_postal || '';
+                    document.getElementById('telefono').value = fiscalData.telefono || '';
+
+                    appState.fiscalData = fiscalData;
+                    updateClientSummary(fiscalData);
+                    showToast('Datos fiscales cargados', 'success');
+                } else {
+                    showToast('No hay datos fiscales configurados', 'warning');
+                    updateClientSummary(null);
+                }
+
+            } catch (error) {
+                console.error('Error loading fiscal data:', error);
+                showToast('Error cargando datos fiscales', 'error');
+                updateClientSummary(null);
+            }
+        }
+
+        function updateClientSummary(fiscalData) {
+            const statusElement = document.getElementById('client-status');
+            const summaryElement = document.getElementById('client-summary');
+
+            if (fiscalData) {
+                statusElement.textContent = 'Configurado';
+                statusElement.className = 'px-3 py-1 rounded-full text-sm font-medium success';
+
+                summaryElement.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <span class="font-medium">RFC:</span> ${fiscalData.rfc}
+                        </div>
+                        <div>
+                            <span class="font-medium">Email:</span> ${fiscalData.email}
+                        </div>
+                        <div class="md:col-span-2">
+                            <span class="font-medium">Razón Social:</span> ${fiscalData.razon_social}
+                        </div>
+                    </div>
+                `;
+            } else {
+                statusElement.textContent = 'Sin configurar';
+                statusElement.className = 'px-3 py-1 rounded-full text-sm font-medium warning';
+
+                summaryElement.innerHTML = `
+                    <p class="text-gray-600">No se han configurado datos fiscales para este cliente.</p>
+                    <p class="text-sm text-gray-500 mt-2">Configure los datos fiscales en la pestaña correspondiente para habilitar la facturación automática.</p>
+                `;
+            }
+        }
+
+        async function saveFiscalData(formData) {
+            try {
+                showToast('Guardando datos fiscales...', 'info');
+
+                const fiscalData = {
+                    rfc: formData.get('rfc').toUpperCase(),
+                    email: formData.get('email'),
+                    razon_social: formData.get('razon_social'),
+                    domicilio_fiscal: formData.get('domicilio_fiscal'),
+                    regimen_fiscal: formData.get('regimen_fiscal'),
+                    codigo_postal: formData.get('codigo_postal'),
+                    telefono: formData.get('telefono')
+                };
+
+                // Guardar en localStorage por ahora
+                localStorage.setItem('client_fiscal_data', JSON.stringify(fiscalData));
+
+                appState.fiscalData = fiscalData;
+                updateClientSummary(fiscalData);
+                showToast('Datos fiscales guardados exitosamente', 'success');
+
+                // TODO: Integrar con API cuando esté disponible
+                // const response = await fetch(`${API_BASE}/setup`, {...});
+
+            } catch (error) {
+                console.error('Error saving fiscal data:', error);
+                showToast(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // ===============================================================
+        // GESTIÓN DE PORTALES
+        // ===============================================================
+
+        async function loadPortals() {
+            try {
+                // Cargar desde localStorage por ahora
+                const savedPortals = localStorage.getItem('client_portals');
+
+                if (savedPortals) {
+                    appState.portals = JSON.parse(savedPortals);
+                } else {
+                    appState.portals = [];
+                }
+
+                renderPortals(appState.portals);
+            } catch (error) {
+                console.error('Error loading portals:', error);
+                renderPortals([]);
+            }
+        }
+
+        function renderPortals(portals) {
+            const container = document.getElementById('portals-list');
+
+            if (portals.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <i class="fas fa-key text-4xl mb-4"></i>
+                        <p>No hay portales configurados</p>
+                        <p class="text-sm">Agregue credenciales para portales de facturación</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = portals.map(portal => `
+                <div class="border border-gray-200 rounded-lg p-4 card-hover">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="p-2 rounded-full bg-blue-100 mr-3">
+                                <i class="fas fa-store text-blue-600"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-gray-900">${portal.merchant_name}</h4>
+                                <p class="text-sm text-gray-500">${portal.portal_url}</p>
+                                <p class="text-xs text-gray-400">Usuario: ${portal.username || 'N/A'}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(portal.account_status)}">
+                                ${getStatusText(portal.account_status)}
+                            </span>
+                            <button
+                                onclick="editPortal('${portal.merchant_name}')"
+                                class="text-blue-600 hover:text-blue-800"
+                                title="Editar"
+                            >
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button
+                                onclick="deletePortal('${portal.merchant_name}')"
+                                class="text-red-600 hover:text-red-800"
+                                title="Eliminar"
+                            >
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getStatusClass(status) {
+            const classes = {
+                'active': 'success',
+                'inactive': 'warning',
+                'requires_setup': 'error'
+            };
+            return classes[status] || 'info';
+        }
+
+        function getStatusText(status) {
+            const texts = {
+                'active': 'Activo',
+                'inactive': 'Inactivo',
+                'requires_setup': 'Requiere configuración'
+            };
+            return texts[status] || 'Desconocido';
+        }
+
+        // ===============================================================
+        // MODAL DE PORTAL
+        // ===============================================================
+
+        function showAddPortalModal() {
+            document.getElementById('portal-modal').classList.remove('hidden');
+        }
+
+        function hideAddPortalModal() {
+            document.getElementById('portal-modal').classList.add('hidden');
+            document.getElementById('portal-form').reset();
+        }
+
+        async function savePortalCredentials(formData) {
+            try {
+                showToast('Guardando credenciales...', 'info');
+
+                const merchantName = formData.get('merchant');
+                const newPortal = {
+                    merchant_name: merchantName,
+                    portal_url: getPortalUrl(merchantName),
+                    username: formData.get('username'),
+                    password: '***', // No guardamos la password real en localStorage
+                    account_status: 'active'
+                };
+
+                // Agregar al array de portales
+                const currentPortals = appState.portals || [];
+                const existingIndex = currentPortals.findIndex(p => p.merchant_name === merchantName);
+
+                if (existingIndex >= 0) {
+                    currentPortals[existingIndex] = newPortal;
+                } else {
+                    currentPortals.push(newPortal);
+                }
+
+                // Guardar en localStorage
+                localStorage.setItem('client_portals', JSON.stringify(currentPortals));
+                appState.portals = currentPortals;
+
+                hideAddPortalModal();
+                renderPortals(currentPortals);
+                showToast('Credenciales guardadas exitosamente', 'success');
+
+                // TODO: Integrar con API cuando esté disponible
+
+            } catch (error) {
+                console.error('Error saving portal credentials:', error);
+                showToast(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function getPortalUrl(merchantName) {
+            const urls = {
+                'OXXO': 'https://factura.oxxo.com',
+                'WALMART': 'https://factura.walmart.com.mx',
+                'COSTCO': 'https://facturaelectronica.costco.com.mx',
+                '7ELEVEN': 'https://facturacion.7-eleven.com.mx',
+                'SORIANA': 'https://facturacion.soriana.com',
+                'HOME_DEPOT': 'https://homedepot.com.mx/facturacion'
+            };
+            return urls[merchantName] || '';
+        }
+
+        // ===============================================================
+        // CONFIGURACIÓN DE FORMULARIOS
+        // ===============================================================
+
+        function setupForms() {
+            // Formulario fiscal
+            document.getElementById('fiscal-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                await saveFiscalData(formData);
+            });
+
+            // Formulario portal
+            document.getElementById('portal-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                await savePortalCredentials(formData);
+            });
+
+            // Validación de RFC en tiempo real
+            document.getElementById('rfc').addEventListener('input', (e) => {
+                e.target.value = e.target.value.toUpperCase();
+                validateRFC(e.target.value);
+            });
+        }
+
+        function validateRFC(rfc) {
+            const rfcPattern = /^[A-ZÑ&]{3,4}[0-9]{6}[A-Z0-9]{3}$/;
+            const rfcInput = document.getElementById('rfc');
+
+            if (rfc.length === 0) {
+                rfcInput.classList.remove('border-red-500', 'border-green-500');
+                return;
+            }
+
+            if (rfcPattern.test(rfc)) {
+                rfcInput.classList.remove('border-red-500');
+                rfcInput.classList.add('border-green-500');
+            } else {
+                rfcInput.classList.remove('border-green-500');
+                rfcInput.classList.add('border-red-500');
+            }
+        }
+
+        // ===============================================================
+        // UTILIDADES
+        // ===============================================================
+
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            const icon = input.nextElementSibling.querySelector('i');
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
+        function editPortal(merchantName) {
+            showToast(`Editar ${merchantName} - Funcionalidad próximamente`, 'info');
+        }
+
+        function deletePortal(merchantName) {
+            if (confirm(`¿Está seguro de eliminar las credenciales de ${merchantName}?`)) {
+                showToast(`Eliminar ${merchantName} - Funcionalidad próximamente`, 'info');
+            }
+        }
+
+        // ===============================================================
+        // SISTEMA DE NOTIFICACIONES
+        // ===============================================================
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `${type} border rounded-lg p-4 mb-4 flex items-center shadow-lg max-w-sm`;
+
+            const icons = {
+                success: 'fas fa-check-circle',
+                error: 'fas fa-exclamation-circle',
+                warning: 'fas fa-exclamation-triangle',
+                info: 'fas fa-info-circle'
+            };
+
+            toast.innerHTML = `
+                <i class="${icons[type]} mr-3"></i>
+                <span class="flex-1">${message}</span>
+                <button onclick="this.parentElement.remove()" class="ml-3 hover:opacity-70">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+
+            document.getElementById('toast-container').appendChild(toast);
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.remove();
+                }
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

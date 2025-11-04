@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anticipos de Empleados · ContaFlow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/contaflow-theme.css">
+    <script src="/static/components/components.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Authentication Interceptor -->
+    <script src="/static/js/auth-interceptor.js"></script>
+    <style>
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .status-pending {
+            background-color: #FEF3C7;
+            color: #92400E;
+        }
+        .status-partial {
+            background-color: #DBEAFE;
+            color: #1E40AF;
+        }
+        .status-completed {
+            background-color: #D1FAE5;
+            color: #065F46;
+        }
+        .status-cancelled {
+            background-color: #FEE2E2;
+            color: #991B1B;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 50;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 0.5rem;
+            width: 90%;
+            max-width: 800px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-100">
+    <!-- Global Header -->
+    <div data-include="/static/components/global-header.html"></div>
+
+    <!-- Page Header -->
+    <div class="bg-white border-b shadow-sm">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-wallet text-3xl text-blue-600"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">Anticipos de Empleados</h1>
+                        <p class="text-gray-600 text-sm">Gestión de gastos pagados con fondos personales</p>
+                    </div>
+                </div>
+                <button onclick="showCreateAdvanceModal()" class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition-all">
+                    <i class="fas fa-plus mr-2"></i>Nuevo Anticipo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm mb-1">Total Anticipado</p>
+                        <p class="text-2xl font-bold text-gray-900" id="total-advanced">$0.00</p>
+                    </div>
+                    <i class="fas fa-hand-holding-usd text-purple-500 text-3xl"></i>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm mb-1">Total Reembolsado</p>
+                        <p class="text-2xl font-bold text-gray-900" id="total-reimbursed">$0.00</p>
+                    </div>
+                    <i class="fas fa-check-circle text-green-500 text-3xl"></i>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm mb-1">Pendiente Reembolso</p>
+                        <p class="text-2xl font-bold text-gray-900" id="total-pending">$0.00</p>
+                    </div>
+                    <i class="fas fa-clock text-yellow-500 text-3xl"></i>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-indigo-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm mb-1">Anticipos Activos</p>
+                        <p class="text-2xl font-bold text-gray-900" id="active-count">0</p>
+                    </div>
+                    <i class="fas fa-users text-indigo-500 text-3xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-filter mr-1"></i>Estado
+                    </label>
+                    <select id="filter-status" onchange="loadAdvances()" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        <option value="">Todos</option>
+                        <option value="pending">Pendiente</option>
+                        <option value="partial">Parcial</option>
+                        <option value="completed">Completado</option>
+                        <option value="cancelled">Cancelado</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-user mr-1"></i>Empleado ID
+                    </label>
+                    <input type="number" id="filter-employee" onchange="loadAdvances()" placeholder="ID del empleado" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-sort mr-1"></i>Ordenar por
+                    </label>
+                    <select id="sort-by" onchange="loadAdvances()" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        <option value="recent">Más recientes</option>
+                        <option value="pending-amount">Mayor pendiente</option>
+                        <option value="employee">Por empleado</option>
+                    </select>
+                </div>
+
+                <div class="flex items-end">
+                    <button onclick="clearFilters()" class="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-slate-100 transition-colors">
+                        <i class="fas fa-redo mr-2"></i>Limpiar Filtros
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advances List -->
+        <div class="bg-white rounded-lg shadow-md">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-list text-purple-600 mr-2"></i>
+                    Lista de Anticipos
+                    <span id="advances-count-badge" class="ml-2 px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">0</span>
+                </h2>
+            </div>
+
+            <div id="advances-content" class="p-6">
+                <!-- Loading state -->
+                <div id="advances-loading" class="text-center py-12">
+                    <i class="fas fa-spinner fa-spin text-4xl text-purple-600 mb-4"></i>
+                    <p class="text-gray-600">Cargando anticipos...</p>
+                </div>
+
+                <!-- Empty state -->
+                <div id="advances-empty" class="text-center py-12 hidden">
+                    <i class="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-600 text-lg mb-2">No hay anticipos registrados</p>
+                    <p class="text-gray-400 text-sm">Crea un nuevo anticipo para comenzar</p>
+                </div>
+
+                <!-- List container -->
+                <div id="advances-list" class="space-y-4">
+                    <!-- Advances will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Advance Modal -->
+    <div id="createAdvanceModal" class="modal">
+        <div class="modal-content">
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-4 rounded-t-lg">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xl font-bold">
+                        <i class="fas fa-plus-circle mr-2"></i>Nuevo Anticipo de Empleado
+                    </h2>
+                    <button onclick="closeCreateAdvanceModal()" class="text-white hover:text-gray-200">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-6">
+                <form id="createAdvanceForm" onsubmit="createAdvance(event)">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                ID del Empleado <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number" id="employee-id" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Nombre del Empleado <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" id="employee-name" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                ID del Gasto <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number" id="expense-id" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <p class="text-xs text-gray-500 mt-1">ID del gasto pagado con fondos personales</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Monto Anticipado <span class="text-red-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2.5 text-gray-500">$</span>
+                                <input type="number" step="0.01" id="advance-amount" required class="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Método de Pago
+                            </label>
+                            <input type="text" id="payment-method" placeholder="Ej: Tarjeta personal BBVA" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Notas
+                            </label>
+                            <textarea id="advance-notes" rows="3" placeholder="Información adicional..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-4">
+                        <button type="button" onclick="closeCreateAdvanceModal()" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-slate-100 transition-colors">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                            <i class="fas fa-save mr-2"></i>Crear Anticipo
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reimburse Modal -->
+    <div id="reimburseModal" class="modal">
+        <div class="modal-content">
+            <div class="bg-gradient-to-r from-green-600 to-teal-600 text-white px-6 py-4 rounded-t-lg">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xl font-bold">
+                        <i class="fas fa-dollar-sign mr-2"></i>Procesar Reembolso
+                    </h2>
+                    <button onclick="closeReimburseModal()" class="text-white hover:text-gray-200">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-6">
+                <!-- Advance Info -->
+                <div class="bg-slate-100 rounded-lg p-4 mb-6">
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="text-gray-500">Empleado</p>
+                            <p class="font-semibold" id="reimburse-employee-name">-</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">Monto Anticipado</p>
+                            <p class="font-semibold" id="reimburse-advance-amount">$0.00</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">Ya Reembolsado</p>
+                            <p class="font-semibold text-green-600" id="reimburse-reimbursed-amount">$0.00</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">Pendiente</p>
+                            <p class="font-semibold text-yellow-600" id="reimburse-pending-amount">$0.00</p>
+                        </div>
+                    </div>
+                </div>
+
+                <form id="reimburseForm" onsubmit="processReimbursement(event)">
+                    <input type="hidden" id="reimburse-advance-id">
+
+                    <div class="space-y-4 mb-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Monto a Reembolsar <span class="text-red-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2.5 text-gray-500">$</span>
+                                <input type="number" step="0.01" id="reimbursement-amount" required class="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Máximo: <span id="max-reimbursement">$0.00</span></p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Tipo de Reembolso <span class="text-red-500">*</span>
+                            </label>
+                            <select id="reimbursement-type" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                <option value="">Seleccionar...</option>
+                                <option value="cash">Efectivo</option>
+                                <option value="transfer">Transferencia</option>
+                                <option value="payroll">Vía Nómina</option>
+                                <option value="credit">Nota de Crédito</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                ID Movimiento Bancario (opcional)
+                            </label>
+                            <input type="number" id="reimbursement-movement-id" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                            <p class="text-xs text-gray-500 mt-1">Si el reembolso fue por transferencia</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Notas
+                            </label>
+                            <textarea id="reimbursement-notes" rows="3" placeholder="Detalles del reembolso..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-4">
+                        <button type="button" onclick="closeReimburseModal()" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-slate-100 transition-colors">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                            <i class="fas fa-check mr-2"></i>Procesar Reembolso
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Authentication functions are loaded from /static/js/auth-interceptor.js
+
+        // =====================================================
+        // GLOBAL STATE
+        // =====================================================
+        let currentAdvances = [];
+        let currentSummary = null;
+
+        // =====================================================
+        // INITIALIZATION
+        // =====================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check authentication
+            if (!checkAuth()) return;
+
+            // Load data
+            loadSummary();
+            loadAdvances();
+
+            // Show user info if available
+            const user = getCurrentUser();
+            if (user) {
+                console.log(`Logged in as: ${user.username} (${user.role})`);
+            }
+        });
+
+        // =====================================================
+        // LOAD DATA
+        // =====================================================
+        async function loadSummary() {
+            try {
+                const response = await authenticatedFetch('/employee_advances/summary/all');
+                if (!response.ok) throw new Error('Failed to load summary');
+
+                currentSummary = await response.json();
+
+                document.getElementById('total-advanced').textContent = `$${currentSummary.total_amount_advanced.toFixed(2)}`;
+                document.getElementById('total-reimbursed').textContent = `$${currentSummary.total_reimbursed.toFixed(2)}`;
+                document.getElementById('total-pending').textContent = `$${currentSummary.total_pending.toFixed(2)}`;
+                document.getElementById('active-count').textContent = currentSummary.pending_count + currentSummary.partial_count;
+            } catch (error) {
+                console.error('Error loading summary:', error);
+            }
+        }
+
+        async function loadAdvances() {
+            const loadingEl = document.getElementById('advances-loading');
+            const emptyEl = document.getElementById('advances-empty');
+            const listEl = document.getElementById('advances-list');
+
+            loadingEl.classList.remove('hidden');
+            emptyEl.classList.add('hidden');
+            listEl.innerHTML = '';
+
+            try {
+                const status = document.getElementById('filter-status').value;
+                const employeeId = document.getElementById('filter-employee').value;
+                const sortBy = document.getElementById('sort-by').value;
+
+                let url = '/employee_advances/?limit=100';
+                if (status) url += `&status=${status}`;
+                if (employeeId) url += `&employee_id=${employeeId}`;
+
+                const response = await authenticatedFetch(url);
+                if (!response.ok) throw new Error('Failed to load advances');
+
+                currentAdvances = await response.json();
+
+                // Apply sorting
+                if (sortBy === 'pending-amount') {
+                    currentAdvances.sort((a, b) => b.pending_amount - a.pending_amount);
+                } else if (sortBy === 'employee') {
+                    currentAdvances.sort((a, b) => a.employee_name.localeCompare(b.employee_name));
+                }
+
+                loadingEl.classList.add('hidden');
+
+                if (currentAdvances.length === 0) {
+                    emptyEl.classList.remove('hidden');
+                    document.getElementById('advances-count-badge').textContent = '0';
+                } else {
+                    currentAdvances.forEach(advance => {
+                        listEl.appendChild(createAdvanceCard(advance));
+                    });
+                    document.getElementById('advances-count-badge').textContent = currentAdvances.length;
+                }
+            } catch (error) {
+                console.error('Error loading advances:', error);
+                loadingEl.classList.add('hidden');
+                emptyEl.classList.remove('hidden');
+            }
+        }
+
+        // =====================================================
+        // CREATE ADVANCE CARD
+        // =====================================================
+        function createAdvanceCard(advance) {
+            const card = document.createElement('div');
+            card.className = 'border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow';
+
+            const statusClass = `status-${advance.status}`;
+            const statusText = {
+                'pending': 'Pendiente',
+                'partial': 'Parcial',
+                'completed': 'Completado',
+                'cancelled': 'Cancelado'
+            }[advance.status] || advance.status;
+
+            const progressPercent = (advance.reimbursed_amount / advance.advance_amount * 100).toFixed(0);
+
+            card.innerHTML = `
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-3 mb-2">
+                            <h3 class="text-lg font-semibold text-gray-900">
+                                <i class="fas fa-user-circle text-purple-600 mr-2"></i>
+                                ${advance.employee_name}
+                            </h3>
+                            <span class="status-badge ${statusClass}">${statusText}</span>
+                        </div>
+                        <p class="text-sm text-gray-600">
+                            <i class="fas fa-receipt mr-1"></i>
+                            Gasto #${advance.expense_id}: ${advance.expense_description || 'Sin descripción'}
+                        </p>
+                        <p class="text-xs text-gray-500 mt-1">
+                            <i class="fas fa-calendar mr-1"></i>
+                            Anticipo: ${new Date(advance.advance_date).toLocaleDateString('es-MX')}
+                            ${advance.payment_method ? ` | Pago: ${advance.payment_method}` : ''}
+                        </p>
+                    </div>
+
+                    <div class="text-right">
+                        <p class="text-2xl font-bold text-purple-600">$${advance.advance_amount.toFixed(2)}</p>
+                        <p class="text-xs text-gray-500">Monto total</p>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="mb-4">
+                    <div class="flex justify-between text-xs text-gray-600 mb-1">
+                        <span>Reembolsado: $${advance.reimbursed_amount.toFixed(2)}</span>
+                        <span>Pendiente: $${advance.pending_amount.toFixed(2)}</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div class="bg-green-600 h-2.5 rounded-full transition-all" style="width: ${progressPercent}%"></div>
+                    </div>
+                    <p class="text-xs text-gray-500 text-right mt-1">${progressPercent}% completado</p>
+                </div>
+
+                ${advance.notes ? `
+                    <div class="bg-slate-100 rounded p-3 mb-4">
+                        <p class="text-xs text-gray-700 whitespace-pre-line">${advance.notes}</p>
+                    </div>
+                ` : ''}
+
+                <div class="flex space-x-3">
+                    ${advance.status !== 'completed' && advance.status !== 'cancelled' ? `
+                        <button onclick="showReimburseModal(${advance.id})" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium">
+                            <i class="fas fa-dollar-sign mr-2"></i>Reembolsar
+                        </button>
+                    ` : ''}
+
+                    <button onclick="viewAdvanceDetails(${advance.id})" class="flex-1 px-4 py-2 border border-purple-600 text-purple-600 rounded-lg hover:bg-purple-50 transition-colors text-sm font-medium">
+                        <i class="fas fa-eye mr-2"></i>Ver Detalles
+                    </button>
+
+                    ${advance.status === 'pending' && advance.reimbursed_amount === 0 ? `
+                        <button onclick="cancelAdvance(${advance.id})" class="px-4 py-2 border border-red-600 text-red-600 rounded-lg hover:bg-red-50 transition-colors text-sm font-medium">
+                            <i class="fas fa-times mr-2"></i>Cancelar
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+
+            return card;
+        }
+
+        // =====================================================
+        // CREATE ADVANCE MODAL
+        // =====================================================
+        function showCreateAdvanceModal() {
+            document.getElementById('createAdvanceModal').style.display = 'block';
+        }
+
+        function closeCreateAdvanceModal() {
+            document.getElementById('createAdvanceModal').style.display = 'none';
+            document.getElementById('createAdvanceForm').reset();
+        }
+
+        async function createAdvance(event) {
+            event.preventDefault();
+
+            const payload = {
+                employee_id: parseInt(document.getElementById('employee-id').value),
+                employee_name: document.getElementById('employee-name').value,
+                expense_id: parseInt(document.getElementById('expense-id').value),
+                advance_amount: parseFloat(document.getElementById('advance-amount').value),
+                payment_method: document.getElementById('payment-method').value || null,
+                notes: document.getElementById('advance-notes').value || null
+            };
+
+            try {
+                const response = await authenticatedFetch('/employee_advances/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Error al crear anticipo');
+                }
+
+                closeCreateAdvanceModal();
+                await loadSummary();
+                await loadAdvances();
+
+                alert('✅ Anticipo creado exitosamente');
+            } catch (error) {
+                alert(`❌ Error: ${error.message}`);
+            }
+        }
+
+        // =====================================================
+        // REIMBURSE MODAL
+        // =====================================================
+        function showReimburseModal(advanceId) {
+            const advance = currentAdvances.find(a => a.id === advanceId);
+            if (!advance) return;
+
+            document.getElementById('reimburse-advance-id').value = advance.id;
+            document.getElementById('reimburse-employee-name').textContent = advance.employee_name;
+            document.getElementById('reimburse-advance-amount').textContent = `$${advance.advance_amount.toFixed(2)}`;
+            document.getElementById('reimburse-reimbursed-amount').textContent = `$${advance.reimbursed_amount.toFixed(2)}`;
+            document.getElementById('reimburse-pending-amount').textContent = `$${advance.pending_amount.toFixed(2)}`;
+            document.getElementById('max-reimbursement').textContent = `$${advance.pending_amount.toFixed(2)}`;
+
+            document.getElementById('reimbursement-amount').max = advance.pending_amount;
+            document.getElementById('reimbursement-amount').value = advance.pending_amount.toFixed(2);
+
+            document.getElementById('reimburseModal').style.display = 'block';
+        }
+
+        function closeReimburseModal() {
+            document.getElementById('reimburseModal').style.display = 'none';
+            document.getElementById('reimburseForm').reset();
+        }
+
+        async function processReimbursement(event) {
+            event.preventDefault();
+
+            const advanceId = parseInt(document.getElementById('reimburse-advance-id').value);
+            const amount = parseFloat(document.getElementById('reimbursement-amount').value);
+            const type = document.getElementById('reimbursement-type').value;
+            const movementId = document.getElementById('reimbursement-movement-id').value;
+            const notes = document.getElementById('reimbursement-notes').value;
+
+            const payload = {
+                advance_id: advanceId,
+                reimbursement_amount: amount,
+                reimbursement_type: type,
+                reimbursement_movement_id: movementId ? parseInt(movementId) : null,
+                notes: notes || null
+            };
+
+            try {
+                const response = await authenticatedFetch('/employee_advances/reimburse', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Error al procesar reembolso');
+                }
+
+                closeReimburseModal();
+                await loadSummary();
+                await loadAdvances();
+
+                alert('✅ Reembolso procesado exitosamente');
+            } catch (error) {
+                alert(`❌ Error: ${error.message}`);
+            }
+        }
+
+        // =====================================================
+        // OTHER ACTIONS
+        // =====================================================
+        async function viewAdvanceDetails(advanceId) {
+            const advance = currentAdvances.find(a => a.id === advanceId);
+            if (!advance) return;
+
+            alert(`
+Detalles del Anticipo #${advance.id}
+
+Empleado: ${advance.employee_name} (ID: ${advance.employee_id})
+Gasto: #${advance.expense_id} - ${advance.expense_description || 'N/A'}
+Categoría: ${advance.expense_category || 'N/A'}
+
+Monto Anticipado: $${advance.advance_amount.toFixed(2)}
+Reembolsado: $${advance.reimbursed_amount.toFixed(2)}
+Pendiente: $${advance.pending_amount.toFixed(2)}
+
+Estado: ${advance.status}
+Tipo Reembolso: ${advance.reimbursement_type}
+Método Pago: ${advance.payment_method || 'N/A'}
+
+Fecha Anticipo: ${new Date(advance.advance_date).toLocaleString('es-MX')}
+${advance.reimbursement_date ? `Fecha Reembolso: ${new Date(advance.reimbursement_date).toLocaleString('es-MX')}` : ''}
+
+Notas:
+${advance.notes || 'Sin notas'}
+            `);
+        }
+
+        async function cancelAdvance(advanceId) {
+            if (!confirm('¿Estás seguro de cancelar este anticipo? Esta acción no se puede deshacer.')) {
+                return;
+            }
+
+            const reason = prompt('Razón de cancelación (opcional):');
+
+            try {
+                const url = `/employee_advances/${advanceId}?reason=${encodeURIComponent(reason || '')}`;
+                const response = await authenticatedFetch(url, { method: 'DELETE' });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Error al cancelar anticipo');
+                }
+
+                await loadSummary();
+                await loadAdvances();
+
+                alert('✅ Anticipo cancelado exitosamente');
+            } catch (error) {
+                alert(`❌ Error: ${error.message}`);
+            }
+        }
+
+        function clearFilters() {
+            document.getElementById('filter-status').value = '';
+            document.getElementById('filter-employee').value = '';
+            document.getElementById('sort-by').value = 'recent';
+            loadAdvances();
+        }
+
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            if (event.target.className === 'modal') {
+                event.target.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

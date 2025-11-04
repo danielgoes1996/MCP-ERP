@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vista de Transacciones - Banco Inbursa</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/contaflow-theme.css">
+    <script src="/static/components/components.js"></script>
+</head>
+<body class="bg-gray-50">
+    <!-- Global Header -->
+    <div data-include="/static/components/global-header.html"></div>
+
+    <div class="container mx-auto p-6">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6">🏦 Transacciones Extraídas</h1>
+
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">📊 Resumen</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <div class="text-2xl font-bold text-green-600">259</div>
+                    <div class="text-gray-600">Transacciones</div>
+                </div>
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <div class="text-2xl font-bold text-blue-600">$1,213,893.19</div>
+                    <div class="text-gray-600">Total Créditos</div>
+                </div>
+                <div class="bg-red-50 p-4 rounded-lg">
+                    <div class="text-2xl font-bold text-red-600">$17,516,173,336.14</div>
+                    <div class="text-gray-600">Total Débitos</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow">
+            <div class="p-6 border-b">
+                <h2 class="text-xl font-semibold">💳 Transacciones de Ejemplo</h2>
+                <p class="text-gray-600">Estas son las primeras transacciones extraídas del PDF:</p>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descripción</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2025-07-01</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">CREDIT</span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-900">BALANCE INICIAL</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">$38,587.42</td>
+                        </tr>
+                        <tr class="bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2025-07-01</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">DEBIT</span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-900">OPENAI *CHATGPT SUBSCR US 20.0 USD /TC (Ref: 3487607541)</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">$378.85</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2025-07-02</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">CREDIT</span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-900">DEPOSITO SPEI (Ref: 3488830668)</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">$1,000.00</td>
+                        </tr>
+                        <tr class="bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2025-07-02</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">CREDIT</span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-900">DEPOSITO SPEI (Ref: 3489022325)</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">$1,152.00</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2025-07-02</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">DEBIT</span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-900">APPLE.COM/BILL US</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">$215.00</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="p-6 bg-gray-50 text-center">
+                <p class="text-gray-600">
+                    ✅ <strong>Parser funcionando correctamente</strong> -
+                    Para ver todas las transacciones, vuelve a subir el archivo en
+                    <a href="/static/payment-accounts.html" class="text-blue-600 hover:underline">Cuentas de Pago</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

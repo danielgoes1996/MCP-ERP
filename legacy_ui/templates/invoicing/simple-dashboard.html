@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Facturación</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .loading { display: none; }
+        .loading.show { display: block; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="max-w-6xl mx-auto py-8 px-4">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">🧾 Dashboard Facturación</h1>
+                    <p class="text-gray-600">Gestión inteligente de tickets y facturas automáticas</p>
+                </div>
+                <div class="space-x-3">
+                    <button onclick="refreshData()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                        🔄 Actualizar
+                    </button>
+                    <button onclick="window.open('/invoicing/automation-viewer', '_blank')" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+                        🤖 Automation Viewer
+                    </button>
+                    <button onclick="showUploadForm()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                        📄 Subir Ticket
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white p-4 rounded-lg shadow">
+                <div class="text-2xl font-bold text-blue-600" id="total-tickets">-</div>
+                <div class="text-sm text-gray-600">Total Tickets</div>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow">
+                <div class="text-2xl font-bold text-yellow-600" id="pending-tickets">-</div>
+                <div class="text-sm text-gray-600">Pendientes</div>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow">
+                <div class="text-2xl font-bold text-green-600" id="processed-tickets">-</div>
+                <div class="text-sm text-gray-600">Procesados</div>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow">
+                <div class="text-2xl font-bold text-red-600" id="error-tickets">-</div>
+                <div class="text-sm text-gray-600">Errores</div>
+            </div>
+        </div>
+
+        <!-- Quick Actions Bar -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <span class="text-blue-700 font-medium">Acciones Rápidas:</span>
+                    <button onclick="processAllPending()" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
+                        ⚡ Procesar Pendientes
+                    </button>
+                    <button onclick="exportData()" class="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700">
+                        📥 Exportar Datos
+                    </button>
+                    <button onclick="showFilters()" class="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700">
+                        🔍 Filtros
+                    </button>
+                </div>
+                <div class="text-sm text-blue-600">
+                    <span id="worker-status">🟢 Worker Activo</span> |
+                    <span id="processing-rate">10 tickets/min</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Form (hidden by default) -->
+        <div id="upload-form" class="bg-white rounded-lg shadow p-6 mb-6" style="display: none;">
+            <h3 class="text-lg font-bold mb-4">📤 Subir Nuevo Ticket</h3>
+            <form onsubmit="uploadTicket(event)">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Ticket</label>
+                        <select id="ticket-type" class="w-full border border-gray-300 rounded px-3 py-2" required>
+                            <option value="">Seleccionar...</option>
+                            <option value="texto">📝 Texto</option>
+                            <option value="imagen">📷 Imagen</option>
+                            <option value="pdf">📄 PDF</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Empresa</label>
+                        <select id="company-id" class="w-full border border-gray-300 rounded px-3 py-2">
+                            <option value="default">Empresa Principal</option>
+                            <option value="sucursal_gdl">Sucursal Guadalajara</option>
+                            <option value="sucursal_mty">Sucursal Monterrey</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mt-4" id="text-input" style="display: none;">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Contenido del Ticket</label>
+                    <textarea id="text-content" rows="4" class="w-full border border-gray-300 rounded px-3 py-2"
+                              placeholder="OXXO TIENDA #1234&#10;RFC: OXX970814HS9&#10;Total: $125.50&#10;Fecha: 2024-01-15"></textarea>
+                </div>
+
+                <div class="mt-4" id="file-input" style="display: none;">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Archivo</label>
+                    <input type="file" id="file-upload" accept="image/*,.pdf" class="w-full border border-gray-300 rounded px-3 py-2">
+                </div>
+
+                <div class="mt-6 flex space-x-3">
+                    <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
+                        🚀 Subir Ticket
+                    </button>
+                    <button type="button" onclick="hideUploadForm()" class="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600">
+                        ❌ Cancelar
+                    </button>
+                </div>
+
+                <div id="upload-loading" class="loading mt-4">
+                    <div class="bg-blue-50 p-4 rounded">
+                        <div class="flex items-center">
+                            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
+                            <span class="text-blue-700">Subiendo ticket...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="upload-result" class="mt-4" style="display: none;"></div>
+            </form>
+        </div>
+
+        <!-- Tickets Table -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">📋 Tickets Recientes</h3>
+            </div>
+
+            <div id="tickets-loading" class="loading p-6">
+                <div class="flex items-center justify-center">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+                    <span class="text-gray-600">Cargando tickets...</span>
+                </div>
+            </div>
+
+            <div id="tickets-table">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Merchant</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contenido</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tickets-body" class="bg-white divide-y divide-gray-200">
+                        <!-- Tickets se cargan aquí -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Estado global
+        let tickets = [];
+
+        // Funciones principales
+        function showUploadForm() {
+            document.getElementById('upload-form').style.display = 'block';
+            document.getElementById('upload-form').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function hideUploadForm() {
+            document.getElementById('upload-form').style.display = 'none';
+            document.getElementById('upload-result').style.display = 'none';
+        }
+
+        // Cambiar inputs según tipo
+        document.getElementById('ticket-type').addEventListener('change', function(e) {
+            const type = e.target.value;
+            const textInput = document.getElementById('text-input');
+            const fileInput = document.getElementById('file-input');
+
+            if (type === 'texto') {
+                textInput.style.display = 'block';
+                fileInput.style.display = 'none';
+            } else if (type === 'imagen' || type === 'pdf') {
+                textInput.style.display = 'none';
+                fileInput.style.display = 'block';
+            } else {
+                textInput.style.display = 'none';
+                fileInput.style.display = 'none';
+            }
+        });
+
+        // Subir ticket
+        async function uploadTicket(event) {
+            event.preventDefault();
+
+            const type = document.getElementById('ticket-type').value;
+            const companyId = document.getElementById('company-id').value;
+            const textContent = document.getElementById('text-content').value;
+            const fileUpload = document.getElementById('file-upload').files[0];
+
+            if (!type) {
+                alert('Por favor selecciona un tipo de ticket');
+                return;
+            }
+
+            if (type === 'texto' && !textContent.trim()) {
+                alert('Por favor ingresa el contenido del ticket');
+                return;
+            }
+
+            if ((type === 'imagen' || type === 'pdf') && !fileUpload) {
+                alert('Por favor selecciona un archivo');
+                return;
+            }
+
+            // Mostrar loading
+            document.getElementById('upload-loading').classList.add('show');
+            document.getElementById('upload-result').style.display = 'none';
+
+            try {
+                const formData = new FormData();
+                formData.append('company_id', companyId);
+
+                if (type === 'texto') {
+                    formData.append('text_content', textContent);
+                } else {
+                    formData.append('file', fileUpload);
+                }
+
+                const response = await fetch('/invoicing/tickets', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showResult('success', `¡Ticket #${result.ticket_id} subido exitosamente! Job #${result.job_id} programado.`);
+
+                    // Limpiar formulario
+                    document.getElementById('ticket-type').value = '';
+                    document.getElementById('text-content').value = '';
+                    document.getElementById('file-upload').value = '';
+                    document.getElementById('text-input').style.display = 'none';
+                    document.getElementById('file-input').style.display = 'none';
+
+                    // Actualizar tickets
+                    setTimeout(() => {
+                        refreshData();
+                    }, 1000);
+
+                } else {
+                    showResult('error', 'Error: ' + (result.error || 'Error desconocido'));
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                showResult('error', 'Error de conexión: ' + error.message);
+            } finally {
+                document.getElementById('upload-loading').classList.remove('show');
+            }
+        }
+
+        function showResult(type, message) {
+            const resultDiv = document.getElementById('upload-result');
+            const bgColor = type === 'success' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
+            const textColor = type === 'success' ? 'text-green-800' : 'text-red-800';
+
+            resultDiv.innerHTML = `
+                <div class="${bgColor} border rounded p-4">
+                    <p class="${textColor}">${message}</p>
+                </div>
+            `;
+            resultDiv.style.display = 'block';
+        }
+
+        // Cargar tickets
+        async function refreshData() {
+            document.getElementById('tickets-loading').classList.add('show');
+
+            try {
+                const response = await fetch('/invoicing/tickets');
+                const data = await response.json();
+
+                if (data.success) {
+                    tickets = data.tickets || [];
+                    updateStats();
+                    updateTicketsTable();
+                } else {
+                    console.error('Error cargando tickets:', data.error);
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+            } finally {
+                document.getElementById('tickets-loading').classList.remove('show');
+            }
+        }
+
+        function updateStats() {
+            const total = tickets.length;
+            const pending = tickets.filter(t => t.estado === 'pendiente').length;
+            const processed = tickets.filter(t => t.estado === 'procesado').length;
+            const errors = tickets.filter(t => t.estado === 'error').length;
+
+            document.getElementById('total-tickets').textContent = total;
+            document.getElementById('pending-tickets').textContent = pending;
+            document.getElementById('processed-tickets').textContent = processed;
+            document.getElementById('error-tickets').textContent = errors;
+        }
+
+        function updateTicketsTable() {
+            const tbody = document.getElementById('tickets-body');
+
+            if (tickets.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                            No hay tickets disponibles
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = tickets.map(ticket => {
+                const statusColor = getStatusColor(ticket.estado);
+                const truncatedContent = ticket.raw_data.length > 50
+                    ? ticket.raw_data.substring(0, 50) + '...'
+                    : ticket.raw_data;
+
+                return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 text-sm font-medium text-gray-900">#${ticket.id}</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}">
+                                ${getStatusIcon(ticket.estado)} ${ticket.estado}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${ticket.merchant_name || 'No detectado'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">${truncatedContent}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">${formatDate(ticket.created_at)}</td>
+                        <td class="px-6 py-4 text-sm">
+                            <button onclick="viewTicket(${ticket.id})" class="text-blue-600 hover:text-blue-800">
+                                👁️ Ver
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function getStatusColor(estado) {
+            switch(estado) {
+                case 'pendiente': return 'bg-yellow-100 text-yellow-800';
+                case 'procesando': return 'bg-blue-100 text-blue-800';
+                case 'procesado': return 'bg-green-100 text-green-800';
+                case 'error': return 'bg-red-100 text-red-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function getStatusIcon(estado) {
+            switch(estado) {
+                case 'pendiente': return '⏳';
+                case 'procesando': return '⚡';
+                case 'procesado': return '✅';
+                case 'error': return '❌';
+                default: return '❓';
+            }
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleString('es-ES');
+        }
+
+        async function viewTicket(ticketId) {
+            try {
+                const response = await fetch(`/invoicing/tickets/${ticketId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const ticket = data.ticket;
+
+                    let invoiceInfo = '';
+                    if (ticket.invoice_data) {
+                        invoiceInfo = `
+                            <div class="mt-4 p-4 bg-green-50 rounded">
+                                <h4 class="font-medium text-green-800">📄 Factura Generada:</h4>
+                                <p><strong>UUID:</strong> ${ticket.invoice_data.uuid || 'N/A'}</p>
+                                <p><strong>Folio:</strong> ${ticket.invoice_data.folio || 'N/A'}</p>
+                                <p><strong>Total:</strong> $${ticket.invoice_data.total || 'N/A'}</p>
+                                <p><strong>Proveedor:</strong> ${ticket.invoice_data.proveedor || 'N/A'}</p>
+                            </div>
+                        `;
+                    }
+
+                    alert(`
+🎫 Ticket #${ticket.id}
+📊 Estado: ${ticket.estado}
+🏪 Merchant: ${ticket.merchant_name || 'No detectado'}
+📅 Creado: ${formatDate(ticket.created_at)}
+
+📝 Contenido:
+${ticket.raw_data}
+
+${ticket.invoice_data ? '✅ Factura generada exitosamente' : '⏳ Pendiente de facturación'}
+                    `);
+                }
+            } catch (error) {
+                alert('Error cargando detalles del ticket');
+            }
+        }
+
+        // Auto-refresh cada 30 segundos
+        setInterval(refreshData, 30000);
+
+        // Añadir indicador de actividad en tiempo real
+        function showActivity(message) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+            toast.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas fa-check-circle mr-2"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // Mejorar feedback visual
+        function updateTicketStatus(ticketId, newStatus) {
+            const row = document.querySelector(`[data-ticket-id="${ticketId}"]`);
+            if (row) {
+                row.classList.add('bg-yellow-50');
+                setTimeout(() => row.classList.remove('bg-yellow-50'), 2000);
+            }
+        }
+
+        // Funciones adicionales mejoradas
+        async function processAllPending() {
+            if (!confirm('¿Procesar todos los tickets pendientes?')) return;
+
+            showActivity('Procesando tickets pendientes...');
+
+            const pendingTickets = tickets.filter(t => t.estado === 'pendiente');
+            for (const ticket of pendingTickets) {
+                try {
+                    await fetch(`/invoicing/jobs/${ticket.id}/process`, { method: 'POST' });
+                } catch (error) {
+                    console.error(`Error procesando ticket ${ticket.id}:`, error);
+                }
+            }
+
+            showActivity(`${pendingTickets.length} tickets enviados a procesar`);
+            setTimeout(refreshData, 2000);
+        }
+
+        function exportData() {
+            const csvContent = [
+                ['ID', 'Estado', 'Merchant', 'Contenido', 'Fecha'],
+                ...tickets.map(t => [
+                    t.id,
+                    t.estado,
+                    t.merchant_name || 'N/A',
+                    t.raw_data.substring(0, 50),
+                    t.created_at
+                ])
+            ].map(row => row.join(',')).join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tickets_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+
+            showActivity('Datos exportados exitosamente');
+        }
+
+        function showFilters() {
+            // Implementación de filtros próximamente
+            alert('Filtros avanzados próximamente disponibles');
+        }
+
+        // Cargar datos inicial
+        refreshData();
+    </script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Dashboard - MCP Server</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8 text-center">🔧 Test Dashboard - Diagnóstico</h1>
+
+        <!-- Toast Container -->
+        <div id="toast-container" class="fixed top-4 right-4 z-50"></div>
+
+        <!-- Pruebas de API -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-bold mb-4">🌐 Pruebas de API</h2>
+            <div class="space-y-4">
+                <button onclick="testTicketsAPI()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    Test API Tickets
+                </button>
+                <button onclick="testUploadAPI()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                    Test Upload API
+                </button>
+                <button onclick="testToast()" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">
+                    Test Notificaciones
+                </button>
+            </div>
+            <div id="api-results" class="mt-4 p-4 bg-gray-100 rounded"></div>
+        </div>
+
+        <!-- Resultados -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-bold mb-4">📊 Resultados</h2>
+            <div id="test-results" class="space-y-2"></div>
+        </div>
+    </div>
+
+    <script>
+        // Toast function (copiada del dashboard principal)
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+
+            const toast = document.createElement('div');
+
+            const colors = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+                warning: 'bg-yellow-500',
+                info: 'bg-blue-500'
+            };
+
+            const icons = {
+                success: 'fas fa-check-circle',
+                error: 'fas fa-exclamation-circle',
+                warning: 'fas fa-exclamation-triangle',
+                info: 'fas fa-info-circle'
+            };
+
+            toast.className = `${colors[type]} text-white px-6 py-4 rounded-lg shadow-lg mb-4 flex items-center max-w-sm`;
+
+            toast.innerHTML = `
+                <i class="${icons[type]} mr-3"></i>
+                <span class="flex-1">${message}</span>
+                <button onclick="this.parentElement.remove()" class="ml-3 hover:opacity-70">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.remove();
+                }
+            }, 5000);
+        }
+
+        function log(message, type = 'info') {
+            const results = document.getElementById('test-results');
+            const time = new Date().toLocaleTimeString();
+
+            const colors = {
+                success: 'text-green-600',
+                error: 'text-red-600',
+                warning: 'text-yellow-600',
+                info: 'text-blue-600'
+            };
+
+            results.innerHTML += `<div class="${colors[type]}">[${time}] ${message}</div>`;
+            results.scrollTop = results.scrollHeight;
+        }
+
+        async function testTicketsAPI() {
+            log('🔄 Probando API de tickets...', 'info');
+            showToast('Probando API de tickets...', 'info');
+
+            try {
+                const response = await fetch('/invoicing/tickets?company_id=test-company');
+                log(`📊 Status: ${response.status}`, response.ok ? 'success' : 'error');
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Tickets encontrados: ${data.tickets?.length || 0}`, 'success');
+
+                    document.getElementById('api-results').innerHTML = `
+                        <h3 class="font-bold">Respuesta API Tickets:</h3>
+                        <pre class="text-sm mt-2 overflow-auto">${JSON.stringify(data, null, 2)}</pre>
+                    `;
+
+                    showToast(`${data.tickets?.length || 0} tickets cargados`, 'success');
+                } else {
+                    log(`❌ Error: ${response.statusText}`, 'error');
+                    showToast('Error en API de tickets', 'error');
+                }
+            } catch (error) {
+                log(`💥 Excepción: ${error.message}`, 'error');
+                showToast(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testUploadAPI() {
+            log('🔄 Probando API de upload...', 'info');
+            showToast('Probando API de upload...', 'info');
+
+            try {
+                // Crear archivo de prueba
+                const testContent = 'OXXO TEST\\nFOLIO: 123\\nTOTAL: $50.00';
+                const formData = new FormData();
+                formData.append('file', new Blob([testContent], { type: 'text/plain' }), 'test.txt');
+                formData.append('company_id', 'test-company');
+
+                const response = await fetch('/invoicing/tickets', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                log(`📊 Status: ${response.status}`, response.ok ? 'success' : 'error');
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Upload exitoso - Ticket ID: ${data.ticket_id}`, 'success');
+
+                    document.getElementById('api-results').innerHTML = `
+                        <h3 class="font-bold">Respuesta API Upload:</h3>
+                        <pre class="text-sm mt-2 overflow-auto">${JSON.stringify(data, null, 2)}</pre>
+                    `;
+
+                    showToast('Upload exitoso', 'success');
+                } else {
+                    log(`❌ Error: ${response.statusText}`, 'error');
+                    showToast('Error en upload', 'error');
+                }
+            } catch (error) {
+                log(`💥 Excepción: ${error.message}`, 'error');
+                showToast(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function testToast() {
+            log('🔔 Probando notificaciones...', 'info');
+
+            setTimeout(() => showToast('Notificación de éxito', 'success'), 500);
+            setTimeout(() => showToast('Notificación de advertencia', 'warning'), 1000);
+            setTimeout(() => showToast('Notificación de error', 'error'), 1500);
+            setTimeout(() => showToast('Notificación informativa', 'info'), 2000);
+
+            log('✅ Notificaciones enviadas', 'success');
+        }
+
+        // Test inicial al cargar
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🚀 Dashboard de diagnóstico iniciado', 'success');
+            showToast('Dashboard de diagnóstico listo', 'success');
+        });
+    </script>
+</body>
+</html>

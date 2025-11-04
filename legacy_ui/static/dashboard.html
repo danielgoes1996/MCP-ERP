@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - ContaFlow</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/contaflow-theme.css">
+    <script src="/static/components/components.js" defer></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        .dashboard-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border-left: 4px solid transparent;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(17, 68, 110, 0.15);
+            border-left-color: var(--contaflow-primary);
+        }
+
+        .dashboard-icon {
+            width: 64px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            font-size: 28px;
+            color: white;
+        }
+
+        .section-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-primary {
+            background: var(--contaflow-primary);
+            color: white;
+        }
+
+        .badge-success {
+            background: var(--contaflow-secondary);
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <div data-include="/static/components/global-header.html"></div>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <!-- Page Header -->
+        <div class="page-header">
+            <div class="page-header__content">
+                <div class="page-header__meta">
+                    <h1 class="page-header__title">
+                        <i class="fas fa-home"></i>
+                        Dashboard ContaFlow
+                    </h1>
+                    <p class="page-header__subtitle">
+                        Sistema integral de gestión financiera empresarial
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Sections Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+            <!-- Conciliación Section -->
+            <div class="dashboard-card bg-white rounded-lg shadow-md p-8" onclick="window.location.href='/bank-reconciliation'">
+                <div class="flex items-start gap-6">
+                    <div class="dashboard-icon" style="background: linear-gradient(135deg, #11446e 0%, #1f5f92 100%);">
+                        <i class="fas fa-balance-scale"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="mb-3">
+                            <span class="section-badge badge-primary">Módulo Principal</span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-900 mb-3">
+                            Conciliación Bancaria
+                        </h2>
+                        <p class="text-gray-600 mb-4">
+                            Concilia automáticamente tus movimientos bancarios con facturas y gastos.
+                            Importa estados de cuenta y encuentra coincidencias inteligentes.
+                        </p>
+                        <div class="flex items-center gap-4 text-sm text-gray-500">
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-file-import"></i>
+                                <span>Importación automática</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-robot"></i>
+                                <span>IA integrada</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6 pt-6 border-t border-gray-100 flex justify-end">
+                    <span class="text-blue-600 font-semibold inline-flex items-center gap-2">
+                        Ir a Conciliación
+                        <i class="fas fa-arrow-right"></i>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Cuentas de Banco y Efectivo Section -->
+            <div class="dashboard-card bg-white rounded-lg shadow-md p-8" onclick="window.location.href='/payment-accounts'">
+                <div class="flex items-start gap-6">
+                    <div class="dashboard-icon" style="background: linear-gradient(135deg, #60b97b 0%, #3d8a5d 100%);">
+                        <i class="fas fa-wallet"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="mb-3">
+                            <span class="section-badge badge-success">Gestión Financiera</span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-900 mb-3">
+                            Cuentas de Banco y Efectivo
+                        </h2>
+                        <p class="text-gray-600 mb-4">
+                            Administra todas tus cuentas bancarias, cajas y terminales desde un solo lugar.
+                            Visualiza saldos en tiempo real y gestiona movimientos.
+                        </p>
+                        <div class="flex items-center gap-4 text-sm text-gray-500">
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-university"></i>
+                                <span>Multi-cuenta</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-chart-line"></i>
+                                <span>Saldos en tiempo real</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6 pt-6 border-t border-gray-100 flex justify-end">
+                    <span class="text-green-600 font-semibold inline-flex items-center gap-2">
+                        Ir a Cuentas
+                        <i class="fas fa-arrow-right"></i>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Features -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Gastos por Voz -->
+            <div class="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow cursor-pointer" onclick="window.location.href='/voice-expenses'">
+                <div class="flex items-center gap-4 mb-3">
+                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-microphone text-blue-600 text-xl"></i>
+                    </div>
+                    <h3 class="font-semibold text-gray-900">Gastos por Voz</h3>
+                </div>
+                <p class="text-sm text-gray-600">Captura gastos usando comandos de voz</p>
+            </div>
+
+            <!-- Automatización -->
+            <div class="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow cursor-pointer" onclick="window.location.href='/automation-viewer'">
+                <div class="flex items-center gap-4 mb-3">
+                    <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-robot text-purple-600 text-xl"></i>
+                    </div>
+                    <h3 class="font-semibold text-gray-900">Automatización</h3>
+                </div>
+                <p class="text-sm text-gray-600">Visualiza procesos automatizados</p>
+            </div>
+
+            <!-- Configuración -->
+            <div class="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow cursor-pointer" onclick="window.location.href='/client-settings'">
+                <div class="flex items-center gap-4 mb-3">
+                    <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-cog text-gray-600 text-xl"></i>
+                    </div>
+                    <h3 class="font-semibold text-gray-900">Configuración</h3>
+                </div>
+                <p class="text-sm text-gray-600">Ajusta preferencias del sistema</p>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-8">
+            <!-- Cuentas Activas -->
+            <div class="stat-card">
+                <div class="stat-card__icon">
+                    <i class="fas fa-university"></i>
+                </div>
+                <div class="stat-card__body">
+                    <p class="stat-card__label">Cuentas Activas</p>
+                    <h3 class="stat-card__value" id="stat-accounts">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </h3>
+                </div>
+            </div>
+
+            <!-- Pendientes -->
+            <div class="stat-card" data-intent="warning">
+                <div class="stat-card__icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-card__body">
+                    <p class="stat-card__label">Pendientes</p>
+                    <h3 class="stat-card__value" id="stat-pending">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </h3>
+                    <p class="stat-card__meta">Por conciliar</p>
+                </div>
+            </div>
+
+            <!-- Conciliados Hoy -->
+            <div class="stat-card" data-intent="success">
+                <div class="stat-card__icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-card__body">
+                    <p class="stat-card__label">Conciliados Hoy</p>
+                    <h3 class="stat-card__value" id="stat-conciliated">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </h3>
+                    <p class="stat-card__meta">Completados</p>
+                </div>
+            </div>
+
+            <!-- Saldo Total -->
+            <div class="stat-card">
+                <div class="stat-card__icon">
+                    <i class="fas fa-dollar-sign"></i>
+                </div>
+                <div class="stat-card__body">
+                    <p class="stat-card__label">Saldo Total</p>
+                    <h3 class="stat-card__value" id="stat-balance">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </h3>
+                    <p class="stat-card__meta">Todas las cuentas</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/static/js/mcp-header.js?v=1760735637000" defer></script>
+    <script>
+        // Load quick stats
+        async function loadQuickStats() {
+            try {
+                // Get tenant_id from localStorage
+                const tenantData = localStorage.getItem('tenant_data');
+                let companyId = 2; // Default to ContaFlow
+
+                if (tenantData) {
+                    const tenant = JSON.parse(tenantData);
+                    companyId = tenant.id;
+                }
+
+                // Load accounts count
+                const accountsResponse = await fetch(`/payment-accounts/?company_id=${companyId}`);
+                if (accountsResponse.ok) {
+                    const accounts = await accountsResponse.json();
+                    document.getElementById('stat-accounts').textContent = accounts.length || 0;
+                } else {
+                    document.getElementById('stat-accounts').textContent = '-';
+                }
+
+                // Load bank movements stats
+                const movementsResponse = await fetch(`/bank_reconciliation/movements?company_id=${companyId}&limit=1000`);
+                if (movementsResponse.ok) {
+                    const data = await movementsResponse.json();
+                    const movements = data.movements || [];
+
+                    const pending = movements.filter(m => !m.conciliation_status || m.conciliation_status === 'pending').length;
+                    const conciliated = movements.filter(m => {
+                        const date = new Date(m.fecha);
+                        const today = new Date();
+                        return m.conciliation_status === 'conciliated' &&
+                               date.toDateString() === today.toDateString();
+                    }).length;
+
+                    document.getElementById('stat-pending').textContent = pending;
+                    document.getElementById('stat-conciliated').textContent = conciliated;
+                } else {
+                    document.getElementById('stat-pending').textContent = '-';
+                    document.getElementById('stat-conciliated').textContent = '-';
+                }
+
+                // Calculate total balance
+                const balanceResponse = await fetch(`/payment-accounts/?company_id=${companyId}`);
+                if (balanceResponse.ok) {
+                    const accounts = await balanceResponse.json();
+                    const totalBalance = accounts.reduce((sum, acc) => sum + (parseFloat(acc.saldo_actual) || 0), 0);
+                    document.getElementById('stat-balance').textContent = new Intl.NumberFormat('es-MX', {
+                        style: 'currency',
+                        currency: 'MXN',
+                        minimumFractionDigits: 0
+                    }).format(totalBalance);
+                } else {
+                    document.getElementById('stat-balance').textContent = '-';
+                }
+            } catch (error) {
+                console.error('Error loading quick stats:', error);
+                document.getElementById('stat-accounts').textContent = '-';
+                document.getElementById('stat-pending').textContent = '-';
+                document.getElementById('stat-conciliated').textContent = '-';
+                document.getElementById('stat-balance').textContent = '-';
+            }
+        }
+
+        // Load stats when page loads
+        document.addEventListener('DOMContentLoaded', loadQuickStats);
+    </script>
+</body>
+</html>

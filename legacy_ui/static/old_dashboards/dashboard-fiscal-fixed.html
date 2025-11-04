@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Fiscal - Sistema MCP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Header -->
+    <div class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <h1 class="text-2xl font-bold text-gray-900">📊 Dashboard de Reportes Fiscales</h1>
+                <button onclick="location.reload()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    🔄 Actualizar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Period Selector -->
+        <div class="bg-white rounded-lg shadow mb-6 p-6">
+            <div class="flex items-center space-x-4">
+                <label class="font-medium text-gray-700">Período:</label>
+                <select id="yearSelect" class="border rounded px-3 py-2">
+                    <option value="2025" selected>2025</option>
+                    <option value="2024">2024</option>
+                </select>
+                <select id="monthSelect" class="border rounded px-3 py-2">
+                    <option value="1">Enero</option>
+                    <option value="2">Febrero</option>
+                    <option value="3">Marzo</option>
+                    <option value="4">Abril</option>
+                    <option value="5">Mayo</option>
+                    <option value="6">Junio</option>
+                    <option value="7">Julio</option>
+                    <option value="8">Agosto</option>
+                    <option value="9">Septiembre</option>
+                    <option value="10" selected>Octubre</option>
+                    <option value="11">Noviembre</option>
+                    <option value="12">Diciembre</option>
+                </select>
+                <button id="loadButton" onclick="cargarDatos()" class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
+                    Ver Resumen Fiscal
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingContainer" class="hidden">
+            <div class="flex justify-center items-center py-12">
+                <div class="loading-spinner"></div>
+                <span class="ml-4 text-gray-600">Cargando datos...</span>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorContainer" class="hidden">
+            <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
+                <p class="font-bold">Error al cargar datos</p>
+                <p id="errorMessage" class="text-sm mt-1"></p>
+            </div>
+        </div>
+
+        <!-- Metrics Container -->
+        <div id="metricsContainer" class="hidden">
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="text-gray-500 text-sm mb-1">Total Gastos</div>
+                    <div id="totalGastos" class="text-2xl font-bold text-gray-900">-</div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="text-gray-500 text-sm mb-1">IVA Acreditable</div>
+                    <div id="ivaAcreditable" class="text-2xl font-bold text-green-600">-</div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="text-gray-500 text-sm mb-1">IVA No Acreditable</div>
+                    <div id="ivaNoAcreditable" class="text-2xl font-bold text-red-600">-</div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="text-gray-500 text-sm mb-1">Gastos con CFDI</div>
+                    <div id="cfdiStatus" class="text-2xl font-bold text-blue-600">-</div>
+                </div>
+            </div>
+
+            <!-- Categories Table -->
+            <div class="bg-white rounded-lg shadow mb-6">
+                <div class="px-6 py-4 border-b">
+                    <h2 class="text-lg font-semibold">Gastos por Categoría</h2>
+                </div>
+                <div class="p-6">
+                    <div id="categoriasContainer" class="space-y-3">
+                        <!-- Categories will be inserted here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alerts -->
+            <div id="alertasContainer" class="space-y-3">
+                <!-- Alerts will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Format currency
+        function formatCurrency(amount) {
+            if (amount === null || amount === undefined) return '$0.00';
+            return new Intl.NumberFormat('es-MX', {
+                style: 'currency',
+                currency: 'MXN'
+            }).format(amount);
+        }
+
+        // Show/hide containers
+        function showContainer(containerId) {
+            ['loadingContainer', 'errorContainer', 'metricsContainer'].forEach(id => {
+                const container = document.getElementById(id);
+                if (container) {
+                    container.classList.toggle('hidden', id !== containerId);
+                }
+            });
+        }
+
+        // Update metrics safely
+        function updateMetrics(data) {
+            console.log('Actualizando métricas con:', data);
+
+            // Update each metric with null checks
+            const updates = [
+                { id: 'totalGastos', value: data?.totales?.gastos_total, format: true },
+                { id: 'ivaAcreditable', value: data?.totales?.iva_acreditable, format: true },
+                { id: 'ivaNoAcreditable', value: data?.totales?.iva_no_acreditable, format: true }
+            ];
+
+            updates.forEach(({ id, value, format }) => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = format ? formatCurrency(value) : value || '-';
+                }
+            });
+
+            // Update CFDI status
+            const cfdiElement = document.getElementById('cfdiStatus');
+            if (cfdiElement && data?.cfdi) {
+                const total = (data.cfdi.con_cfdi || 0) + (data.cfdi.sin_cfdi || 0);
+                const percentage = total > 0 ? ((data.cfdi.con_cfdi / total) * 100).toFixed(0) : 0;
+                cfdiElement.textContent = `${data.cfdi.con_cfdi || 0}/${total} (${percentage}%)`;
+            }
+
+            // Update categories
+            const categoriasContainer = document.getElementById('categoriasContainer');
+            if (categoriasContainer && data?.categorias) {
+                categoriasContainer.innerHTML = data.categorias.map(cat => `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
+                        <div>
+                            <div class="font-medium">${cat.slug || 'Sin categoría'}</div>
+                            <div class="text-sm text-gray-500">${cat.cantidad || 0} gastos</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-bold">${formatCurrency(cat.total)}</div>
+                            ${cat.porcentaje ? `<div class="text-sm text-gray-500">${cat.porcentaje.toFixed(1)}%</div>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Update alerts
+            const alertasContainer = document.getElementById('alertasContainer');
+            if (alertasContainer && data?.alertas && data.alertas.length > 0) {
+                alertasContainer.innerHTML = data.alertas.map(alerta => `
+                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                        <div class="flex">
+                            <div class="flex-shrink-0">⚠️</div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium text-yellow-800">${alerta.mensaje}</p>
+                                ${alerta.recomendacion ? `<p class="text-sm text-yellow-700 mt-1">${alerta.recomendacion}</p>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Load data
+        async function cargarDatos() {
+            const year = document.getElementById('yearSelect').value;
+            const month = document.getElementById('monthSelect').value;
+
+            console.log(`Cargando datos para ${year}-${month}`);
+
+            // Show loading state
+            showContainer('loadingContainer');
+
+            try {
+                const url = `http://localhost:8001/api/v1/reports/resumen-fiscal?year=${year}&month=${month}`;
+                console.log('Llamando a:', url);
+
+                const response = await fetch(url);
+                console.log('Response status:', response.status);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+
+                const data = await response.json();
+                console.log('Datos recibidos:', data);
+
+                // Update UI with data
+                updateMetrics(data);
+
+                // Show metrics
+                showContainer('metricsContainer');
+
+            } catch (error) {
+                console.error('Error:', error);
+
+                // Show error state
+                const errorMessage = document.getElementById('errorMessage');
+                if (errorMessage) {
+                    errorMessage.textContent = error.message || 'Error desconocido';
+                }
+                showContainer('errorContainer');
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Dashboard fiscal inicializado');
+
+            // Set current month
+            const now = new Date();
+            const monthSelect = document.getElementById('monthSelect');
+            if (monthSelect) {
+                monthSelect.value = '10'; // October for testing
+            }
+
+            // Auto-load data
+            cargarDatos();
+        });
+    </script>
+</body>
+</html>
