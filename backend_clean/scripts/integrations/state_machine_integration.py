@@ -11,8 +11,6 @@ async def smart_state_machine_flow(worker, ticket_data: dict, context: str = "")
     import time
     import asyncio
     import logging
-    from openai import OpenAI
-    import os
 
     logger = logging.getLogger(__name__)
 

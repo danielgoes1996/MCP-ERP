@@ -4,8 +4,7 @@ Service for Employee Advances (Anticipos/Préstamos)
 
 import sqlite3
 import logging
-from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 
 from core.employee_advances_models import (
     CreateAdvanceRequest,
@@ -14,7 +13,6 @@ from core.employee_advances_models import (
     AdvanceResponse,
     AdvanceSummary,
     EmployeeAdvancesSummary,
-    ReimbursementHistoryItem,
     AdvanceStatus,
     validate_reimbursement
 )

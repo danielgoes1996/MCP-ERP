@@ -7,7 +7,6 @@ an AI-powered matcher later while keeping a clear scoring breakdown today.
 
 from __future__ import annotations
 
-import json
 import logging
 import math
 from datetime import datetime

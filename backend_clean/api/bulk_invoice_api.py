@@ -3,9 +3,9 @@ API endpoints for Bulk Invoice Processing
 Implementing Point 14 improvements for enterprise-grade bulk invoice matching
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 from fastapi.responses import JSONResponse
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from datetime import datetime, timedelta
 import logging
 

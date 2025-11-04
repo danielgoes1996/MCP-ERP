@@ -4,7 +4,7 @@ Conector Odoo directo sin dependencias adicionales
 
 import xmlrpc.client
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 
 # Configuración desde variables de entorno
 import os

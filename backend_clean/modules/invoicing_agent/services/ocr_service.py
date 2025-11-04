@@ -12,7 +12,7 @@ import logging
 import os
 import time
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
 
@@ -45,12 +45,10 @@ class OCRBackend(ABC):
     @abstractmethod
     async def extract_text(self, base64_image: str) -> OCRResult:
         """Extraer texto de imagen en base64."""
-        pass
 
     @abstractmethod
     def is_available(self) -> bool:
         """Verificar si el backend está disponible."""
-        pass
 
 
 class GoogleVisionBackend(OCRBackend):
@@ -122,7 +120,6 @@ class TesseractBackend(OCRBackend):
 
     def is_available(self) -> bool:
         try:
-            import pytesseract
             return True
         except ImportError:
             return False

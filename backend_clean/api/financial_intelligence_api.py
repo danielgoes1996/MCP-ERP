@@ -4,9 +4,7 @@ API de Inteligencia Financiera
 Endpoints para reportes automáticos y insights de copiloto financiero
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
-import json
+from typing import Dict, Any, Optional
 
 from core.unified_auth import get_current_active_user, User
 from core.tenancy_middleware import get_tenancy_context, TenancyContext

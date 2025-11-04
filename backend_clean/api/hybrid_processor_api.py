@@ -3,8 +3,8 @@ Hybrid Processor API - Endpoints para sistema de procesamiento híbrido multi-mo
 Punto 19 de Auditoría: APIs para processing_metrics y ocr_confidence
 """
 
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
-from typing import Dict, List, Optional, Any
+from fastapi import APIRouter, HTTPException, BackgroundTasks
+from typing import Dict, List, Any
 import logging
 from datetime import datetime
 
@@ -14,7 +14,7 @@ from core.hybrid_processor_system import (
     ProcessingStatus,
     ProcessorType
 )
-from core.error_handler import handle_error, log_endpoint_entry, log_endpoint_success, log_endpoint_error
+from core.error_handler import log_endpoint_entry, log_endpoint_success, log_endpoint_error
 from core.api_models import (
     HybridProcessorSessionCreateRequest,
     HybridProcessorSessionResponse,
@@ -377,7 +377,7 @@ async def run_processors_health_check() -> HybridProcessorHealthCheckResponse:
 async def _process_session_background(session_id: str):
     """Procesa una sesión en background"""
     try:
-        result = await hybrid_processor_system.process_session(session_id)
+        await hybrid_processor_system.process_session(session_id)
         logger.info(f"Background processing completed for session {session_id}")
     except Exception as e:
         logger.error(f"Background processing failed for session {session_id}: {e}")

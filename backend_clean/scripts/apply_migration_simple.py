@@ -4,7 +4,6 @@ Apply migration 009 - Simple SQL execution
 """
 
 import sqlite3
-from pathlib import Path
 from datetime import datetime
 
 def main():

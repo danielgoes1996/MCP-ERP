@@ -3,7 +3,6 @@
 Aplicar categorización inteligente avanzada a todas las transacciones
 Incluye corrección de signos, descripción dual y metadata fiscal
 """
-import sys
 import sqlite3
 from datetime import datetime
 from core.intelligent_categorization_engine import IntelligentCategorizationEngine

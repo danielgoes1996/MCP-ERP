@@ -5,15 +5,12 @@ Incluye capturas de pantalla, logs detallados y manejo de errores avanzado.
 """
 
 import asyncio
-import json
 import logging
-import os
 import time
-import traceback
 from datetime import datetime
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Any, Union, Callable
+from typing import Dict, List, Optional, Any
 from pathlib import Path
 import uuid
 

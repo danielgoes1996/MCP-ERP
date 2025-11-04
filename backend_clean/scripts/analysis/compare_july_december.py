@@ -4,8 +4,6 @@ Comparar la lógica que funcionó en julio vs diciembre
 """
 import sys
 sys.path.append('.')
-from core.robust_pdf_parser import RobustPDFParser
-from collections import Counter
 import sqlite3
 
 def compare_july_december():

@@ -5,13 +5,10 @@ These endpoints provide read access to the new automation functionality.
 
 import sqlite3
 import json
-import time
 from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional
-from pathlib import Path
+from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, Query, Depends
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, HTTPException, Query
 
 from core.automation_models import (
     AutomationJobResponse,
@@ -22,7 +19,7 @@ from core.automation_models import (
     AutomationHealthResponse,
     AutomationMetricsResponse
 )
-from core.internal_db import _get_db_path, _DB_LOCK
+from core.internal_db import _get_db_path
 
 # Create router for v2 automation endpoints
 router = APIRouter(prefix="/api/v2/automation", tags=["automation-v2"])

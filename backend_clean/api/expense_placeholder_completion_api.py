@@ -4,11 +4,10 @@ API endpoints for completing expense placeholders created from bulk invoices.
 This handles the popup flow when invoices create incomplete expense placeholders
 that require user input to complete missing required fields.
 """
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
-import logging
 import json
 import sqlite3
 import time
@@ -18,8 +17,7 @@ from core.structured_logger import (
     get_structured_logger,
     set_request_context,
     log_expense_action,
-    log_validation_error,
-    log_api_request
+    log_validation_error
 )
 
 logger = get_structured_logger(__name__)

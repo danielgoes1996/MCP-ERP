@@ -5,7 +5,6 @@ Script para agregar las nuevas columnas a la tabla tickets
 
 import sqlite3
 import os
-import sys
 
 def get_db_path():
     """Obtener ruta de la base de datos"""

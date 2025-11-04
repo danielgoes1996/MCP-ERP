@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 from typing import Any, Dict, List, Optional, Sequence
 
 ROUNDING = Decimal("0.01")

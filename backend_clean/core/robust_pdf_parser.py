@@ -7,7 +7,7 @@ import pdfplumber
 import fitz  # pymupdf
 import re
 import logging
-from datetime import datetime, date
+from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
 from core.bank_statements_models import (
     BankTransaction,
@@ -16,7 +16,6 @@ from core.bank_statements_models import (
     infer_movement_kind,
     should_skip_transaction,
 )
-from core.universal_bank_patterns import universal_patterns
 
 logger = logging.getLogger(__name__)
 

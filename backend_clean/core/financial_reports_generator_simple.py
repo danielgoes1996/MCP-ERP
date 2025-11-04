@@ -4,9 +4,8 @@ Adaptado a la estructura actual de la base de datos.
 """
 
 import logging
-from datetime import datetime, date
-from typing import Dict, List, Optional, Any
-from decimal import Decimal
+from datetime import datetime
+from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 

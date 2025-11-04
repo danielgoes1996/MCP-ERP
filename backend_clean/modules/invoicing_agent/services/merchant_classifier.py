@@ -6,7 +6,6 @@ Incluye sistema de confianza y fallback humano.
 """
 
 import asyncio
-import json
 import logging
 import os
 import re
@@ -14,7 +13,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
 from enum import Enum
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 import hashlib
 
 logger = logging.getLogger(__name__)
@@ -54,12 +53,10 @@ class MerchantClassifier(ABC):
     @abstractmethod
     async def classify(self, text: str) -> Optional[MerchantMatch]:
         """Clasificar texto y devolver merchant identificado."""
-        pass
 
     @abstractmethod
     def get_confidence_threshold(self) -> float:
         """Umbral mínimo de confianza para este clasificador."""
-        pass
 
 
 class RegexPatternClassifier(MerchantClassifier):

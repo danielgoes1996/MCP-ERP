@@ -7,7 +7,7 @@ import logging
 import json
 import re
 from datetime import datetime
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List
 from dataclasses import dataclass
 
 try:

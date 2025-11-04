@@ -1,23 +1,18 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Query, UploadFile, File
-from typing import List, Dict, Any, Optional
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
+from typing import List, Optional
 from datetime import datetime
 import logging
-import asyncio
-import os
 from pathlib import Path
 from core.rpa_automation_engine_system import RPAAutomationEngineSystem
 from core.api_models import (
     RPASessionCreateRequest,
     RPASessionCreateResponse,
     RPASessionStatusResponse,
-    RPAStepExecutionRequest,
-    RPAStepExecutionResponse,
     RPAScreenshotResponse,
     RPAAnalyticsResponse,
     RPAPortalTemplateRequest,
     RPAPortalTemplateResponse,
     RPAPerformanceMetricsResponse,
-    RPASessionControlRequest,
     RPASessionControlResponse
 )
 

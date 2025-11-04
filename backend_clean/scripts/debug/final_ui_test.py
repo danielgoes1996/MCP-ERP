@@ -3,7 +3,6 @@
 Prueba final: Simular exactamente lo que ve el usuario en el navegador
 """
 import requests
-import json
 
 def simulate_user_experience():
     print("🎯 SIMULACIÓN EXACTA DE LA EXPERIENCIA DEL USUARIO")

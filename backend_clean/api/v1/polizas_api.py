@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from core.database import SessionLocal
-from core.accounting_models import PolizaContable, PolizaDetalle
+from core.accounting_models import PolizaContable
 from core.polizas_service import generate_poliza_from_movement
 from core.unified_auth import get_current_active_user, UserInDB
 

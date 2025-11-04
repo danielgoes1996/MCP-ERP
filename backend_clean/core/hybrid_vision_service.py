@@ -6,9 +6,8 @@ para máxima precisión en extracción de campos críticos
 
 import os
 import json
-import base64
 import logging
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, List
 from dataclasses import dataclass
 from enum import Enum
 

@@ -6,15 +6,10 @@ Sistema inteligente que se adapta automáticamente a cualquier portal y obtiene 
 import asyncio
 import logging
 import time
-import json
-import re
-import os
-from datetime import datetime
-from typing import Dict, List, Optional, Any, Tuple, Union
+from typing import Dict, List, Optional, Any
 from enum import Enum
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlparse
 
 from playwright.async_api import async_playwright, Page, Browser, BrowserContext, Playwright
 
@@ -489,7 +484,7 @@ class UniversalInvoiceEngine:
                     await locator.click(timeout=10000)
                     return True
 
-            except Exception as e:
+            except Exception:
                 continue
 
         return False
@@ -534,7 +529,7 @@ class UniversalInvoiceEngine:
                         self._log(f"✅ Navegación de fallback exitosa con: {selector}")
                         return {"success": True, "method": "fallback", "selector_used": selector}
 
-            except Exception as e:
+            except Exception:
                 continue
 
         self._log("❌ Todos los métodos de navegación fallaron")
@@ -708,7 +703,7 @@ class UniversalInvoiceEngine:
                             self._log(f"✅ Factura generada exitosamente")
                             return {"success": True, "method": selector}
 
-                except Exception as e:
+                except Exception:
                     continue
 
             self._log("⚠️ No se pudo generar la factura automáticamente")
@@ -737,7 +732,7 @@ class UniversalInvoiceEngine:
 
             return success_indicators
 
-        except Exception as e:
+        except Exception:
             return False
 
     async def _download_invoice_universal(self) -> Dict[str, Any]:
@@ -765,7 +760,7 @@ class UniversalInvoiceEngine:
 
                     if await locator.count() > 0 and await locator.is_visible():
                         # Configurar listener para descarga
-                        download_info = None
+                        pass
 
                         async with self.page.expect_download() as download_promise:
                             await locator.click(timeout=15000)
@@ -783,7 +778,7 @@ class UniversalInvoiceEngine:
                             "filename": download_path.name
                         }
 
-                except Exception as e:
+                except Exception:
                     continue
 
             self._log("⚠️ No se encontró enlace de descarga")

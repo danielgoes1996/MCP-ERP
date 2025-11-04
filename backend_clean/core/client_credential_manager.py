@@ -3,15 +3,13 @@ Sistema de Gestión de Credenciales por Cliente
 Maneja credenciales, datos fiscales y configuración de portales por cliente.
 """
 
-import asyncio
 import json
 import logging
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from datetime import datetime
-import uuid
 
-from .security_vault import get_security_vault, CredentialEntry
+from .security_vault import get_security_vault
 
 logger = logging.getLogger(__name__)
 

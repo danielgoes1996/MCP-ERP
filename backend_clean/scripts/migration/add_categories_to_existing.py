@@ -3,7 +3,6 @@
 Agregar categorías automáticas a transacciones existentes basadas en descripción
 """
 import sqlite3
-import re
 
 def categorize_transaction(description: str) -> str:
     """Categorizar transacción basada en la descripción"""

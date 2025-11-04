@@ -3,7 +3,6 @@
 Reprocesar PDF de diciembre con el fix aplicado
 """
 import requests
-import os
 
 def reprocess_december():
     # Login

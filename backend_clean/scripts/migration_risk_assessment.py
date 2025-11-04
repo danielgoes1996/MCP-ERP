@@ -6,12 +6,11 @@ Comprehensive safety checks before applying migration 009
 
 import sqlite3
 import json
-import os
 import shutil
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 class MigrationRiskChecker:
     def __init__(self, db_path: str = "data/mcp_internal.db"):

@@ -10,7 +10,6 @@ from core.auth_system import (
     RegisterRequest,
     AuthResponse,
     User,
-    UserRole,
     validate_password_strength,
 )
 from core.auth_jwt import (
@@ -18,7 +17,6 @@ from core.auth_jwt import (
     Token,
     authenticate_user,
     create_access_token,
-    get_current_user as get_current_jwt_user,
     get_db_connection,
     ACCESS_TOKEN_EXPIRE_MINUTES as JWT_ACCESS_TOKEN_EXPIRE_MINUTES,
 )

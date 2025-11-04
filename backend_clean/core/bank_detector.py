@@ -3,7 +3,7 @@
 Detector automático de banco basado en contenido del PDF
 """
 import re
-from typing import Optional, Dict, List
+from typing import Optional, Dict
 import logging
 
 logger = logging.getLogger(__name__)

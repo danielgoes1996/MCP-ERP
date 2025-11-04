@@ -5,7 +5,6 @@ Fix foreign key violations before applying automation engine migration.
 
 import sqlite3
 from pathlib import Path
-from datetime import datetime
 
 def fix_foreign_key_violations(db_path: str = "data/mcp_internal.db"):
     """Fix foreign key violations in the database."""

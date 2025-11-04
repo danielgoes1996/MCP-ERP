@@ -10,10 +10,8 @@ import json
 import sqlite3
 import requests
 import logging
-import smtplib
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
-from email.mime.text import MimeText
 from dataclasses import dataclass
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

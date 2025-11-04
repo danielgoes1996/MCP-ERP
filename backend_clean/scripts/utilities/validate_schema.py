@@ -16,8 +16,8 @@ Retorna:
 """
 import sqlite3
 import sys
-from typing import Set, Dict, List
-from core.api_models import ExpenseResponse, ExpenseCreate
+from typing import Set
+from core.api_models import ExpenseResponse
 
 
 # Mapeo de nombres de columnas BD → Modelo API

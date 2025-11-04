@@ -9,15 +9,13 @@ import json
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
-from fastapi import APIRouter, HTTPException, Query, BackgroundTasks, Depends
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 from sse_starlette.sse import EventSourceResponse
 
 from core.enhanced_api_models import (
     EnhancedTicketCreate, EnhancedTicketResponse, AutomationJobRequest,
     AutomationJobResponse, BulkAutomationRequest, BulkAutomationResponse,
-    SystemHealth, AutomationMetrics, FeatureFlags, TenantConfig,
-    AutomationStatus, JobPriority
+    SystemHealth, AutomationMetrics, AutomationStatus, JobPriority
 )
 
 # Importar motor unificado
@@ -500,7 +498,6 @@ def _build_automation_steps(automation_data: Dict[str, Any]):
 async def _process_automation_job(job_id: int):
     """Process individual automation job."""
     # TODO: Implement job processing
-    pass
 
 async def _process_bulk_automation(
     job_ids: List[int],
@@ -509,4 +506,3 @@ async def _process_bulk_automation(
 ):
     """Process multiple jobs with concurrency limit."""
     # TODO: Implement bulk processing with semaphore
-    pass

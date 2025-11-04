@@ -6,10 +6,8 @@ Reemplaza la dependencia de OpenAI/GPT-4 Vision para OCR.
 """
 
 import os
-import json
 import logging
-import base64
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
 

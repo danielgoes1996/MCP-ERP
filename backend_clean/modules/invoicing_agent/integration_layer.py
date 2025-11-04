@@ -7,26 +7,23 @@ Esta capa actúa como adaptador entre:
 - Base de datos existente
 """
 
-import asyncio
 import logging
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, Any, Optional
 from contextlib import asynccontextmanager
 
 # Imports existentes (mantener compatibilidad)
 from modules.invoicing_agent.models import (
-    create_ticket, get_ticket, update_ticket,
-    create_merchant, get_merchant, find_merchant_by_name
+    get_ticket, update_ticket, create_merchant,
+    get_merchant, find_merchant_by_name
 )
 from modules.invoicing_agent.automation_persistence import create_automation_persistence
 
 # Imports del motor robusto
 try:
-    from core.unified_automation_engine import create_unified_engine, migrate_from_legacy_automation
+    from core.unified_automation_engine import create_unified_engine
     from core.service_stack_config import get_service_stack
-    from core.google_vision_ocr import create_vision_ocr
     from core.claude_dom_analyzer import create_claude_analyzer
-    from core.captcha_solver import create_captcha_solver
     ROBUST_ENGINE_AVAILABLE = True
 except ImportError as e:
     ROBUST_ENGINE_AVAILABLE = False

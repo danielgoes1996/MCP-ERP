@@ -6,7 +6,6 @@ Centralizes all environment variables and configuration
 from typing import Optional, List
 from pydantic_settings import BaseSettings
 from functools import lru_cache
-import os
 
 
 class Settings(BaseSettings):

@@ -10,7 +10,7 @@ from typing import Optional, Dict, Any, List, Tuple
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, EmailStr, ConfigDict
 import logging
 import hashlib

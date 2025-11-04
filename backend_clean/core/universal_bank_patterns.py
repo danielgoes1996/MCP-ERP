@@ -4,8 +4,7 @@ Sistema de patrones universales para parsing de estados de cuenta bancarios
 Soporta múltiples formatos y variaciones de bancos mexicanos
 """
 import re
-from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime
+from typing import List, Dict, Any, Optional
 import logging
 
 logger = logging.getLogger(__name__)

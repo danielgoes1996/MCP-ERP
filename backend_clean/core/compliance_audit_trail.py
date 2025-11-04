@@ -8,14 +8,12 @@ import json
 import sqlite3
 import hashlib
 import logging
-import asyncio
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Union
-from dataclasses import dataclass, asdict
+from typing import Dict, List, Any, Optional
+from dataclasses import dataclass
 from enum import Enum
 import uuid
 from cryptography.fernet import Fernet
-import base64
 
 logger = logging.getLogger(__name__)
 
@@ -786,7 +784,6 @@ def audit_trail(
 
             # Ejecutar función
             start_time = datetime.now()
-            success = True
             error = None
 
             try:
@@ -814,7 +811,6 @@ def audit_trail(
                 return result
 
             except Exception as e:
-                success = False
                 error = str(e)
 
                 # Log evento fallido

@@ -5,7 +5,7 @@ Proporciona endpoints de login, registro, refresh token y logout
 
 from fastapi import APIRouter, HTTPException, Depends, status, Request
 from fastapi.security import HTTPAuthorizationCredentials
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, field_validator
 from typing import Dict, Any, Optional
 import logging
 

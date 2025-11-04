@@ -6,17 +6,15 @@ a portales de facturación de merchants y solicitar facturas automáticamente.
 """
 
 import asyncio
-import base64
 import json
 import logging
 import os
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 # State machine imports
 try:
-    from .state_machine import StateMachine, AutomationState, StateDecision
     STATE_MACHINE_AVAILABLE = True
 except ImportError as e:
     logging.warning(f"State machine not available: {e}")
@@ -247,7 +245,7 @@ class WebAutomationWorker:
 
                 # 5. Verificar si fue exitoso
                 try:
-                    success_element = self.driver.find_element(By.CLASS_NAME, "success")
+                    self.driver.find_element(By.CLASS_NAME, "success")
 
                     # Extraer datos de la factura generada
                     invoice_data = self._extract_oxxo_invoice_data()
@@ -534,7 +532,7 @@ class WebAutomationWorker:
 
         try:
             self.driver = self.setup_driver(headless=False)  # Modo visible para debugging
-            wait = WebDriverWait(self.driver, self.wait_timeout)
+            WebDriverWait(self.driver, self.wait_timeout)
 
             # 1. Obtener URL del merchant
             portal_url = merchant.get("metadata", {}).get("url")
@@ -774,7 +772,7 @@ class WebAutomationWorker:
                 "metodo": "walmart_portal",
                 "fecha": datetime.now().strftime('%Y-%m-%d'),
             }
-        except Exception as e:
+        except Exception:
             return self._generate_fallback_invoice_data("Walmart")
 
     def _extract_costco_invoice_data(self) -> Dict[str, Any]:
@@ -789,7 +787,7 @@ class WebAutomationWorker:
                 "metodo": "costco_portal",
                 "fecha": datetime.now().strftime('%Y-%m-%d'),
             }
-        except Exception as e:
+        except Exception:
             return self._generate_fallback_invoice_data("Costco")
 
     def _extract_home_depot_invoice_data(self) -> Dict[str, Any]:
@@ -804,7 +802,7 @@ class WebAutomationWorker:
                 "metodo": "home_depot_portal",
                 "fecha": datetime.now().strftime('%Y-%m-%d'),
             }
-        except Exception as e:
+        except Exception:
             return self._generate_fallback_invoice_data("Home Depot")
 
     def _extract_generic_invoice_data(self) -> Dict[str, Any]:
@@ -819,7 +817,7 @@ class WebAutomationWorker:
                 "metodo": "generic_portal",
                 "fecha": datetime.now().strftime('%Y-%m-%d'),
             }
-        except Exception as e:
+        except Exception:
             return self._generate_fallback_invoice_data("Generic")
 
     def _find_text_by_selectors(self, selectors: list) -> str:
@@ -2424,7 +2422,6 @@ Formato de respuesta:
                 return ""
 
             # Buscar la imagen del CAPTCHA en la página
-            captcha_images = []
 
             # Selectores comunes para imágenes de CAPTCHA
             captcha_selectors = [
@@ -2457,8 +2454,6 @@ Formato de respuesta:
 
             # Capturar screenshot de la imagen CAPTCHA
             import base64
-            import io
-            from PIL import Image
 
             # Obtener la imagen CAPTCHA
             captcha_image_src = captcha_image_element.get_attribute("src")

@@ -4,7 +4,6 @@ Optimized Duplicate Expense Detector - Versión mejorada con cache y batch proce
 
 import os
 import logging
-import json
 import hashlib
 import time
 from datetime import datetime, timedelta
@@ -101,9 +100,8 @@ class OptimizedDuplicateDetector:
         self._precompute_embeddings_batch(new_expense, filtered_expenses)
 
         # 2.5. Extraer características ML si están habilitadas
-        new_expense_features = None
         if config.get('extract_ml_features', True):
-            new_expense_features = self._extract_ml_features(new_expense)
+            self._extract_ml_features(new_expense)
 
         # 3. Calcular similitudes
         for existing_expense in filtered_expenses:

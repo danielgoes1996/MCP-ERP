@@ -10,8 +10,6 @@ from core.bank_statements_models import (
     BankTransaction,
     MovementKind,
     TransactionType,
-    infer_movement_kind,
-    should_skip_transaction,
 )
 from core.robust_pdf_parser import RobustPDFParser
 
@@ -337,7 +335,6 @@ class CargosAbonosParser(RobustPDFParser):
                     return cargo_amount, abono_amount, saldo
                 except Exception as e:
                     logger.warning(f"Error procesando USD/TC: {e}")
-                    pass
 
         # Estrategia específica para DEPOSITO SPEI
         if 'DEPOSITO SPEI' in text_upper:

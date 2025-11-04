@@ -6,9 +6,7 @@ Asegura que no se pierda ninguna transacción durante el proceso de extracción
 
 import re
 import logging
-from typing import List, Dict, Tuple, Optional
-from decimal import Decimal, ROUND_HALF_UP
-import json
+from typing import List, Dict, Optional
 from datetime import datetime
 
 class PDFExtractionValidator:
@@ -89,7 +87,7 @@ class PDFExtractionValidator:
 
                     transactions.append(transaction)
 
-                except (ValueError, IndexError) as e:
+                except (ValueError, IndexError):
                     # Skip malformed matches
                     continue
 

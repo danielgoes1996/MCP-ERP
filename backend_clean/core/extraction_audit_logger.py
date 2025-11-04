@@ -7,10 +7,7 @@ Registra todo el proceso de extracción para análisis posterior
 import json
 import logging
 import sqlite3
-import os
-from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional
-from pathlib import Path
+from typing import Dict, List, Optional
 
 class ExtractionAuditLogger:
     """Sistema de auditoría para rastrear extracciones de PDF y validaciones"""

@@ -14,9 +14,8 @@ Este módulo proporciona:
 from __future__ import annotations
 
 import json
-import asyncio
 from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 from enum import Enum
 import logging

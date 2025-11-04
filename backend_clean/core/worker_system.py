@@ -5,15 +5,11 @@ Resuelve campos faltantes: progress, worker_metadata, retry_policy
 """
 
 import asyncio
-import hashlib
 import json
 import logging
 import time
 import threading
-import signal
-import os
-from decimal import Decimal
-from typing import Dict, List, Optional, Any, Union, Tuple, Callable
+from typing import Dict, List, Optional, Any, Callable
 from enum import Enum
 from dataclasses import dataclass
 import sqlite3
@@ -21,7 +17,6 @@ from datetime import datetime, timedelta
 import uuid
 import psutil
 from contextlib import asynccontextmanager
-from concurrent.futures import ThreadPoolExecutor
 import queue
 
 logger = logging.getLogger(__name__)

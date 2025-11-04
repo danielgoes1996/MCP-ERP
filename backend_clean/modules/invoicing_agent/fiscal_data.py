@@ -10,7 +10,6 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 from pathlib import Path
 import PyPDF2
-import base64
 
 logger = logging.getLogger(__name__)
 

@@ -10,7 +10,7 @@ import json
 import logging
 import time
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Callable
+from typing import Dict, Any, Optional, Callable
 from dataclasses import dataclass
 from enum import Enum
 import sqlite3
@@ -71,7 +71,6 @@ class IdempotentJobManager:
     @contextmanager
     def claim_job(self, idempotency_key: IdempotencyKey, worker_id: str, timeout_seconds: int = 300):
         """Context manager para reclamar job de forma atómica."""
-        job_claimed = False
         job_id = None
 
         try:
@@ -79,7 +78,6 @@ class IdempotentJobManager:
             job_id = self._atomic_claim_job(idempotency_key, worker_id, timeout_seconds)
 
             if job_id:
-                job_claimed = True
                 logger.info(f"Worker {worker_id} claimed job {job_id} with key {idempotency_key.to_string()}")
 
                 # 2. Update status to processing

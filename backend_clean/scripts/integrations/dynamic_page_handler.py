@@ -6,10 +6,8 @@ Implementa capturas múltiples y detección de elementos que aparecen/desaparece
 import asyncio
 import logging
 import time
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
 logger = logging.getLogger(__name__)
 
@@ -180,11 +178,11 @@ class DynamicPageHandler:
                                     "href": element.get_attribute("href")
                                 }
                             })
-                        except Exception as e:
+                        except Exception:
                             # Element could be stale, skip it
                             continue
 
-            except Exception as e:
+            except Exception:
                 # Selector failed, continue with next
                 continue
 

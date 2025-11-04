@@ -3,16 +3,13 @@ import json
 import logging
 import os
 import time
-import hashlib
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple, Union
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 from enum import Enum
 import sqlite3
 from contextlib import asynccontextmanager
-from playwright.async_api import async_playwright, Browser, BrowserContext, Page
-import aiofiles
+from playwright.async_api import async_playwright, Page
 from pathlib import Path
-import base64
 from cryptography.fernet import Fernet
 import psutil
 
@@ -271,7 +268,7 @@ class RPAAutomationEngineSystem:
     async def _execute_automation_steps(self, session_id: str):
         """Ejecutar pasos de automatización de forma asíncrona"""
         try:
-            session_data = await self._get_session_data(session_id)
+            await self._get_session_data(session_id)
             steps = await self._get_session_steps(session_id)
             session_instances = self.active_sessions.get(session_id)
 

@@ -11,13 +11,9 @@ Este módulo proporciona:
 - Sistema de reglas configurables por empresa
 """
 
-import uuid
-import asyncio
-import time
-import hashlib
 from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional, Tuple
-from dataclasses import dataclass, asdict
+from typing import Dict, Any, List, Optional
+from dataclasses import dataclass
 from enum import Enum
 import logging
 import json

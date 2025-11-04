@@ -3,7 +3,6 @@
 Upload PDF using the API and parse with corrected date logic
 """
 import requests
-import json
 
 def main():
     # Login first

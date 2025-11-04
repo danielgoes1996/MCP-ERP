@@ -4,8 +4,6 @@ Email Integration - Integración con correo electrónico para detectar gastos au
 
 import os
 import logging
-import re
-import json
 import imaplib
 import email
 import smtplib

@@ -4,20 +4,16 @@ Endpoints de clase mundial para el sistema de facturación automática.
 Integra OCR, IA, RPA y automatización completa.
 """
 
-import asyncio
 import json
 import logging
-import os
 import uuid
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Union
+from datetime import datetime
+from typing import Dict, List, Optional, Any
 from pathlib import Path
-import base64
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, BackgroundTasks
-from fastapi.responses import JSONResponse, FileResponse
-from pydantic import BaseModel, Field, validator
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 
 # Imports de nuestros módulos
 from core.advanced_ocr_service import extract_text_intelligent, OCRResult

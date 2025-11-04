@@ -6,15 +6,13 @@ Arquitectura modular y extensible para automatizaci√≥n de portales de facturaci√
 import asyncio
 import logging
 import time
-import json
-import os
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any
 from enum import Enum
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
-from playwright.async_api import async_playwright, Page, Browser, BrowserContext, Playwright, ElementHandle
+from playwright.async_api import async_playwright, Page, Browser, BrowserContext, Playwright
 
 # Verificar disponibilidad de Claude
 try:

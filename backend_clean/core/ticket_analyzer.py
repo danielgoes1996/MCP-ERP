@@ -6,7 +6,7 @@ Extrae el nombre del comercio y categoriza el tipo de gasto.
 import json
 import logging
 import os
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, Optional, List
 from dataclasses import dataclass
 
 # Importar Claude como LLM principal
@@ -18,14 +18,13 @@ except ImportError:
 
 # OpenAI como fallback
 try:
-    import openai
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
 
 # Importar sistema de fallbacks robusto
 try:
-    from core.robust_fallback_system import try_llm_analysis_with_fallbacks, fallback_system
+    from core.robust_fallback_system import try_llm_analysis_with_fallbacks
     FALLBACK_SYSTEM_AVAILABLE = True
 except ImportError:
     FALLBACK_SYSTEM_AVAILABLE = False

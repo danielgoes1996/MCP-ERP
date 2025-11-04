@@ -9,11 +9,10 @@ optimizar costos y identificar oportunidades de mejora.
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from dataclasses import dataclass, asdict
 from collections import defaultdict
 import sqlite3
-import os
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,6 @@ Login, logout, and token management
 """
 
 from fastapi import APIRouter, HTTPException, Depends, status, Form
-from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from typing import Optional, List
 import logging

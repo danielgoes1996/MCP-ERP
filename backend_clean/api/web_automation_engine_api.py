@@ -1,22 +1,18 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Query
-from typing import List, Dict, Any, Optional
+from fastapi import APIRouter, HTTPException, Query
+from typing import List
 from datetime import datetime
 import logging
-import asyncio
 from core.web_automation_engine_system import WebAutomationEngineSystem, WebAutomationStrategy, WebAutomationEngine
 from core.api_models import (
     WebAutomationSessionCreateRequest,
     WebAutomationSessionCreateResponse,
     WebAutomationSessionStatusResponse,
-    WebAutomationStepExecuteRequest,
-    WebAutomationStepExecuteResponse,
     WebAutomationAnalyticsResponse,
     WebEngineConfigRequest,
     WebEngineConfigResponse,
     WebDOMAnalysisResponse,
     WebCaptchaSolutionResponse,
     WebPerformanceMetricsResponse,
-    WebSessionControlRequest,
     WebSessionControlResponse
 )
 

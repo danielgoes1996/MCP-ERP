@@ -5,9 +5,8 @@ Calcula métricas dinámicas basadas en datos reales de la DB.
 """
 
 import sqlite3
-import time
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 def calculate_dashboard_stats(company_id: str = "default") -> Dict[str, Any]:
     """

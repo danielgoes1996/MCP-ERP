@@ -5,7 +5,6 @@ Safe migration application with validation and rollback capability.
 """
 
 import sqlite3
-import json
 from pathlib import Path
 from datetime import datetime
 
@@ -176,7 +175,7 @@ def validate_automation_schema(db_path: Path):
         conn = sqlite3.connect(db_path)
 
         # Test basic functionality
-        test_session_id = f"test_{int(datetime.now().timestamp())}"
+        f"test_{int(datetime.now().timestamp())}"
 
         # Test config table
         conn.execute("""

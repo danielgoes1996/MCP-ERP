@@ -12,7 +12,7 @@ import asyncio
 import logging
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
@@ -309,7 +309,7 @@ async def run_queue_worker():
 
 
 if __name__ == "__main__":
-    import sys
+    pass
 
     # Configurar logging
     logging.basicConfig(

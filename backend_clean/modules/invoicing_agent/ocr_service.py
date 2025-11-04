@@ -11,7 +11,6 @@ import base64
 import io
 import logging
 import os
-from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +81,6 @@ class OCRService:
         try:
             import requests
             import asyncio
-            import json
 
             # Obtener API key de las variables de entorno
             api_key = os.getenv("GOOGLE_API_KEY")
@@ -241,11 +239,10 @@ class OCRService:
         import random
 
         # Analizar el inicio del base64 para determinar tipo de imagen
-        image_type = "unknown"
         if base64_image.startswith("/9j/"):
-            image_type = "jpeg"
+            pass
         elif base64_image.startswith("iVBORw0KGgo"):
-            image_type = "png"
+            pass
 
         # Simulaciones más realistas según el tipo
         simulations = [

@@ -14,12 +14,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional, Tuple
+from datetime import datetime
+from typing import Dict, Any, List, Optional
 from enum import Enum
 from dataclasses import dataclass
 
-from core.expense_audit_system import ActionType, ActionStatus, audit_system
+from core.expense_audit_system import ActionType, audit_system
 
 logger = logging.getLogger(__name__)
 
@@ -617,11 +617,9 @@ class ExpenseRollbackSystem:
     ) -> RollbackResult:
         """Ejecuta rollback en cascada con dependencias"""
 
-        successful = 0
-        failed = 0
         errors = []
 
-        action_record = await audit_system._get_action_record(plan.action_id)
+        await audit_system._get_action_record(plan.action_id)
 
         try:
             # Paso 1: Rollback de dependencias
@@ -668,7 +666,7 @@ class ExpenseRollbackSystem:
             raise ValueError(f"No snapshot found for expense {expense_id}")
 
         # Restaurar estado original
-        original_state = expense_snapshot["previous_state"]
+        expense_snapshot["previous_state"]
         await audit_system._rollback_field_changes([expense_snapshot])
 
     async def _rollback_expense_batch(

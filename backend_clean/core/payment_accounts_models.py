@@ -4,7 +4,7 @@ Incluye soporte para bancos, efectivo, terminales y tarjetas de crédito
 """
 
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from pydantic import BaseModel, Field, field_validator
 from enum import Enum
 import sqlite3

@@ -4,7 +4,6 @@ Professional debugging API (restricted in production)
 """
 
 from fastapi import APIRouter, HTTPException, Depends
-from fastapi.responses import JSONResponse
 from typing import List, Optional
 from pydantic import BaseModel
 import os

@@ -4,8 +4,7 @@ Enhanced Categorization Engine for Bank Transactions
 Implementa las mejoras identificadas para producción
 """
 import re
-from datetime import datetime
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple
 from dateutil import parser as date_parser
 
 class EnhancedCategorizationEngine:

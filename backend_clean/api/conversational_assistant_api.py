@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends, Query
-from typing import List, Dict, Any, Optional
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
+from typing import List, Optional
 from datetime import datetime
 import logging
 import asyncio
@@ -9,7 +9,6 @@ from core.api_models import (
     ConversationSessionResponse,
     UserQueryRequest,
     UserQueryResponse,
-    ConversationHistoryResponse,
     ConversationalAnalyticsResponse,
     LLMModelConfigRequest,
     LLMModelConfigResponse,

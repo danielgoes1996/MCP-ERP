@@ -4,7 +4,6 @@ Duplicate Expense Detector - Usa embeddings semánticos para detectar gastos dup
 
 import os
 import logging
-import json
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional, Tuple
 import numpy as np

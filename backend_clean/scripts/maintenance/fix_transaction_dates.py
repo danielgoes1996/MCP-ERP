@@ -4,7 +4,6 @@ Corregir las fechas de las transacciones de 2024 a 2025
 y recalcular saldos con datos correctos del PDF
 """
 import sqlite3
-from datetime import datetime
 
 def fix_transaction_dates():
     """Corregir fechas de 2024 a 2025"""
@@ -130,7 +129,7 @@ def main():
     fix_transaction_dates()
 
     # Paso 2: Recalcular saldos
-    final_balance = recalculate_with_correct_balance()
+    recalculate_with_correct_balance()
 
     print(f"\n🎉 ¡Proceso completado!")
     print(f"📅 Fechas corregidas: 2024 → 2025")

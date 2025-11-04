@@ -5,9 +5,7 @@ Identifica automáticamente el tipo de merchant y call-to-action
 
 import re
 import logging
-from typing import Dict, Any, Optional, List, Tuple
-from datetime import datetime
-from decimal import Decimal
+from typing import Dict, Any, Optional, List
 
 logger = logging.getLogger(__name__)
 

@@ -8,9 +8,8 @@ Arquitectura optimizada:
 - 2Captcha → Resolver captchas automáticamente
 """
 
-import os
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -38,7 +37,6 @@ class ServiceStackManager:
 
         # Selenium (siempre requerido)
         try:
-            import selenium
             selenium_available = True
         except ImportError:
             selenium_available = False

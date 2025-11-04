@@ -6,8 +6,7 @@ Script para identificar y limpiar código muerto en el módulo de tickets.
 import os
 import ast
 import glob
-from pathlib import Path
-from typing import Set, Dict, List
+from typing import Set
 
 def extract_function_definitions(file_path: str) -> Set[str]:
     """Extraer nombres de funciones definidas en un archivo."""

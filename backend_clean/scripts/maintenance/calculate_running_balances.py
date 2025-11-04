@@ -4,8 +4,7 @@ Calcular saldos corrientes para todas las transacciones
 Esto permitirá mostrar cómo cada transacción afecta el saldo total
 """
 import sqlite3
-from datetime import datetime
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 
 def get_account_transactions(account_id: int, user_id: int) -> List[Tuple]:
     """Obtener todas las transacciones de una cuenta ordenadas por fecha"""

@@ -5,8 +5,6 @@ Protege la base de datos unificada con backups básicos
 """
 
 import sqlite3
-import shutil
-import os
 from datetime import datetime, timedelta
 from pathlib import Path
 import logging
