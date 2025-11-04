@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: mcp_postgres
+    environment:
+      POSTGRES_DB: mcp_production
+      POSTGRES_USER: mcp_user
+      POSTGRES_PASSWORD: mcp_secure_password_2024
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgresql_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mcp_user -d mcp_production"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: mcp_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@mcp.local
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+# Para iniciar: docker-compose up -d
+# Para detener: docker-compose down
+# Logs: docker-compose logs postgres

@@ -1,13 +1,16 @@
-<!-- 🌐 HEADER GLOBAL - SISTEMA MCP -->
+<!-- 🌐 HEADER GLOBAL - CONTAFLOW -->
 <!-- Componente reutilizable para todas las páginas -->
 
+<!-- Font Awesome 6.4.0 - Versión Estándar -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
 <style>
-/* Global Header Styles */
+/* Global Header Styles - ContaFlow Branding */
 .mcp-global-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #11446e 0%, #1a5a8a 100%);
     color: white;
     padding: 0;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
     position: sticky;
     top: 0;
     z-index: 1000;
@@ -34,16 +37,9 @@
 }
 
 .mcp-logo-icon {
-    width: 32px;
-    height: 32px;
+    height: 40px;
     margin-right: 10px;
-    background: white;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #667eea;
-    font-weight: bold;
+    object-fit: contain;
 }
 
 .mcp-nav-menu {
@@ -167,7 +163,7 @@
 }
 
 .mcp-breadcrumb-link {
-    color: #667eea;
+    color: #11446e;
     text-decoration: none;
 }
 
@@ -182,10 +178,10 @@
 
 <header class="mcp-global-header">
     <div class="mcp-header-container">
-        <!-- Logo -->
+        <!-- Logo - ContaFlow -->
         <a href="/dashboard" class="mcp-logo">
-            <div class="mcp-logo-icon">M</div>
-            <span>MCP System</span>
+            <img src="/static/img/ContaFlow.png" alt="ContaFlow" class="mcp-logo-icon">
+            <span>ContaFlow</span>
         </a>
 
         <!-- Navigation Menu -->
@@ -193,37 +189,61 @@
             <ul class="mcp-nav-menu">
                 <li class="mcp-nav-item">
                     <a href="/dashboard" class="mcp-nav-link" data-page="dashboard">
-                        <span class="mcp-nav-icon">📊</span>
+                        <i class="fas fa-chart-line mcp-nav-icon"></i>
                         <span class="mcp-nav-text">Dashboard</span>
                     </a>
                 </li>
                 <li class="mcp-nav-item">
                     <a href="/voice-expenses" class="mcp-nav-link" data-page="voice-expenses">
-                        <span class="mcp-nav-icon">🎤</span>
+                        <i class="fas fa-microphone mcp-nav-icon"></i>
                         <span class="mcp-nav-text">Gastos</span>
                     </a>
                 </li>
                 <li class="mcp-nav-item">
                     <a href="/bank-reconciliation" class="mcp-nav-link" data-page="bank-reconciliation">
-                        <span class="mcp-nav-icon">🏦</span>
+                        <i class="fas fa-university mcp-nav-icon"></i>
                         <span class="mcp-nav-text">Bancos</span>
                     </a>
                 </li>
                 <li class="mcp-nav-item">
+                    <a href="/polizas-dashboard" class="mcp-nav-link" data-page="polizas">
+                        <i class="fas fa-file-invoice mcp-nav-icon"></i>
+                        <span class="mcp-nav-text">Pólizas</span>
+                    </a>
+                </li>
+                <li class="mcp-nav-item">
+                    <a href="/financial-reports" class="mcp-nav-link" data-page="financial-reports">
+                        <i class="fas fa-chart-bar mcp-nav-icon"></i>
+                        <span class="mcp-nav-text">Reportes</span>
+                    </a>
+                </li>
+                <li class="mcp-nav-item">
+                    <a href="/sat-accounts" class="mcp-nav-link" data-page="sat-accounts">
+                        <i class="fas fa-building mcp-nav-icon"></i>
+                        <span class="mcp-nav-text">Catálogo SAT</span>
+                    </a>
+                </li>
+                <li class="mcp-nav-item">
+                    <a href="/payment-accounts" class="mcp-nav-link" data-page="payment-accounts">
+                        <i class="fas fa-credit-card mcp-nav-icon"></i>
+                        <span class="mcp-nav-text">Cuentas</span>
+                    </a>
+                </li>
+                <li class="mcp-nav-item">
                     <a href="/automation-viewer" class="mcp-nav-link" data-page="automation-viewer">
-                        <span class="mcp-nav-icon">🤖</span>
+                        <i class="fas fa-robot mcp-nav-icon"></i>
                         <span class="mcp-nav-text">Automatización</span>
                     </a>
                 </li>
                 <li class="mcp-nav-item">
                     <a href="/client-settings" class="mcp-nav-link" data-page="client-settings">
-                        <span class="mcp-nav-icon">⚙️</span>
+                        <i class="fas fa-cog mcp-nav-icon"></i>
                         <span class="mcp-nav-text">Configuración</span>
                     </a>
                 </li>
                 <li class="mcp-nav-item">
                     <a href="/admin" class="mcp-nav-link" data-page="admin">
-                        <span class="mcp-nav-icon">👨‍💼</span>
+                        <i class="fas fa-user-shield mcp-nav-icon"></i>
                         <span class="mcp-nav-text">Admin</span>
                     </a>
                 </li>

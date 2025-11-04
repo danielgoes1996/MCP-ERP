@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/api/ai_reconciliation_api.py
+# hypothesis_version: 6.140.3
+
+[0.0, 60.0, 85.0, 90.0, 100, '/auto-apply-batch', '/stats', '/suggestions', 'AI Reconciliation', 'admin', 'allocated_amount', 'amount', 'applied_count', 'average_confidence', 'by_type', 'confidence', 'confidence_score', 'error', 'expense', 'expenses', 'failed_count', 'id', 'index', 'many_to_one', 'message', 'movement', 'movements', 'one_to_many', 'payment_number', 'results', 'split_group_id', 'success', 'total_processed', 'total_suggestions', 'type']

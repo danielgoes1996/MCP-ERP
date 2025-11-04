@@ -19,6 +19,7 @@ import os
 from datetime import datetime, timedelta
 import math
 import re
+import sqlite3
 
 # Utilidades para movimientos bancarios
 from core.bank_statements_models import infer_movement_kind
@@ -39,11 +40,14 @@ from core.invoice_parser import parse_cfdi_xml, InvoiceParseError
 # Import configuration first
 from config.config import config
 
-# Import authentication system
+# Import JWT authentication system (primary)
+from core.auth_jwt import get_current_user, User
+
+# Import legacy auth system (fallback)
 from core.unified_auth import (
     authenticate_user, create_user, create_tokens_for_user,
     verify_refresh_token, revoke_refresh_token,
-    LoginRequest, RegisterRequest, Token, User, get_current_user, get_current_active_user
+    LoginRequest, RegisterRequest, Token, get_current_active_user
 )
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import Depends, status
@@ -243,6 +247,17 @@ async def payment_accounts_page():
     """Serve payment accounts page directly"""
     return FileResponse("static/payment-accounts.html")
 
+@app.get("/payment-accounts")
+async def payment_accounts():
+    """
+    Payment accounts endpoint - serves the payment accounts interface.
+
+    Returns:
+        FileResponse: The payment accounts interface
+    """
+    logger.info("Payment accounts interface accessed")
+    return FileResponse("static/payment-accounts.html")
+
 @app.get("/employee-advances.html")
 async def employee_advances_page():
     """Serve employee advances page directly"""
@@ -315,6 +330,14 @@ try:
     logger.info("Expense completion API loaded successfully")
 except ImportError as e:
     logger.warning(f"Expense completion API not available: {e}")
+
+# Import and mount expense placeholder completion API
+try:
+    from api.expense_placeholder_completion_api import router as expense_placeholder_completion_router
+    app.include_router(expense_placeholder_completion_router)
+    logger.info("Expense placeholder completion API loaded successfully")
+except ImportError as e:
+    logger.warning(f"Expense placeholder completion API not available: {e}")
 
 # Import and mount conversational assistant API
 try:
@@ -411,6 +434,63 @@ try:
     logger.info("Employee advances API loaded successfully")
 except ImportError as e:
     logger.warning(f"Employee advances API not available: {e}")
+
+# Financial Reports API
+try:
+    from api.financial_reports_api import router as financial_reports_router
+    app.include_router(financial_reports_router)
+    logger.info("Financial reports API loaded successfully")
+except ImportError as e:
+    logger.warning(f"Financial reports API not available: {e}")
+
+# Polizas API (V1)
+try:
+    from api.v1.polizas_api import router as polizas_router
+    app.include_router(polizas_router)
+    logger.info("Polizas API loaded successfully")
+except ImportError as e:
+    logger.warning(f"Polizas API not available: {e}")
+
+# Companies Context API (V1)
+try:
+    from api.v1.companies_context import router as companies_context_router
+    app.include_router(companies_context_router)
+    logger.info("Companies context API loaded successfully")
+except ImportError as e:
+    logger.warning(f"Companies context API not available: {e}")
+
+# User Context API (V1)
+try:
+    from api.v1.user_context import auth_router as user_auth_router, users_router
+    app.include_router(user_auth_router)
+    app.include_router(users_router)
+    logger.info("User context API loaded successfully")
+except ImportError as e:
+    logger.warning(f"User context API not available: {e}")
+
+# Transactions Review API (V1)
+try:
+    from api.v1.transactions_review_api import router as transactions_review_router
+    app.include_router(transactions_review_router)
+    logger.info("Transactions review API loaded successfully")
+except ImportError as e:
+    logger.warning(f"Transactions review API not available: {e}")
+
+# AI Retrain API (V1)
+try:
+    from api.v1.ai_retrain import router as ai_retrain_router
+    app.include_router(ai_retrain_router)
+    logger.info("AI retrain API loaded successfully")
+except ImportError as e:
+    logger.warning(f"AI retrain API not available: {e}")
+
+# V1 Main Router (includes invoicing, debug, and other V1 endpoints)
+try:
+    from api.v1 import router as v1_router
+    app.include_router(v1_router)
+    logger.info("✅ API V1 router loaded successfully (includes /api/v1/invoicing, /api/v1/debug)")
+except ImportError as e:
+    logger.warning(f"API V1 router not available: {e}")
 
 # Public Banking Institutions Endpoint (no auth required)
 @app.get("/public/banking-institutions")
@@ -719,14 +799,14 @@ async def smart_root(request: Request):
             response.set_cookie("mcp_visited", "true", max_age=86400*365)
             return response
 
-        # Usuario existente - ir al dashboard
-        logger.info("Existing user - redirecting to dashboard")
-        return RedirectResponse(url="/dashboard", status_code=302)
+        # Usuario existente - ir a voice-expenses
+        logger.info("Existing user - redirecting to voice-expenses")
+        return RedirectResponse(url="/voice-expenses", status_code=302)
 
     except Exception as e:
         logger.error(f"Error in smart root: {e}")
         # Fallback seguro
-        return RedirectResponse(url="/dashboard", status_code=302)
+        return RedirectResponse(url="/voice-expenses", status_code=302)
 
 
 @app.get("/onboarding")
@@ -747,18 +827,6 @@ async def voice_expenses():
     """
     logger.info("Voice expenses interface accessed")
     return FileResponse("static/voice-expenses.html")
-
-
-@app.get("/advanced-ticket-dashboard.html")
-async def advanced_ticket_dashboard():
-    """
-    Advanced ticket dashboard endpoint - serves the invoicing agent dashboard.
-
-    Returns:
-        HTMLResponse: The advanced ticket dashboard interface
-    """
-    logger.info("Advanced ticket dashboard interface accessed")
-    return FileResponse("static/advanced-ticket-dashboard.html")
 
 
 @app.get("/client-settings")
@@ -834,15 +902,146 @@ async def admin_panel_page():
 
 
 @app.get("/dashboard")
-async def dashboard_redirect():
+async def dashboard_page():
     """
-    Legacy dashboard redirect - redirects to Advanced Ticket Dashboard.
+    Main dashboard page with ContaFlow design system.
+    Shows two main sections: Conciliación and Cuentas de Banco y Efectivo.
 
     Returns:
-        RedirectResponse: Redirect to the advanced ticket dashboard
+        FileResponse: The main dashboard interface
     """
-    logger.info("Legacy dashboard accessed - redirecting to Advanced Ticket Dashboard")
-    return RedirectResponse(url="/advanced-ticket-dashboard.html", status_code=302)
+    logger.info("Dashboard accessed")
+    return FileResponse("static/dashboard.html")
+
+
+@app.get("/sat-accounts")
+async def sat_accounts_page():
+    """
+    SAT Accounts page - serves the SAT chart of accounts interface.
+
+    Returns:
+        FileResponse: SAT accounts management interface
+    """
+    return FileResponse("static/sat-accounts.html")
+
+
+@app.get("/api/sat-accounts")
+async def get_sat_accounts(
+    search: Optional[str] = None,
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0)
+):
+    """
+    Get SAT account catalog entries.
+
+    Args:
+        search: Optional search term to filter by code or name
+        limit: Maximum number of results (default 200, max 1000)
+        offset: Number of results to skip for pagination
+
+    Returns:
+        List of SAT account catalog entries
+    """
+    try:
+        conn = sqlite3.connect("unified_mcp_system.db")
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # Build query
+        query = """
+            SELECT code, name, description, parent_code, type, is_active, updated_at
+            FROM sat_account_catalog
+            WHERE is_active = 1
+        """
+        params = []
+
+        if search:
+            query += " AND (code LIKE ? OR name LIKE ? OR description LIKE ?)"
+            search_pattern = f"%{search}%"
+            params.extend([search_pattern, search_pattern, search_pattern])
+
+        query += " ORDER BY code ASC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+
+        # Convert to list of dicts
+        results = [dict(row) for row in rows]
+
+        conn.close()
+
+        return results
+
+    except Exception as e:
+        logger.error(f"Error fetching SAT accounts: {e}")
+        raise HTTPException(500, f"Error fetching SAT accounts: {str(e)}")
+
+
+@app.get("/polizas-dashboard")
+async def polizas_dashboard_page():
+    """
+    Polizas dashboard page - serves the accounting entries interface.
+
+    Returns:
+        FileResponse: Polizas dashboard interface
+    """
+    return FileResponse("static/polizas-dashboard.html")
+
+
+@app.get("/financial-reports")
+async def financial_reports_page():
+    """
+    Financial reports page - serves the financial reports dashboard.
+
+    Returns:
+        FileResponse: Financial reports dashboard interface
+    """
+    return FileResponse("static/financial-reports-dashboard.html")
+
+
+@app.get("/expenses-viewer")
+async def expenses_viewer_page():
+    """
+    Expenses viewer page - serves the enhanced expenses viewer interface.
+
+    Returns:
+        FileResponse: Enhanced expenses viewer interface
+    """
+    return FileResponse("static/expenses-viewer-enhanced.html")
+
+
+@app.get("/complete-expenses")
+async def complete_expenses_page():
+    """
+    Complete expenses page - serves the expense completion interface.
+
+    Returns:
+        FileResponse: Complete expenses interface
+    """
+    return FileResponse("static/complete-expenses.html")
+
+
+@app.get("/landing")
+async def landing_page():
+    """
+    Landing page - serves the main landing page.
+
+    Returns:
+        FileResponse: Landing page
+    """
+    return FileResponse("static/landing.html")
+
+
+@app.get("/onboarding-context")
+async def onboarding_context_page():
+    """
+    Onboarding context page - serves the contextual onboarding interface.
+
+    Returns:
+        FileResponse: Onboarding context interface
+    """
+    return FileResponse("static/onboarding-context.html")
 
 
 # =====================================================
@@ -1031,6 +1230,74 @@ async def logout_get(request: Request):
     except Exception as e:
         logger.error(f"Logout GET error: {e}")
         return RedirectResponse(url="/auth/login", status_code=302)
+
+
+@app.get("/auth/tenants")
+async def get_available_tenants(email: Optional[str] = None):
+    """Return available tenants, optionally filtered by user email."""
+    try:
+        conn = sqlite3.connect(str(config.DB_PATH))
+        cursor = conn.cursor()
+
+        if email:
+            cursor.execute(
+                """
+                SELECT DISTINCT t.id, t.name
+                FROM tenants t
+                JOIN users u ON u.tenant_id = t.id
+                WHERE LOWER(u.email) = LOWER(?)
+                ORDER BY t.name
+                """,
+                (email.strip(),),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT id, name
+                FROM tenants
+                ORDER BY name
+                """
+            )
+
+        tenants = [
+            {
+                "id": row[0],
+                "name": row[1],
+                "description": None,
+            }
+            for row in cursor.fetchall()
+        ]
+
+        conn.close()
+
+        if email and not tenants:
+            # Fallback to full list if user-specific query returned nothing
+            with sqlite3.connect(str(config.DB_PATH)) as fallback_conn:
+                fallback_cursor = fallback_conn.cursor()
+                fallback_cursor.execute(
+                    """
+                    SELECT id, name
+                    FROM tenants
+                    ORDER BY name
+                    """
+                )
+                tenants = [
+                    {
+                        "id": row[0],
+                        "name": row[1],
+                        "description": None,
+                    }
+                    for row in fallback_cursor.fetchall()
+                ]
+
+        return tenants
+
+    except Exception as e:
+        logger.exception(f"Error fetching tenants: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error fetching available tenants"
+        )
 
 
 # =====================================================
@@ -3016,7 +3283,38 @@ async def create_expense(
         if not record:
             raise ServiceError("Database", "No se pudo recuperar el gasto creado")
 
+        # ✅ NUEVO: Hook de escalamiento automático
+        from core.expense_escalation_hooks import post_expense_creation_hook
+
+        escalation_info = await post_expense_creation_hook(
+            expense_id=expense_id,
+            expense_data={
+                "id": expense_id,
+                "monto_total": expense.monto_total,
+                "descripcion": expense.descripcion,
+                "rfc": expense.rfc,
+                "proveedor": expense.proveedor.model_dump() if expense.proveedor else None,
+                "categoria": expense.categoria,
+                "will_have_cfdi": expense.will_have_cfdi,
+                "company_id": expense.company_id,
+            },
+            user_id=getattr(tenancy_context, "user_id", None),
+            company_id=expense.company_id,
+        )
+
+        # Log del resultado
+        if escalation_info.get("escalated"):
+            logger.info(
+                f"✅ Expense {expense_id} escalado a ticket {escalation_info['ticket_id']}"
+            )
+
         response = _build_expense_response(record)
+
+        # Agregar metadata de escalamiento
+        if not response.metadata:
+            response.metadata = {}
+        response.metadata["escalation"] = escalation_info
+
         log_endpoint_success(endpoint, expense_id=expense_id)
         return response
 
@@ -3031,9 +3329,14 @@ async def list_expenses(
     mes: Optional[str] = None,
     categoria: Optional[str] = None,
     estatus: Optional[str] = None,
-    company_id: str = "default"
+    company_id: str = "default",
+    current_user: User = Depends(get_current_user)
 ) -> List[ExpenseResponse]:
-    """Listar gastos desde la base de datos."""
+    """
+    Listar gastos desde la base de datos filtrados por tenant del usuario autenticado.
+
+    Requiere autenticación JWT.
+    """
 
     try:
         if mes:
@@ -3042,15 +3345,14 @@ async def list_expenses(
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail="Formato de mes inválido. Usa YYYY-MM") from exc
 
-        # Use default tenant_id for demo mode
-        tenant_id = normalize_tenant_id(
-            tenant_id=3,  # Default tenant for our bank data (user_id=9, tenant_id=3)
-            company_id=company_id
-        )
+        # Use tenant_id from authenticated user
+        tenant_id = current_user.tenant_id
 
+        # 🔧 Filter by both tenant_id AND company_id
         records = fetch_expense_records(
             tenant_id=tenant_id,
             limit=limit,
+            company_id=company_id,  # ← Ahora usa company_id de la query
             # Note: month, category, invoice_status filtering may need to be added to unified adapter
         )
         return [_build_expense_response(record) for record in records]

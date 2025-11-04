@@ -1,0 +1,485 @@
+
+///////////////////////////////////////////////////////////
+// MCP Server – ERD Completo v2.0 (Actualizado Octubre 2025)
+// Dominio: Usuarios, Gastos, Fiscal, Bancos, IA, Sistema.
+// Incluye: Onboarding conversacional + contexto + importación de catálogo contable.
+///////////////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////////////
+// 👥 USUARIOS / MULTIEMPRESA
+///////////////////////////////////////////////////////////
+Table tenants {
+  id            bigint [pk, increment]
+  slug          text   [not null, unique]
+  nombre_legal  text
+  dominio       text                        // puede ser NULL si alta con correo genérico
+  configuracion text                        // JSONB en SQL: {"plan":"basico","max_users":5,"pais":"MX","moneda":"MXN"}
+  created_at    timestamp
+}
+
+Table companies {
+  id                   bigint [pk, increment]
+  tenant_id            bigint [not null]
+  nombre_comercial     text
+  razon_social         text
+  rfc                  text
+  regimen_fiscal       text
+  giro                 text
+  descripcion_negocio  text
+  pais                 text
+  codigo_postal        text
+  direccion_fiscal     text
+  origen_datos_fiscales text  // 'constancia' | 'manual'
+  contacto_principal   bigint
+  tiene_catalogo_importado boolean [default: false]
+  catalogo_origen      text  // 'contpaq' | 'odoo' | 'otro'
+  estado_operativo     text  // 'activo' | 'en_configuracion'
+  configuracion        text  // JSONB
+  created_at           timestamp
+  updated_at           timestamp
+}
+
+Table roles {
+  id               bigint [pk, increment]
+  role_name        text   [not null, unique]  // admin | contador | operador | auditor
+  permissions_list text                       // JSONB en SQL
+  created_at       timestamp
+}
+
+Table permissions {
+  id      bigint [pk, increment]
+  module  text   [not null]
+  action  text   [not null]
+  scope   text   [not null] // company/tenant/global
+  // UNIQUE(module, action, scope)
+}
+
+Table users {
+  id             bigint [pk, increment]
+  tenant_id      bigint [not null]
+  company_id     bigint [not null]
+  role_id        bigint
+  name           text   [not null]
+  email          text   [not null, unique]
+  password_hash  text
+  auth_provider  text   [not null, default: "local"]  // 'local' | 'google'
+  auth_sub_id    text   [unique]
+  avatar_url     text
+  scope          text   [not null, default: "company"]
+  is_active      boolean [default: true]
+  last_login     timestamp
+  created_at     timestamp
+  updated_at     timestamp
+}
+
+Table user_sessions {
+  id             bigint [pk, increment]
+  user_id        bigint [not null]
+  device_info    text
+  access_token   text   [not null]
+  refresh_token  text   [not null]
+  issued_at      timestamp
+  expires_at     timestamp
+  is_revoked     boolean
+  revoked_at     timestamp
+}
+
+Table notifications {
+  id           bigint [pk, increment]
+  user_id      bigint
+  tipo         text   [not null]
+  contenido    text   // JSONB
+  canal        text   // email/whatsapp/dashboard
+  status       text   // pending/sent/read
+  fecha_envio  timestamp
+}
+
+Table files_storage {
+  id             bigint [pk, increment]
+  linked_entity  text   [not null] // 'expense','cfdi','bank', etc.
+  linked_id      bigint [not null]
+  tipo_archivo   text   [not null] // xml/pdf/imagen/audio
+  path           text   [not null]
+  source         text
+  checksum       text
+  uploaded_by    bigint
+  uploaded_at    timestamp
+}
+
+Table integrations {
+  id            bigint [pk, increment]
+  company_id    bigint [not null]
+  proveedor     text   [not null] // 'SAT','BBVA','Chatwoot','Twilio'
+  tipo_servicio text   [not null] // API/Webhook/Email
+  config        text              // JSONB en SQL
+  status        text              // active/inactive
+  created_at    timestamp
+}
+
+Table system_settings {
+  id    bigint [pk, increment]
+  clave text   [not null, unique]
+  valor text   [not null]
+}
+
+Ref: companies.tenant_id > tenants.id
+Ref: users.tenant_id > tenants.id
+Ref: users.company_id > companies.id
+Ref: users.role_id > roles.id
+Ref: companies.contacto_principal > users.id
+Ref: notifications.user_id > users.id
+Ref: files_storage.uploaded_by > users.id
+Ref: integrations.company_id > companies.id
+
+
+///////////////////////////////////////////////////////////
+// 🧠 COMPANY CONTEXT (nuevo)
+///////////////////////////////////////////////////////////
+Table company_context {
+  id              bigint [pk, increment]
+  company_id      bigint [not null]
+  tipo_dato       text  // 'clientes' | 'proveedores' | 'procesos' | 'otros'
+  contenido       text  // JSONB
+  fuente          text  // 'voz' | 'texto' | 'manual'
+  fecha_captura   timestamp
+}
+
+Ref: company_context.company_id > companies.id
+
+
+///////////////////////////////////////////////////////////
+// 📂 ACCOUNT CATALOG UPLOADS (nuevo)
+///////////////////////////////////////////////////////////
+Table account_catalog_uploads {
+  id                    bigint [pk, increment]
+  company_id            bigint [not null]
+  origen                text   // 'upload' | 'api' | 'manual'
+  nombre_archivo        text
+  version_parser        text
+  estatus               text   // 'procesando' | 'validado' | 'error'
+  cuentas_detectadas    int
+  validacion_estructura text   // JSONB (errores, sugerencias)
+  creado_por            bigint
+  created_at            timestamp
+}
+
+Ref: account_catalog_uploads.company_id > companies.id
+Ref: account_catalog_uploads.creado_por > users.id
+
+
+///////////////////////////////////////////////////////////
+// 💸 CAPTURA / GASTOS
+///////////////////////////////////////////////////////////
+Table expenses {
+  id                        bigint [pk, increment]
+  company_id                bigint [not null]
+  descripcion               text
+  monto_total               numeric [not null]
+  categoria                 text
+  tax_source                text
+  classification_source     text
+  categoria_confianza       numeric
+  sat_account_code          text
+  sat_product_service_code  text
+  iva_16                    numeric
+  iva_8                     numeric
+  iva_0                     numeric
+  iva_retenido              numeric
+  isr_retenido              numeric
+  payment_account_id        bigint
+  created_by                bigint
+  metadata                  text   // JSONB
+  created_at                timestamp
+}
+
+Table expense_invoices {
+  id            bigint [pk, increment]
+  expense_id    bigint [not null]
+  uuid          text   [unique]
+  rfc_emisor    text
+  total         numeric
+  xml_path      text
+  pdf_path      text
+  fecha_emision timestamp
+}
+
+Table tax_breakdown {
+  id            bigint [pk, increment]
+  expense_id    bigint [not null]
+  tipo_impuesto text
+  tasa          numeric
+  base          numeric
+  monto         numeric
+  es_acreditable boolean
+}
+
+Table expense_sources {
+  id            bigint [pk, increment]
+  expense_id    bigint [not null]
+  medio_captura text
+  origen_app    text
+  archivo_id    bigint
+  modelo_ocr    text
+  fecha_captura timestamp
+}
+
+Table expense_tags {
+  id         bigint [pk, increment]
+  expense_id bigint [not null]
+  tag_name   text
+}
+
+Ref: expenses.company_id > companies.id
+Ref: expenses.created_by > users.id
+Ref: expense_invoices.expense_id > expenses.id
+Ref: tax_breakdown.expense_id > expenses.id
+Ref: expense_sources.expense_id > expenses.id
+Ref: expense_sources.archivo_id > files_storage.id
+Ref: expense_tags.expense_id > expenses.id
+
+
+///////////////////////////////////////////////////////////
+// 📚 FISCAL / CONTABLE
+///////////////////////////////////////////////////////////
+Table sat_account_catalog {
+  codigo      text [pk]
+  descripcion text [not null]
+}
+
+Table sat_product_service_catalog {
+  codigo        text [pk]
+  descripcion   text [not null]
+  unidad_medida text
+}
+
+Table fiscal_policy {
+  id               bigint [pk, increment]
+  regla_nombre     text
+  tipo_impuesto    text
+  tasa             numeric
+  condicion        text
+  descripcion      text
+  version_catalogo text
+}
+
+Table provider_rules {
+  id                       bigint [pk, increment]
+  company_id               bigint
+  proveedor_nombre         text
+  rfc_proveedor            text
+  categoria_default        text
+  sat_account_code         text
+  sat_product_service_code text
+  iva_rate_default         numeric
+  tax_source               text
+}
+
+Table journal_batches {
+  id           bigint [pk, increment]
+  company_id   bigint [not null]
+  periodo      text
+  status       text
+  fecha_cierre timestamp
+}
+
+Table fiscal_entries {
+  id                  bigint [pk, increment]
+  expense_id          bigint
+  journal_batch_id    bigint
+  cuenta_cargo        text
+  cuenta_abono        text
+  monto               numeric
+  iva_aplicable       numeric
+  descripcion_asiento text
+  status              text
+  fecha_asiento       timestamp
+}
+
+Table ledger_movements {
+  id           bigint [pk, increment]
+  entry_id     bigint [not null]
+  account_code text
+  debit        numeric
+  credit       numeric
+  date         timestamp
+}
+
+Table fiscal_explanations {
+  id           bigint [pk, increment]
+  entry_id     bigint [not null, unique]
+  razonamiento text
+  confianza    numeric
+  fuente       text
+}
+
+Ref: provider_rules.company_id > companies.id
+Ref: journal_batches.company_id > companies.id
+Ref: fiscal_entries.expense_id > expenses.id
+Ref: fiscal_entries.journal_batch_id > journal_batches.id
+Ref: ledger_movements.entry_id > fiscal_entries.id
+Ref: fiscal_explanations.entry_id > fiscal_entries.id
+
+
+///////////////////////////////////////////////////////////
+// 🏦 BANCARIO / CONCILIACIÓN
+///////////////////////////////////////////////////////////
+Table bank_accounts {
+  id           bigint [pk, increment]
+  company_id   bigint [not null]
+  nombre       text
+  tipo         text
+  banco_nombre text
+  clabe        text
+  saldo_actual numeric
+}
+
+Table bank_movements {
+  id                        bigint [pk, increment]
+  bank_account_id           bigint [not null]
+  amount                    numeric
+  description               text
+  date                      timestamp
+  reference                 text
+  matched_expense_id        bigint
+  reconciliation_status     text
+  reconciliation_confidence numeric
+  bank_metadata             text
+  created_at                timestamp
+}
+
+Table bank_reconciliation_splits {
+  id                  bigint [pk, increment]
+  bank_movement_id    bigint
+  expense_id          bigint
+  monto_asignado      numeric
+  porcentaje_asignado numeric
+}
+
+Table bank_import_logs {
+  id               bigint [pk, increment]
+  bank_account_id  bigint
+  archivo_nombre   text
+  fecha_importacion timestamp
+  estado           text
+  parser_version   text
+}
+
+Table reconciliation_sessions {
+  id                  bigint [pk, increment]
+  fecha               timestamp
+  algoritmo           text
+  total_movimientos   int
+  conciliados_auto    int
+  conciliados_humanos int
+}
+
+Ref: bank_accounts.company_id > companies.id
+Ref: bank_movements.bank_account_id > bank_accounts.id
+Ref: bank_movements.matched_expense_id > expenses.id
+Ref: bank_reconciliation_splits.bank_movement_id > bank_movements.id
+Ref: bank_reconciliation_splits.expense_id > expenses.id
+Ref: bank_import_logs.bank_account_id > bank_accounts.id
+
+
+///////////////////////////////////////////////////////////
+// 🤖 IA / APRENDIZAJE
+///////////////////////////////////////////////////////////
+Table category_prediction_history {
+  id                  bigint [pk, increment]
+  expense_id          bigint
+  predicted_category  text
+  confidence          numeric
+  reasoning           text
+  prediction_method   text
+  corrected_category  text
+  feedback_date       timestamp
+}
+
+Table category_learning {
+  id                  bigint [pk, increment]
+  company_id          bigint
+  description_pattern text
+  predicted_category  text
+  confidence          numeric
+  learning_data       text
+  created_at          timestamp
+}
+
+Table llm_logs {
+  id            bigint [pk, increment]
+  expense_id    bigint
+  model         text
+  prompt        text
+  response      text
+  confidence    numeric
+  tokens_usados int
+  fecha         timestamp
+}
+
+Table ai_context_memory {
+  id               bigint [pk, increment]
+  company_id       bigint
+  context          text
+  onboarding_snapshot text
+  embedding_vector text
+  last_refresh     timestamp
+}
+
+Table ai_metrics {
+  id                bigint [pk, increment]
+  company_id        bigint
+  accuracy          numeric
+  precision         numeric
+  recall            numeric
+  total_predictions int
+  periodo           text
+}
+
+Table ai_tasks_queue {
+  id            bigint [pk, increment]
+  tipo          text
+  status        text
+  scheduled_at  timestamp
+  payload       text
+  created_at    timestamp
+}
+
+Ref: category_prediction_history.expense_id > expenses.id
+Ref: category_learning.company_id > companies.id
+Ref: llm_logs.expense_id > expenses.id
+Ref: ai_context_memory.company_id > companies.id
+Ref: ai_metrics.company_id > companies.id
+
+
+///////////////////////////////////////////////////////////
+// ⚙️ SISTEMA / AUDITORÍA
+///////////////////////////////////////////////////////////
+Table audit_trail {
+  id         bigint [pk, increment]
+  entidad    text
+  entidad_id bigint
+  accion     text
+  usuario_id bigint
+  cambios    text
+  timestamp  timestamp
+}
+
+Table processing_queue {
+  id        bigint [pk, increment]
+  tipo      text
+  estado    text
+  fecha     timestamp
+  metadata  text
+}
+
+Table scheduler_jobs {
+  id                bigint [pk, increment]
+  tipo              text
+  descripcion       text
+  proxima_ejecucion timestamp
+  frecuencia        text
+  status            text
+}
+
+Ref: audit_trail.usuario_id > users.id

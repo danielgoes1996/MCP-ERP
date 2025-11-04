@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/payment_accounts_models.py
+# hypothesis_version: 6.140.3
+
+[0.0, 0.5, 0.8, 100, 200, ' AND activo = ?', ' WHERE active = TRUE', 'Cuenta no encontrada', 'Efectivo', 'MXN', 'Terminal de Pago', '__main__', 'active', 'activo', 'bajo', 'bancaria', 'banco_nombre', 'bank', 'cero', 'clabe', 'created_at', 'credito', 'credito_disponible', 'debito', 'disponible', 'efectivo', 'fecha_corte', 'fecha_pago', 'id', 'limite_credito', 'medio', 'moneda', 'name', 'negativo', 'nombre', 'numero_cuenta', 'numero_tarjeta', 'positivo', 'propietario_id', 'proveedor_terminal', 'saldo_actual', 'saldo_inicial', 'short_name', 'sin_credito', 'sort_order', 'subtipo', 'tenant_id', 'terminal', 'tipo', 'type', 'updated_at', 'value']

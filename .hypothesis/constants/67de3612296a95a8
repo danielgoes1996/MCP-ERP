@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/llm_enrichment.py
+# hypothesis_version: 6.140.3
+
+[0.2, 'MXN', 'OPENAI_API_KEY', '_', 'categoria_confianza', 'categoria_fuente', 'categoria_slug', 'cheque', 'choices', 'content', 'descripcion_fuente', 'descripcion_original', 'efectivo', 'instrucciones', 'llm', 'merchant_name', 'message', 'metodo_pago', 'moneda', 'monto', 'método de pago', 'nombre', 'payment_method', 'proveedor', 'role', 'rule_based', 'system', 'tarjeta corporativa', 'tarjeta de crédito', 'tarjeta de débito', 'tarjeta de empleado', 'tarjeta_credito', 'tarjeta_debito', 'tarjeta_empleado', 'tarjeta_empresa', 'terminal', 'terminal POS', 'transferencia', 'user']

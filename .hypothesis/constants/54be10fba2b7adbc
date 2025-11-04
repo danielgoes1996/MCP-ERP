@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/ai_reconciliation_service.py
+# hypothesis_version: 6.140.3
+
+[0.0, 0.05, 0.4, 0.6, 60.0, 85.0, 100, 999, ' AND tenant_id = ?', ' ORDER BY date DESC', 'T', '[^a-z0-9\\s]', 'a', 'allocated_amount', 'amount', 'amount_diff', 'amount_match', 'and', 'breakdown', 'compra', 'con', 'confidence_level', 'confidence_score', 'date', 'date_diff_avg', 'date_proximity', 'de', 'del', 'desc_similarity', 'description', 'difference', 'el', 'en', 'expense', 'expenses', 'for', 'high', 'id', 'in', 'la', 'low', 'many_to_one', 'medium', 'movement', 'movements', 'movimiento', 'of', 'on', 'one_to_many', 'pago', 'para', 'payment', 'payment_number', 'por', 'purchase', 'the', 'to', 'total_allocated', 'type', 'with']

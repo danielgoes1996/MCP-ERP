@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/google_vision_ocr.py
+# hypothesis_version: 6.140.3
+
+[0.0, 5.0, 200, 1000, 'NO[.:\\s]*([A-Z0-9]+)', '^\\d+$', 'bounding_box', 'confidence', 'date', 'detected_language', 'en', 'error', 'es', 'extracted_text', 'factura', 'fallback_needed', 'fecha', 'folio', 'google_vision', 'invoice', 'iva', 'merchant_name', 'processing_time_ms', 'rb', 'receipt', 'recibo', 'rfc', 'service', 'structured_data', 'success', 'tax', 'text', 'timestamp', 'total', 'vertices', 'x', 'y']

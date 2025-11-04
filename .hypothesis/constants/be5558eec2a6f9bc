@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/invoice_parser.py
+# hypothesis_version: 6.140.3
+
+[0.0, '001', '002', '003', 'Comprobante', 'IEPS', 'ISR', 'IVA', 'Importe', 'Impuesto', 'InvoiceParseError', 'MXN', 'Moneda', 'OTRO', 'SubTotal', 'TasaOCuota', 'TipoFactor', 'Total', 'UUID', 'amount', 'cfdi', 'cfdi:Complemento', 'cfdi:Comprobante', 'cfdi:Emisor', 'cfdi:Impuestos', 'cfdi:Receptor', 'cfdi:Retencion', 'cfdi:Retenciones', 'cfdi:Traslado', 'cfdi:Traslados', 'code', 'currency', 'emitter', 'factor', 'impuesto', 'iva_amount', 'kind', 'other_taxes', 'parse_cfdi_xml', 'rate', 'receiver', 'retencion', 'subtotal', 'taxes', 'tfd', 'tipoFactor', 'total', 'traslado', 'type', 'uuid']

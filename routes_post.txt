@@ -1,0 +1,4 @@
+api/v1/companies_context.py:80:@router.post("/questions", response_model=ContextQuestionsResponse)
+api/v1/companies_context.py:111:@router.post("/analyze", response_model=ContextAnalyzeResponse)
+api/v1/invoicing.py:81:@router.post("/tickets", response_model=TicketResponse)
+api/v1/invoicing.py:131:@router.post("/tickets/{ticket_id}/process")

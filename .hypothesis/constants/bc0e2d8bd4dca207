@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/api/user_preferences_api.py
+# hypothesis_version: 6.140.3
+
+[404, 500, 'auto_categorization', 'company_id', 'completion_rules', 'created_at', 'default', 'demo_preferences', 'es', 'field_priorities', 'id', 'language', 'light', 'message', 'onboarding_step', 'preferences', 'success', 'tenant_id', 'theme', 'updated_at', 'user_id']

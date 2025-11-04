@@ -1,0 +1,35 @@
+{
+  "credit_keywords": [
+    "traspaso spei",
+    "abono inbursa",
+    "deposito inbursa",
+    "deposito spei",
+    "spei recibido",
+    "interés",
+    "interes"
+  ],
+  "debit_keywords": [
+    "retiro cajero",
+    "cargo inbursa",
+    "compra",
+    "pago",
+    "comision",
+    "domiciliacion"
+  ],
+  "amount_patterns": [
+    "\\$?\\s*([\\d.,]+)"
+  ],
+  "skip_patterns": [
+    "saldo corte",
+    "saldo al",
+    "saldo anterior"
+  ],
+  "prefer_first_amount": true,
+  "has_running_balance_column": true,
+  "merge_multiline_concepts": true,
+  "transaction_line_patterns": [
+    "^\\s*([A-Z]{3}\\.\\s*\\d{2})\\s+(\\d+)?\\s+([A-Z0-9ÁÉÍÓÚÜÑ\\*\\.\\-\\/,\\s]+?)\\s+([\\-\\$\\s]?[\\d.,]+)?\\s+([\\-\\$\\s]?[\\d.,]+)?\\s+([\\-\\$\\s]?[\\d.,]+)\\s*$",
+    "^\\s*(\\d{2}\\/\\d{2}\\/\\d{4})\\s+([A-Z0-9ÁÉÍÓÚÜÑ\\*\\.\\-\\/,\\s]+?)\\s+([\\-\\$\\s]?[\\d,.]+)\\s+([\\-\\$\\s]?[\\d,.]+)\\s*$",
+    "^\\s*(\\d{2}\\/\\d{2}\\/\\d{2})\\s+([A-Z0-9ÁÉÍÓÚÜÑ\\*\\.\\-\\/,\\s]+?)\\s+([\\-\\$\\s]?[\\d,.]+)\\s+([\\-\\$\\s]?[\\d,.]+)\\s*$"
+  ]
+}

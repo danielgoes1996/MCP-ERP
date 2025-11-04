@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/jose/backends/base.py
+# hypothesis_version: 6.140.3
+
+['alg', 'k', 'kty', 'oct']

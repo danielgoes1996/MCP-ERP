@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/config/config.py
+# hypothesis_version: 6.140.3
+
+['127.0.0.1', '30', '8000', 'BANK_API_KEY', 'BANK_API_URL', 'BANK_CERT_PATH', 'DEBUG', 'ERP_API_KEY', 'ERP_API_SECRET', 'ERP_API_URL', 'HOST', 'INFO', 'INTERNAL_DATA_DIR', 'INTERNAL_DB_PATH', 'LOG_FILE', 'LOG_LEVEL', 'ODOO_DB', 'ODOO_PASSWORD', 'ODOO_URL', 'ODOO_USERNAME', 'OPENAI_API_KEY', 'PORT', 'REQUEST_TIMEOUT', 'UNIFIED_DB_PATH', 'USE_UNIFIED_DB', 'admin', 'api_key', 'api_secret', 'api_url', 'bank', 'cert_path', 'data', 'database', 'erp', 'gpt-4o-mini', 'https://bank-api.com', 'mcp_internal.db', 'mcp_server.log', 'odoo', 'openai', 'password', 'true', 'url', 'username', 'your_api_key', 'your_api_secret', 'your_bank_api_key', 'your_database', 'your_password']

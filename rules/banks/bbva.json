@@ -1,0 +1,11 @@
+{
+  "credit_keywords": [
+    "abono bbva", "deposito bbva", "spei recibido"
+  ],
+  "debit_keywords": [
+    "domiciliacion", "compra bbva", "pago tarjeta"
+  ],
+  "amount_patterns": [
+    "([\\d,]+)\\s*-\\s*([\\d,]+\\.\\d{2})"
+  ]
+}

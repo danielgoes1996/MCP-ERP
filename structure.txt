@@ -1,0 +1,1736 @@
+mcp-server/
+.
+├── api
+│   ├── v1
+│   │   ├── __init__.py
+│   │   ├── ai_retrain.py
+│   │   ├── companies_context.py
+│   │   ├── debug.py
+│   │   ├── invoicing.py
+│   │   ├── polizas_api.py
+│   │   ├── transactions_review_api.py
+│   │   └── user_context.py
+│   ├── advanced_invoicing_api.py
+│   ├── ai_reconciliation_api.py
+│   ├── auth_api.py
+│   ├── auth_jwt_api.py
+│   ├── automation_v2.py
+│   ├── bank_statements_api.py
+│   ├── bulk_invoice_api.py
+│   ├── category_learning_api.py
+│   ├── client_management_api.py
+│   ├── conversational_assistant_api.py
+│   ├── employee_advances_api.py
+│   ├── expense_completion_api.py
+│   ├── expense_placeholder_completion_api.py
+│   ├── expense_placeholder_completion_api.py.backup
+│   ├── feature_flags_api.py
+│   ├── financial_intelligence_api.py
+│   ├── financial_reports_api.py
+│   ├── hybrid_processor_api.py
+│   ├── non_reconciliation_api.py
+│   ├── payment_accounts_api.py
+│   ├── robust_automation_engine_api.py
+│   ├── rpa_automation_engine_api.py
+│   ├── split_reconciliation_api.py
+│   ├── universal_invoice_engine_api.py
+│   ├── user_preferences_api.py
+│   └── web_automation_engine_api.py
+├── app
+│   ├── legacy
+│   │   └── __init__.py
+│   ├── models
+│   │   └── __init__.py
+│   ├── routers
+│   │   ├── __init__.py
+│   │   ├── ai_router.py
+│   │   ├── auth_router.py
+│   │   ├── automation_router.py
+│   │   ├── bank_router.py
+│   │   ├── config_router.py
+│   │   ├── debug_router.py
+│   │   ├── finance_router.py
+│   │   └── invoicing_router.py
+│   ├── services
+│   │   ├── __init__.py
+│   │   └── auth_service.py
+│   └── __init__.py
+├── archive
+│   └── unused_modules
+│       └── responses.py
+├── automation_downloads
+├── automation_logs
+├── automation_screenshots
+├── config
+│   ├── config.py
+│   ├── llm_config.py
+│   └── settings.py
+├── connectors
+│   ├── __init__.py
+│   ├── direct_odoo_connector.py
+│   ├── enhanced_odoo_connector.py
+│   ├── odoo_connector.py
+│   └── README.md
+├── core
+│   ├── ai
+│   │   ├── __init__.py
+│   │   ├── ai_context_memory_service.py
+│   │   ├── claude_context_analyzer.py
+│   │   ├── correction_learning_service.py
+│   │   └── provider_registry.py
+│   ├── __init__.py
+│   ├── account_catalog.py
+│   ├── accounting_catalog.py
+│   ├── accounting_mappings.yaml
+│   ├── accounting_models.py
+│   ├── accounting_rules.py
+│   ├── advanced_ocr_service.py
+│   ├── ai_reconciliation_service.py
+│   ├── ai_rpa_planner.py
+│   ├── api_models.py
+│   ├── api_version_manager.py
+│   ├── auth.py
+│   ├── auth_jwt.py
+│   ├── auth_system.py
+│   ├── automation_models.py
+│   ├── automation_persistence_system.py
+│   ├── bank_detector.py
+│   ├── bank_file_parser.py
+│   ├── bank_reconciliation.py
+│   ├── bank_rules_loader.py
+│   ├── bank_statements_models.py
+│   ├── bank_transactions_models.py
+│   ├── batch_performance_optimizer.py
+│   ├── bulk_invoice_processor.py
+│   ├── captcha_solver.py
+│   ├── cargos_abonos_parser.py
+│   ├── category_learning_system.py
+│   ├── category_mappings.py
+│   ├── category_predictor.py
+│   ├── cfdi_llm_parser.py
+│   ├── classification_feedback.py
+│   ├── classification_trace.py
+│   ├── claude_dom_analyzer.py
+│   ├── claude_transaction_processor.py
+│   ├── client_credential_manager.py
+│   ├── company_settings.py
+│   ├── compliance_audit_trail.py
+│   ├── conversational_assistant.py
+│   ├── conversational_assistant_system.py
+│   ├── cost_analytics.py
+│   ├── data_consistency_manager.py
+│   ├── database.py
+│   ├── db_optimizer.py
+│   ├── duplicate_detector.py
+│   ├── duplicate_prevention.py
+│   ├── email_integration.py
+│   ├── employee_advances_models.py
+│   ├── employee_advances_service.py
+│   ├── enhanced_api_models.py
+│   ├── enhanced_categorization_engine.py
+│   ├── enhanced_pdf_parser.py
+│   ├── error_handler.py
+│   ├── expense_audit_system.py
+│   ├── expense_classifier.py
+│   ├── expense_completion_system.py
+│   ├── expense_enhancer.py
+│   ├── expense_enrichment.py
+│   ├── expense_escalation_hooks.py
+│   ├── expense_escalation_system.py
+│   ├── expense_features.py
+│   ├── expense_field_validator.py
+│   ├── expense_llm_classifier.py
+│   ├── expense_models.py
+│   ├── expense_notification_system.py
+│   ├── expense_rollback_system.py
+│   ├── expense_security_validator.py
+│   ├── expense_text_processor.py
+│   ├── expense_validation.py
+│   ├── expense_validator.py
+│   ├── extraction_audit_logger.py
+│   ├── extraction_validator.py
+│   ├── feature_flags.py
+│   ├── financial_reports_engine.py
+│   ├── financial_reports_generator.py
+│   ├── financial_reports_generator_simple.py
+│   ├── fiscal_pipeline.py
+│   ├── gemini_complete_parser.py
+│   ├── gemini_native_parser.py
+│   ├── google_vision_ocr.py
+│   ├── hybrid_processor_system.py
+│   ├── hybrid_vision_service.py
+│   ├── idempotent_workers.py
+│   ├── intelligent_categorization_engine.py
+│   ├── intelligent_fallback_parser.py
+│   ├── intelligent_field_validator.py
+│   ├── intent_analyzer.py
+│   ├── internal_db.py
+│   ├── invoice_manager.py
+│   ├── invoice_parser.py
+│   ├── llm_enrichment.py
+│   ├── llm_pdf_parser.py
+│   ├── mcp_handler.py
+│   ├── ml_feature_extractor.py
+│   ├── multi_tenancy_scaling.py
+│   ├── non_reconciliation_system.py
+│   ├── observability_system.py
+│   ├── odoo_field_mapper.py
+│   ├── optimized_duplicate_detector.py
+│   ├── payment_accounts_models.py
+│   ├── pdf_extraction_validator.py
+│   ├── playwright_executor.py
+│   ├── polizas_service.py
+│   ├── robust_automation_engine_system.py
+│   ├── robust_fallback_system.py
+│   ├── robust_ocr_system.py
+│   ├── robust_pdf_parser.py
+│   ├── rollback_safety.py
+│   ├── rpa_automation_engine_system.py
+│   ├── sat_catalog_seed.py
+│   ├── sat_utils.py
+│   ├── security_middleware.py
+│   ├── security_vault.py
+│   ├── service_stack_config.py
+│   ├── split_reconciliation_models.py
+│   ├── split_reconciliation_service.py
+│   ├── status_mappings.py
+│   ├── status_normalizer.py
+│   ├── structured_logger.py
+│   ├── task_dispatcher.py
+│   ├── tenancy_middleware.py
+│   ├── tenant_policies.py
+│   ├── text_cleaner.py
+│   ├── text_normalizer.py
+│   ├── ticket_analyzer.py
+│   ├── unified_auth.py
+│   ├── unified_automation_engine.py
+│   ├── unified_db_adapter.py
+│   ├── universal_bank_patterns.py
+│   ├── universal_invoice_engine_system.py
+│   ├── voice_handler.py
+│   ├── web_automation_engine_system.py
+│   ├── websocket_resilience.py
+│   ├── whatsapp_integration.py
+│   └── worker_system.py
+├── dashboard
+│   ├── components
+│   │   ├── CircularDependencies.jsx
+│   │   ├── Dashboard.jsx
+│   │   ├── FieldTraceability.jsx
+│   │   ├── FunctionalityCard.jsx
+│   │   ├── MissingFieldsPanel.jsx
+│   │   ├── SPOFPanel.jsx
+│   │   └── SystemMetrics.jsx
+│   ├── data
+│   │   └── auditData.json
+│   ├── public
+│   │   └── index.html
+│   ├── src
+│   │   ├── components
+│   │   ├── auditData.json
+│   │   ├── index.css
+│   │   └── index.js
+│   ├── dashboard.js
+│   ├── index.html
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── README.md
+│   └── tailwind.config.js
+├── data
+│   ├── analysis_results
+│   │   ├── coherence_metrics_post_migration.json
+│   │   ├── defined_no_data_analysis.json
+│   │   └── table_audit_results.json
+│   ├── embeddings
+│   │   ├── sat_sentence_transformer
+│   │   ├── sat_sentence_transformer_enriched
+│   │   ├── sat_account_context.json
+│   │   ├── sat_sentence_transformer_metadata.json
+│   │   ├── sat_svd.joblib
+│   │   └── sat_tfidf.joblib
+│   ├── invoice_attachments
+│   ├── sat_catalog
+│   │   ├── Codigo+Agrupador+Anexo+24+RMF+2016.csv
+│   │   ├── Codigo+Agrupador+Anexo+24+RMF+2016.numbers
+│   │   ├── Codigo+Agrupador+Anexo+24+RMF+2016.xlsx
+│   │   ├── codigo_agrupador_clean.csv
+│   │   ├── codigo_agrupadorVF.csv
+│   │   └── codigo_agrupadorVF_clean.csv
+│   ├── codigo_agrupadorVF.numbers
+│   ├── internal.db
+│   ├── mcp_internal.db
+│   ├── mcp_internal.db.backup
+│   ├── migration_risk_assessment.json
+│   ├── unified_mcp_system.db
+│   └── week1_completion_report.json
+├── db
+│   └── schema
+│       └── ContaFlow_DB_v2.dbml
+├── docs
+│   ├── api
+│   │   ├── api_documentation.md
+│   │   └── EXPENSE_ENDPOINTS_GUIDE.md
+│   ├── architecture
+│   │   ├── AI_USAGE_MAPPING.md
+│   │   ├── API_CONVENTIONS.md
+│   │   ├── ARCHITECTURE_ESCALABLE.md
+│   │   ├── architecture_refactor.md
+│   │   ├── AUDIT_TRAIL_IMPLEMENTATION.md
+│   │   ├── FLUJO_OCR_BIDIRECCIONAL.md
+│   │   ├── INTERFACES_Y_ENDPOINTS.md
+│   │   ├── NAMING_CONVENTIONS.md
+│   │   └── REFACTOR_DOCUMENTATION.md
+│   ├── audits
+│   │   ├── AUDITORIA_ATRIBUTOS_FUNCIONALIDAD.md
+│   │   ├── AUDITORIA_COMPLETA_ATRIBUTOS_SISTEMA.md
+│   │   ├── AUDITORIA_DEPENDENCIAS_FUNCIONALES.md
+│   │   ├── AUDITORIA_MAESTRA_SISTEMA_MCP.md
+│   │   ├── AUDITORIA_NAVEGACION_URLs.md
+│   │   ├── AUDITORIA_SISTEMA_GASTOS_2025.md
+│   │   ├── AUDITORIA_SISTEMA_GASTOS_COMPLETA.md
+│   │   ├── AUDITORIA_TECNICA_COMPLETA_2025.md
+│   │   ├── AUDITORIA_TECNICA_INTEGRAL.md
+│   │   ├── METRICAS_COHERENCIA_POST_MIGRACION.md
+│   │   ├── RESPUESTAS_TECNICAS_COMPLETAS.md
+│   │   ├── SCALABILITY_IMPROVEMENTS.md
+│   │   ├── SYSTEM_COHERENCE_AUDIT.md
+│   │   ├── TABLA_AUDIT_DETALLADO.md
+│   │   └── TABLA_AUDIT_EJECUTIVO.md
+│   ├── implementation
+│   │   ├── CLEANUP_SUMMARY.md
+│   │   ├── COHERENCIA_POST_MIGRACION_ANALISIS.md
+│   │   ├── CONCILIACION_AVANZADA_DISEÑO.md
+│   │   ├── ESCALATION_SYSTEM_COMPLETION_REPORT.md
+│   │   ├── EXPENSE_ESCALATION_INTEGRATION.md
+│   │   ├── FLUJO_CONCILIACION_BANCARIA.md
+│   │   ├── IMPLEMENTACION_FINAL_RESUMEN.md
+│   │   ├── IMPLEMENTACION_FLUJO_GASTOS_COMPLETO.md
+│   │   ├── IMPLEMENTATION_SUMMARY.md
+│   │   ├── MULTI_TENANCY_COMPLETE_SUMMARY.md
+│   │   ├── MULTI_TENANCY_IMPLEMENTATION_STATUS.md
+│   │   ├── MULTI_TENANCY_NEXT_STEPS.md
+│   │   ├── MULTI_TENANCY_PHASE2_STATUS.md
+│   │   ├── PLAN_MANANA_GASTOS.md
+│   │   ├── postgresql_migration_plan.md
+│   │   ├── PUNTO_12_MEJORAS_IMPLEMENTADAS.md
+│   │   ├── PUNTO_13_NO_CONCILIACION_IMPLEMENTADO.md
+│   │   ├── PUNTO_14_BULK_INVOICE_MATCHING_IMPLEMENTADO.md
+│   │   ├── PUNTO_15_EXPENSE_COMPLETION_IMPLEMENTADO.md
+│   │   ├── PUNTO_16_CONVERSATIONAL_ASSISTANT_IMPLEMENTADO.md
+│   │   ├── PUNTO_17_RPA_AUTOMATION_ENGINE_IMPLEMENTADO.md
+│   │   ├── PUNTO_18_WEB_AUTOMATION_ENGINE_IMPLEMENTADO.md
+│   │   ├── PUNTO_19_HYBRID_PROCESSOR_IMPLEMENTADO.md
+│   │   ├── PUNTO_20_ROBUST_AUTOMATION_ENGINE_IMPLEMENTADO.md
+│   │   ├── RESUMEN_CONCILIACION_COMPLETA.md
+│   │   └── RESUMEN_IMPLEMENTACION_GASTOS_2025-10-03.md
+│   ├── security
+│   │   ├── COMO_USAR_SEGURIDAD_JWT.md
+│   │   ├── SECURITY_IMPLEMENTATION_COMPLETE.md
+│   │   └── SECURITY_IMPLEMENTATION_SUMMARY.md
+│   ├── sprints
+│   │   ├── SPRINT_1_CARRETAVERDE_REPORT.md
+│   │   ├── SPRINT_1_COMPLETION_REPORT.md
+│   │   ├── SPRINT_2_DEFINED_NO_DATA_ANALYSIS.md
+│   │   ├── SPRINT_2_DEFINED_NO_DATA_REPORT.md
+│   │   ├── SPRINT_2_FASE_1_COMPLETION.md
+│   │   ├── SPRINT_2_FASE_2_COMPLETION.md
+│   │   ├── SPRINT_3A_INTEGRATION_COMPLETION.md
+│   │   └── SPRINT_3B_COMPLETION.md
+│   ├── bank_parser_fixtures.md
+│   ├── DB_AUDIT.md
+│   ├── DESIGN_VALIDATION.md
+│   ├── fiscal_pipeline.md
+│   └── ui-components.md
+├── examples
+│   ├── complete_automation_flow.py
+│   ├── complete_expense_examples.py
+│   ├── cost_optimized_flow_example.py
+│   ├── gpt_vision_validation_example.py
+│   ├── test_audio.mp3
+│   └── voice_test_example.py
+├── migrations
+│   ├── sqlite
+│   │   ├── 2025_10_12_add_ai_context_memory.sql
+│   │   ├── 2025_10_12_add_bank_context_columns.sql
+│   │   └── 2025_10_12_add_user_onboarding_flag.sql
+│   ├── 001_add_expense_fields.sql
+│   ├── 001_advanced_invoicing_system.sql
+│   ├── 002_add_invoice_fields.sql
+│   ├── 003_add_automation_fields.sql
+│   ├── 004_add_analytics_fields.sql
+│   ├── 005_expense_actions_audit.sql
+│   ├── 006_add_non_reconciliation.sql
+│   ├── 007_add_bulk_invoice_processing.sql
+│   ├── 008_add_expense_completion_system.sql
+│   ├── 009_add_conversational_assistant_system.sql
+│   ├── 009_automation_engine_20240921.sql
+│   ├── 010_add_rpa_automation_engine_system.sql
+│   ├── 010_enhance_automation_20240922.sql
+│   ├── 011_add_web_automation_engine_system.sql
+│   ├── 012_add_hybrid_processor_system.sql
+│   ├── 013_add_robust_automation_engine_system.sql
+│   ├── 014_add_universal_invoice_engine_system.sql
+│   ├── 015_add_user_payment_accounts.sql
+│   ├── 016_refactor_payment_accounts_tipo_subtipo.sql
+│   ├── 017_add_banking_fields.sql
+│   ├── 018_add_banking_institutions.sql
+│   ├── 019_add_bank_statements.sql
+│   ├── 020_enhance_bank_movements.sql
+│   ├── 021_add_advanced_reconciliation.sql
+│   ├── 021_add_tenant_to_employee_advances.sql
+│   ├── 021_add_users_and_permissions.sql
+│   ├── 022_add_tenant_to_splits.sql
+│   ├── 023_add_tenant_to_logs.sql
+│   ├── 024_add_tenant_to_keep_tables.sql
+│   ├── 025_add_missing_tenant_id.sql
+│   ├── 026_add_sat_catalogs.sql
+│   ├── 027_fix_payment_accounts_migration.sql
+│   ├── 028_add_tenant_to_employee_advances.sql
+│   ├── 029_update_users_for_auth.sql
+│   ├── 030_migrate_to_payment_account_id.sql
+│   ├── 031_cleanup_unused_tables.sql
+│   ├── 032_complete_expense_requirements.sql
+│   ├── 033_fiscal_pipeline_v1.sql
+│   ├── 033_remove_obsolete_tables.sql
+│   ├── 034_expense_ticket_escalation.sql
+│   ├── 2025_10_12_add_ai_context_memory.sql
+│   ├── 2025_10_12_add_review_status_to_transactions.sql
+│   ├── 2025_10_13_create_polizas_tables.sql
+│   ├── 2025_10_20_conciliation_enhancements.sql
+│   ├── db_performance_optimization.sql
+│   ├── env.py
+│   ├── run_all_migrations.sql
+│   └── unified_add_missing_fields.sql
+├── modules
+│   └── invoicing_agent
+│       ├── services
+│       ├── __init__.py
+│       ├── api.py
+│       ├── automation_persistence.py
+│       ├── enhanced_api.py
+│       ├── fastapi_integration.py
+│       ├── fiscal_data.py
+│       ├── gemini_computer_use_engine.py
+│       ├── integration_layer.py
+│       ├── invoicing_agent.db
+│       ├── models.py
+│       ├── ocr_service.py
+│       ├── playwright_automation_engine.py
+│       ├── playwright_engine.py
+│       ├── playwright_robust_engine.py
+│       ├── playwright_simple_engine.py
+│       ├── portal_templates.py
+│       ├── queue_manager.py
+│       ├── robust_automation_engine.py
+│       ├── state_machine.py
+│       ├── ticket_processor.py
+│       ├── universal_invoice_engine.py
+│       ├── web_automation.py
+│       └── worker.py
+├── postgresql_migration
+│   ├── docker-compose.yml
+│   ├── export_data.py
+│   ├── import_to_postgresql.py
+│   ├── postgresql_schema.sql
+│   └── README.md
+├── prompts
+│   └── llm_bank_parser.txt
+├── rules
+│   └── banks
+│       ├── bbva.json
+│       ├── inbursa.json
+│       └── README.md
+├── screenshots
+│   ├── after_submit_20250920_123553.png
+│   ├── after_submit_20250920_124637.png
+│   ├── after_submit_20250920_125625.png
+│   ├── after_submit_20250920_125947.png
+│   ├── after_submit_20250920_135951.png
+│   ├── after_submit_20250920_141343.png
+│   ├── after_submit_20250920_203516.png
+│   ├── after_submit_20250921_001948.png
+│   ├── after_submit_20250921_002013.png
+│   ├── after_submit_20250921_003641.png
+│   ├── after_submit_20250921_010842.png
+│   ├── before_submit_20250920_112832.png
+│   ├── before_submit_20250920_113144.png
+│   ├── before_submit_20250920_123357.png
+│   ├── before_submit_20250920_123550.png
+│   ├── before_submit_20250920_124634.png
+│   ├── before_submit_20250920_125622.png
+│   ├── before_submit_20250920_125943.png
+│   ├── before_submit_20250920_135947.png
+│   ├── before_submit_20250920_141052.png
+│   ├── before_submit_20250920_141221.png
+│   ├── before_submit_20250920_141340.png
+│   ├── before_submit_20250920_203512.png
+│   ├── before_submit_20250921_001944.png
+│   ├── before_submit_20250921_002010.png
+│   ├── before_submit_20250921_003638.png
+│   ├── before_submit_20250921_010838.png
+│   ├── carnes_asadas_pipiolo_20250920_110354.png
+│   ├── carnes_asadas_pipiolo_20250920_110956.png
+│   ├── carnes_asadas_pipiolo_20250920_111302.png
+│   ├── carnes_asadas_pipiolo_20250920_112217.png
+│   ├── carnes_asadas_pipiolo_20250920_112229.png
+│   ├── carnes_asadas_pipiolo_20250920_112307.png
+│   ├── carnes_asadas_pipiolo_20250920_112825.png
+│   ├── carnes_asadas_pipiolo_20250920_112829.png
+│   ├── carnes_asadas_pipiolo_20250920_113142.png
+│   ├── carnes_asadas_pipiolo_20250920_113651.png
+│   ├── carnes_asadas_pipiolo_20250920_114618.png
+│   ├── debug_form_filled.png
+│   ├── dynamic_capture_1758493259_0.png
+│   ├── dynamic_capture_1758493262_1.png
+│   ├── dynamic_capture_1758493265_2.png
+│   ├── dynamic_capture_1758493269_3.png
+│   ├── gasolineria_litro_mil_20250921_010821.png
+│   ├── gasolineria_litro_mil_s.a._76087_de_c.v._20250920_122009.png
+│   ├── gasolineria_litro_mil_s.a._76087_de_c.v._20250920_122711.png
+│   ├── gasolineria_litro_mil_s.a._76087_de_c.v._20250920_124616.png
+│   ├── gasolineria_litro_mil_s.a._76087_de_c.v._20250920_125603.png
+│   ├── gasolineria_litro_mil_s.a._76087_de_c.v._20250920_125924.png
+│   ├── gasolineria_litro_mil_s.a._de_c._v._20250920_203453.png
+│   ├── gasolineria_litro_mil_s.a._de_c._v._20250921_001927.png
+│   ├── gasolineria_litro_mil_s.a._de_c._v._20250921_001953.png
+│   ├── gasolineria_litro_mil_s.a._de_c._v._20250921_003613.png
+│   ├── gasolineria_litro_mil_s.a._de_c._v._20250921_113058.png
+│   ├── gasolineria_litro_mil_s.a._de_c._v._20250921_113134.png
+│   ├── gasolineria_litro_mil_s.a._de_c._v._20250921_113155.png
+│   ├── gasolineria_litro_mil_s.a._de_c._v._20250921_114314.png
+│   ├── gasolineria_litro_mil_s.a._de_c._v._20250921_114352.png
+│   ├── gasolineria_litro_mil_s.a._de_c._v._20250921_114410.png
+│   ├── gasolineria_litro_mil_s.a._de_c._v._20250921_114427.png
+│   ├── gasolineria_litro_mil_s.a._de_c._v._20250921_114705.png
+│   ├── gasolineria_litro_mil_s.a._de_c._v._20250921_155932.png
+│   ├── gasolineria_litro_mil_s.a._de_c._v._20250921_160054.png
+│   ├── gasolineria_litro_mil_s.a._de_c._v._20250924_125648.png
+│   ├── gasolineria_litro_mil_s.a._de_c._v._20250924_135153.png
+│   ├── gasolineria_litro_mil_s.a._de_c.v._20250920_114837.png
+│   ├── gasolineria_litro_mil_s.a._de_c.v._20250920_115544.png
+│   ├── gasolineria_litro_mil_s.a._de_c.v._20250920_115829.png
+│   ├── gasolineria_litro_mil_s.a._de_c.v._20250920_120851.png
+│   ├── gasolineria_litro_mil_s.a._de_c.v._20250920_122608.png
+│   ├── gasolineria_litro_mil_s.a._de_c.v._20250920_123016.png
+│   ├── gasolineria_litro_mil_s.a._de_c.v._20250920_123205.png
+│   ├── gasolineria_litro_mil_s.a._de_c.v._20250920_123347.png
+│   ├── gasolineria_litro_mil_s.a._de_c.v._20250920_123540.png
+│   ├── google_20250920_104004.png
+│   ├── lineria_liteo_leerain_20250920_141203.png
+│   ├── lineria_liteo_leerain_20250920_141321.png
+│   ├── litromil_20250920_120229.png
+│   ├── litromil_20250920_120439.png
+│   ├── litromil_20250920_120628.png
+│   ├── litromil_20250920_121055.png
+│   ├── litromil_20250920_135928.png
+│   ├── litromil_20250920_141032.png
+│   ├── litromil_20250921_161821.png
+│   ├── litromil_portal_20250920_120718.png
+│   ├── litromil_portal_20250920_121137.png
+│   ├── litromil_portal_20250920_121250.png
+│   ├── litromil_portal_20250920_121408.png
+│   ├── litromil_portal_20250920_121438.png
+│   ├── litromil_portal_20250920_121458.png
+│   ├── litromil_portal_20250920_121709.png
+│   └── pemex_20250921_164227.png
+├── scripts
+│   ├── analysis
+│   │   ├── analizar_lineas_partidas.py
+│   │   ├── analizar_tablas_duplicadas.py
+│   │   ├── analyze_defined_no_data.py
+│   │   ├── analyze_missing_refs.py
+│   │   ├── audit_tables.py
+│   │   ├── compare_july_december.py
+│   │   ├── compare_references.py
+│   │   ├── dashboard_stats_calculator.py
+│   │   ├── expense_summary.py
+│   │   ├── resumen_parsing_simple.py
+│   │   ├── validacion_exhaustiva.py
+│   │   ├── validar_transacciones_correctamente.py
+│   │   ├── ver_chunks_completo.py
+│   │   ├── ver_chunks_extraidos.py
+│   │   ├── ver_chunks_simple.py
+│   │   └── ver_texto_llm.py
+│   ├── debug
+│   │   ├── check_openai_usage.py
+│   │   ├── debug_chunking.py
+│   │   ├── debug_december_text.py
+│   │   ├── debug_deduplication.py
+│   │   ├── debug_final_4_transactions.py
+│   │   ├── debug_llm_chunks.py
+│   │   ├── debug_llm_interpretation.py
+│   │   ├── debug_mejor_futuro_dom.py
+│   │   ├── debug_parsing_actual.py
+│   │   ├── debug_pattern_assignment.py
+│   │   ├── debug_pdf.py
+│   │   ├── debug_portal_url.py
+│   │   ├── debug_reference_analysis.py
+│   │   ├── debug_text_cleaner.py
+│   │   ├── debug_text_content.py
+│   │   ├── debug_transaction_flow.py
+│   │   ├── debug_transaction_loss.py
+│   │   ├── debug_ui_complete.py
+│   │   ├── final_ui_test.py
+│   │   ├── guardar_chunks_llm.py
+│   │   ├── identificar_y_agregar_faltantes.py
+│   │   └── test_expense.py
+│   ├── integrations
+│   │   ├── claude_integration.py
+│   │   ├── dynamic_page_handler.py
+│   │   ├── enhanced_web_automation.py
+│   │   └── state_machine_integration.py
+│   ├── maintenance
+│   │   ├── apply_intelligent_categorization.py
+│   │   ├── apply_production_improvements.py
+│   │   ├── calculate_running_balances.py
+│   │   ├── cleanup_dead_code.py
+│   │   ├── corregir_transacciones_final.py
+│   │   ├── fix_balance_order.py
+│   │   ├── fix_gasoline_expense.py
+│   │   ├── fix_initial_balance_order.py
+│   │   ├── fix_telmex_description.py
+│   │   ├── fix_transaction_dates.py
+│   │   ├── fix_user_password.py
+│   │   ├── force_llm_december_processing.py
+│   │   ├── improve_existing_descriptions.py
+│   │   ├── reprocess_december_fixed.py
+│   │   ├── reprocess_latest_pdf.py
+│   │   ├── reprocess_pdf.py
+│   │   ├── reset_and_migrate_db.py
+│   │   ├── reset_database.py
+│   │   ├── reset_database_auto.py
+│   │   ├── reset_user_password.py
+│   │   └── safe_production_processor.py
+│   ├── migration
+│   │   ├── add_bank_movements_endpoint.py
+│   │   ├── add_categories_to_existing.py
+│   │   ├── add_llm_analysis_column.py
+│   │   ├── migrate_bank_movements_to_correct_table.py
+│   │   ├── migrate_bank_to_expenses.py
+│   │   ├── migrate_databases.py
+│   │   ├── migrate_invoice_system.py
+│   │   ├── migrate_tickets_table.py
+│   │   └── migrate_to_postgresql.py
+│   ├── utilities
+│   │   ├── backup_system.py
+│   │   ├── create_food_expense.py
+│   │   ├── create_test_audio.py
+│   │   ├── extract_pdf_balances.py
+│   │   ├── extract_pdf_balances_v2.py
+│   │   ├── extraer_y_validar_pdf_real.py
+│   │   ├── generate_test_data.py
+│   │   ├── parse_and_save.py
+│   │   ├── parse_with_llm.py
+│   │   ├── parse_with_robust.py
+│   │   ├── recalculate_all_balances.py
+│   │   ├── run_all_tests.py
+│   │   ├── run_migrations.py
+│   │   ├── save_december_transactions.py
+│   │   ├── simple_backup.py
+│   │   ├── upload_pdf.py
+│   │   ├── validador_fechas_pdf.py
+│   │   ├── validate_schema.py
+│   │   ├── validate_system.py
+│   │   └── verify_clean_database.py
+│   ├── apply_conciliation_migration.py
+│   ├── apply_migration_009.py
+│   ├── apply_migration_simple.py
+│   ├── build_sat_embeddings.py
+│   ├── build_sat_embeddings_dense.py
+│   ├── check_bank_reconciliation.py
+│   ├── clean_sat_csv.py
+│   ├── cleanup_legacy_expenses.py
+│   ├── cleanup_stale_placeholders.py
+│   ├── crontab.example
+│   ├── demo_insert_expense.py
+│   ├── deploy_v2_gradual.py
+│   ├── fix_foreign_key_violations.py
+│   ├── ia_metrics_report.py
+│   ├── import_sat_catalogs.py
+│   ├── migrate.py
+│   ├── migration_risk_assessment.py
+│   ├── monitor_automation_health.py
+│   ├── reconcile_schema_context.py
+│   ├── run_bank_parser_suite.py
+│   ├── update-bank-entry-version.js
+│   ├── update-landing-entry-version.js
+│   ├── update-voice-entry-version.js
+│   ├── update_tenant_policies.py
+│   ├── validate_migration_009.py
+│   ├── verify_schema_diff.py
+│   └── week1_completion_report.py
+├── static
+│   ├── automation_screenshots
+│   │   ├── navigate_2_1758774723.png
+│   │   ├── navigate_2_1758774758.png
+│   │   ├── pw_step1_initial_1758774167.png
+│   │   ├── pw_step1_initial_1758774217.png
+│   │   ├── pw_step1_initial_1758774265.png
+│   │   ├── pw_step1_initial_1758774284.png
+│   │   ├── pw_step1_initial_1758774300.png
+│   │   ├── pw_step1_initial_1758774394.png
+│   │   ├── pw_step2_after_click_1758774167.png
+│   │   ├── pw_step2_after_click_1758774218.png
+│   │   ├── pw_step2_after_click_1758774266.png
+│   │   ├── pw_step2_after_click_1758774285.png
+│   │   ├── pw_step2_after_click_1758774301.png
+│   │   ├── pw_step2_after_click_1758774395.png
+│   │   ├── pw_step3_final_1758774222.png
+│   │   ├── pw_step3_final_1758774270.png
+│   │   ├── pw_step3_final_1758774289.png
+│   │   ├── pw_step3_final_1758774305.png
+│   │   ├── pw_step3_final_1758774400.png
+│   │   ├── step_10_fallback_1758589604.png
+│   │   ├── step_10_fallback_1758590537.png
+│   │   ├── step_10_fallback_1758590655.png
+│   │   ├── step_10_search_elements_1758770006.png
+│   │   ├── step_10_search_elements_1758770079.png
+│   │   ├── step_10_search_elements_1758770437.png
+│   │   ├── step_11_search_elements_1758770006.png
+│   │   ├── step_11_search_elements_1758770079.png
+│   │   ├── step_11_search_elements_1758770437.png
+│   │   ├── step_12_search_elements_1758770006.png
+│   │   ├── step_12_search_elements_1758770079.png
+│   │   ├── step_12_search_elements_1758770437.png
+│   │   ├── step_13_search_elements_1758770006.png
+│   │   ├── step_13_search_elements_1758770080.png
+│   │   ├── step_13_search_elements_1758770437.png
+│   │   ├── step_1_initial_navigation_1758773977.png
+│   │   ├── step_1_initial_navigation_1758773996.png
+│   │   ├── step_1_initial_navigation_1758774054.png
+│   │   ├── step_1_search_elements_1758589600.png
+│   │   ├── step_1_search_elements_1758589898.png
+│   │   ├── step_1_search_elements_1758589908.png
+│   │   ├── step_1_search_elements_1758589949.png
+│   │   ├── step_1_search_elements_1758590408.png
+│   │   ├── step_1_search_elements_1758590530.png
+│   │   ├── step_1_search_elements_1758590649.png
+│   │   ├── step_1_search_elements_1758590709.png
+│   │   ├── step_1_search_elements_1758751997.png
+│   │   ├── step_1_search_elements_1758752015.png
+│   │   ├── step_1_search_elements_1758752152.png
+│   │   ├── step_1_search_elements_1758752370.png
+│   │   ├── step_1_search_elements_1758752387.png
+│   │   ├── step_1_search_elements_1758752851.png
+│   │   ├── step_1_search_elements_1758753030.png
+│   │   ├── step_1_search_elements_1758753176.png
+│   │   ├── step_1_search_elements_1758753192.png
+│   │   ├── step_1_search_elements_1758753808.png
+│   │   ├── step_1_search_elements_1758763301.png
+│   │   ├── step_1_search_elements_1758763722.png
+│   │   ├── step_1_search_elements_1758763962.png
+│   │   ├── step_1_search_elements_1758764098.png
+│   │   ├── step_1_search_elements_1758764137.png
+│   │   ├── step_1_search_elements_1758764162.png
+│   │   ├── step_1_search_elements_1758765669.png
+│   │   ├── step_1_search_elements_1758768758.png
+│   │   ├── step_1_search_elements_1758768898.png
+│   │   ├── step_1_search_elements_1758769118.png
+│   │   ├── step_1_search_elements_1758769369.png
+│   │   ├── step_1_search_elements_1758769437.png
+│   │   ├── step_1_search_elements_1758769679.png
+│   │   ├── step_1_search_elements_1758769920.png
+│   │   ├── step_1_search_elements_1758769997.png
+│   │   ├── step_1_search_elements_1758770067.png
+│   │   ├── step_1_search_elements_1758770246.png
+│   │   ├── step_1_search_elements_1758770316.png
+│   │   ├── step_1_search_elements_1758770429.png
+│   │   ├── step_1_search_elements_1758770558.png
+│   │   ├── step_1_search_elements_1758770668.png
+│   │   ├── step_1_search_elements_1758770733.png
+│   │   ├── step_1_search_elements_1758770795.png
+│   │   ├── step_1_search_elements_1758770822.png
+│   │   ├── step_1_search_elements_1758771161.png
+│   │   ├── step_1_search_elements_1758771351.png
+│   │   ├── step_1_search_elements_1758771782.png
+│   │   ├── step_1_search_elements_1758771967.png
+│   │   ├── step_1_search_elements_1758772160.png
+│   │   ├── step_1_search_elements_1758773005.png
+│   │   ├── step_1_search_elements_1758773884.png
+│   │   ├── step_1_search_elements_1758774374.png
+│   │   ├── step_1_search_elements_1758774746.png
+│   │   ├── step_1_search_elements_1758775131.png
+│   │   ├── step_1_search_elements_1758775155.png
+│   │   ├── step_2_after_click_1758774054.png
+│   │   ├── step_2_before_click_1758774054.png
+│   │   ├── step_2_search_elements_1758589603.png
+│   │   ├── step_2_search_elements_1758589902.png
+│   │   ├── step_2_search_elements_1758589911.png
+│   │   ├── step_2_search_elements_1758589953.png
+│   │   ├── step_2_search_elements_1758590412.png
+│   │   ├── step_2_search_elements_1758590533.png
+│   │   ├── step_2_search_elements_1758590653.png
+│   │   ├── step_2_search_elements_1758590712.png
+│   │   ├── step_2_search_elements_1758765672.png
+│   │   ├── step_2_search_elements_1758768761.png
+│   │   ├── step_2_search_elements_1758768901.png
+│   │   ├── step_2_search_elements_1758769121.png
+│   │   ├── step_2_search_elements_1758769372.png
+│   │   ├── step_2_search_elements_1758769441.png
+│   │   ├── step_2_search_elements_1758769682.png
+│   │   ├── step_2_search_elements_1758769923.png
+│   │   ├── step_2_search_elements_1758770000.png
+│   │   ├── step_2_search_elements_1758770071.png
+│   │   ├── step_2_search_elements_1758770249.png
+│   │   ├── step_2_search_elements_1758770320.png
+│   │   ├── step_2_search_elements_1758770432.png
+│   │   ├── step_2_search_elements_1758770561.png
+│   │   ├── step_2_search_elements_1758770672.png
+│   │   ├── step_2_search_elements_1758770736.png
+│   │   ├── step_2_search_elements_1758770799.png
+│   │   ├── step_2_search_elements_1758770825.png
+│   │   ├── step_2_search_elements_1758771165.png
+│   │   ├── step_2_search_elements_1758771354.png
+│   │   ├── step_2_search_elements_1758771786.png
+│   │   ├── step_2_search_elements_1758771971.png
+│   │   ├── step_2_search_elements_1758772163.png
+│   │   ├── step_2_search_elements_1758773009.png
+│   │   ├── step_2_search_elements_1758773887.png
+│   │   ├── step_2_search_elements_1758774377.png
+│   │   ├── step_2_search_elements_1758774749.png
+│   │   ├── step_2_search_elements_1758775134.png
+│   │   ├── step_2_search_elements_1758775159.png
+│   │   ├── step_3_handle_tab_1758589957.png
+│   │   ├── step_3_search_elements_1758589603.png
+│   │   ├── step_3_search_elements_1758589902.png
+│   │   ├── step_3_search_elements_1758589912.png
+│   │   ├── step_3_search_elements_1758590412.png
+│   │   ├── step_3_search_elements_1758590533.png
+│   │   ├── step_3_search_elements_1758590653.png
+│   │   ├── step_3_search_elements_1758590712.png
+│   │   ├── step_3_search_elements_1758765673.png
+│   │   ├── step_3_search_elements_1758768761.png
+│   │   ├── step_3_search_elements_1758768901.png
+│   │   ├── step_3_search_elements_1758769121.png
+│   │   ├── step_3_search_elements_1758769372.png
+│   │   ├── step_3_search_elements_1758769441.png
+│   │   ├── step_3_search_elements_1758769682.png
+│   │   ├── step_3_search_elements_1758769923.png
+│   │   ├── step_3_search_elements_1758770000.png
+│   │   ├── step_3_search_elements_1758770071.png
+│   │   ├── step_3_search_elements_1758770249.png
+│   │   ├── step_3_search_elements_1758770320.png
+│   │   ├── step_3_search_elements_1758770432.png
+│   │   ├── step_3_search_elements_1758770561.png
+│   │   ├── step_3_search_elements_1758770672.png
+│   │   ├── step_3_search_elements_1758770736.png
+│   │   ├── step_3_search_elements_1758770799.png
+│   │   ├── step_3_search_elements_1758770825.png
+│   │   ├── step_3_search_elements_1758771165.png
+│   │   ├── step_3_search_elements_1758771355.png
+│   │   ├── step_3_search_elements_1758771786.png
+│   │   ├── step_3_search_elements_1758771971.png
+│   │   ├── step_3_search_elements_1758772164.png
+│   │   ├── step_3_search_elements_1758773009.png
+│   │   ├── step_3_search_elements_1758773888.png
+│   │   ├── step_3_search_elements_1758774377.png
+│   │   ├── step_3_search_elements_1758774749.png
+│   │   ├── step_3_search_elements_1758775135.png
+│   │   ├── step_3_search_elements_1758775159.png
+│   │   ├── step_4_click_header_1758589957.png
+│   │   ├── step_4_search_elements_1758589603.png
+│   │   ├── step_4_search_elements_1758589902.png
+│   │   ├── step_4_search_elements_1758589912.png
+│   │   ├── step_4_search_elements_1758590412.png
+│   │   ├── step_4_search_elements_1758590533.png
+│   │   ├── step_4_search_elements_1758590653.png
+│   │   ├── step_4_search_elements_1758590712.png
+│   │   ├── step_4_search_elements_1758765673.png
+│   │   ├── step_4_search_elements_1758768761.png
+│   │   ├── step_4_search_elements_1758768901.png
+│   │   ├── step_4_search_elements_1758769121.png
+│   │   ├── step_4_search_elements_1758769372.png
+│   │   ├── step_4_search_elements_1758769442.png
+│   │   ├── step_4_search_elements_1758769682.png
+│   │   ├── step_4_search_elements_1758769923.png
+│   │   ├── step_4_search_elements_1758770000.png
+│   │   ├── step_4_search_elements_1758770072.png
+│   │   ├── step_4_search_elements_1758770249.png
+│   │   ├── step_4_search_elements_1758770321.png
+│   │   ├── step_4_search_elements_1758770432.png
+│   │   ├── step_4_search_elements_1758770561.png
+│   │   ├── step_4_search_elements_1758770673.png
+│   │   ├── step_4_search_elements_1758770736.png
+│   │   ├── step_4_search_elements_1758770800.png
+│   │   ├── step_4_search_elements_1758770825.png
+│   │   ├── step_4_search_elements_1758771166.png
+│   │   ├── step_4_search_elements_1758771355.png
+│   │   ├── step_4_search_elements_1758771787.png
+│   │   ├── step_4_search_elements_1758771972.png
+│   │   ├── step_4_search_elements_1758772164.png
+│   │   ├── step_4_search_elements_1758773010.png
+│   │   ├── step_4_search_elements_1758773888.png
+│   │   ├── step_4_search_elements_1758774377.png
+│   │   ├── step_4_search_elements_1758774749.png
+│   │   ├── step_4_search_elements_1758775135.png
+│   │   ├── step_4_search_elements_1758775159.png
+│   │   ├── step_5_handle_tab_1758765676.png
+│   │   ├── step_5_handle_tab_1758768763.png
+│   │   ├── step_5_handle_tab_1758768903.png
+│   │   ├── step_5_handle_tab_1758769123.png
+│   │   ├── step_5_handle_tab_1758769374.png
+│   │   ├── step_5_handle_tab_1758769444.png
+│   │   ├── step_5_handle_tab_1758769685.png
+│   │   ├── step_5_handle_tab_1758769925.png
+│   │   ├── step_5_handle_tab_1758770003.png
+│   │   ├── step_5_handle_tab_1758770074.png
+│   │   ├── step_5_handle_tab_1758770251.png
+│   │   ├── step_5_handle_tab_1758770323.png
+│   │   ├── step_5_handle_tab_1758770434.png
+│   │   ├── step_5_handle_tab_1758770563.png
+│   │   ├── step_5_handle_tab_1758770675.png
+│   │   ├── step_5_handle_tab_1758770738.png
+│   │   ├── step_5_handle_tab_1758770802.png
+│   │   ├── step_5_handle_tab_1758770827.png
+│   │   ├── step_5_handle_tab_1758771168.png
+│   │   ├── step_5_handle_tab_1758771358.png
+│   │   ├── step_5_handle_tab_1758771789.png
+│   │   ├── step_5_handle_tab_1758771974.png
+│   │   ├── step_5_handle_tab_1758772167.png
+│   │   ├── step_5_handle_tab_1758773012.png
+│   │   ├── step_5_handle_tab_1758773891.png
+│   │   ├── step_5_handle_tab_1758774380.png
+│   │   ├── step_5_handle_tab_1758774751.png
+│   │   ├── step_5_handle_tab_1758775138.png
+│   │   ├── step_5_handle_tab_1758775161.png
+│   │   ├── step_5_search_elements_1758589603.png
+│   │   ├── step_5_search_elements_1758589902.png
+│   │   ├── step_5_search_elements_1758589912.png
+│   │   ├── step_5_search_elements_1758590412.png
+│   │   ├── step_5_search_elements_1758590534.png
+│   │   ├── step_5_search_elements_1758590653.png
+│   │   ├── step_5_search_elements_1758590712.png
+│   │   ├── step_6_click_hero_1758765676.png
+│   │   ├── step_6_click_hero_1758768763.png
+│   │   ├── step_6_click_hero_1758768903.png
+│   │   ├── step_6_click_hero_1758769123.png
+│   │   ├── step_6_click_hero_1758769374.png
+│   │   ├── step_6_click_hero_1758769444.png
+│   │   ├── step_6_click_hero_1758769685.png
+│   │   ├── step_6_click_hero_1758769925.png
+│   │   ├── step_6_click_hero_1758770003.png
+│   │   ├── step_6_click_hero_1758770075.png
+│   │   ├── step_6_click_hero_1758770251.png
+│   │   ├── step_6_click_hero_1758770324.png
+│   │   ├── step_6_click_hero_1758770435.png
+│   │   ├── step_6_click_hero_1758770563.png
+│   │   ├── step_6_click_hero_1758770675.png
+│   │   ├── step_6_click_hero_1758770738.png
+│   │   ├── step_6_click_hero_1758770803.png
+│   │   ├── step_6_click_hero_1758770827.png
+│   │   ├── step_6_click_hero_1758771169.png
+│   │   ├── step_6_click_hero_1758771358.png
+│   │   ├── step_6_click_hero_1758771789.png
+│   │   ├── step_6_click_hero_1758771974.png
+│   │   ├── step_6_click_hero_1758772167.png
+│   │   ├── step_6_click_hero_1758773013.png
+│   │   ├── step_6_click_hero_1758773891.png
+│   │   ├── step_6_click_hero_1758774380.png
+│   │   ├── step_6_click_hero_1758774751.png
+│   │   ├── step_6_click_hero_1758775138.png
+│   │   ├── step_6_click_hero_1758775161.png
+│   │   ├── step_6_search_elements_1758589603.png
+│   │   ├── step_6_search_elements_1758589902.png
+│   │   ├── step_6_search_elements_1758589912.png
+│   │   ├── step_6_search_elements_1758590412.png
+│   │   ├── step_6_search_elements_1758590534.png
+│   │   ├── step_6_search_elements_1758590653.png
+│   │   ├── step_6_search_elements_1758590712.png
+│   │   ├── step_7_fallback_1758765676.png
+│   │   ├── step_7_llm_decision_1758770006.png
+│   │   ├── step_7_llm_decision_1758770078.png
+│   │   ├── step_7_llm_decision_1758770254.png
+│   │   ├── step_7_llm_decision_1758770327.png
+│   │   ├── step_7_llm_decision_1758770437.png
+│   │   ├── step_7_llm_decision_1758770566.png
+│   │   ├── step_7_llm_decision_1758770679.png
+│   │   ├── step_7_llm_decision_1758770741.png
+│   │   ├── step_7_llm_decision_1758770806.png
+│   │   ├── step_7_llm_decision_1758770830.png
+│   │   ├── step_7_llm_decision_1758771171.png
+│   │   ├── step_7_llm_decision_1758771361.png
+│   │   ├── step_7_llm_decision_1758771792.png
+│   │   ├── step_7_llm_decision_1758771978.png
+│   │   ├── step_7_llm_decision_1758772170.png
+│   │   ├── step_7_llm_decision_1758773016.png
+│   │   ├── step_7_llm_decision_1758773894.png
+│   │   ├── step_7_llm_decision_1758774382.png
+│   │   ├── step_7_llm_decision_1758774754.png
+│   │   ├── step_7_llm_decision_1758775141.png
+│   │   ├── step_7_llm_decision_1758775163.png
+│   │   ├── step_7_search_elements_1758589603.png
+│   │   ├── step_7_search_elements_1758589902.png
+│   │   ├── step_7_search_elements_1758589912.png
+│   │   ├── step_7_search_elements_1758590412.png
+│   │   ├── step_7_search_elements_1758590534.png
+│   │   ├── step_7_search_elements_1758590653.png
+│   │   ├── step_7_search_elements_1758590713.png
+│   │   ├── step_8_llm_decision_1758589604.png
+│   │   ├── step_8_llm_decision_1758589906.png
+│   │   ├── step_8_llm_decision_1758589915.png
+│   │   ├── step_8_llm_decision_1758590416.png
+│   │   ├── step_8_llm_decision_1758590536.png
+│   │   ├── step_8_llm_decision_1758590655.png
+│   │   ├── step_8_llm_decision_1758590715.png
+│   │   ├── step_8_llm_decision_1758770255.png
+│   │   ├── step_8_llm_decision_1758770566.png
+│   │   ├── step_8_llm_decision_1758770806.png
+│   │   ├── step_8_llm_decision_1758770830.png
+│   │   ├── step_8_llm_decision_1758771361.png
+│   │   ├── step_8_llm_decision_1758772171.png
+│   │   ├── step_8_llm_decision_1758773016.png
+│   │   ├── step_8_llm_decision_1758773894.png
+│   │   ├── step_8_llm_decision_1758774382.png
+│   │   ├── step_8_llm_decision_1758774754.png
+│   │   ├── step_8_llm_decision_1758775141.png
+│   │   ├── step_8_llm_decision_1758775163.png
+│   │   ├── step_8_search_elements_1758770006.png
+│   │   ├── step_8_search_elements_1758770078.png
+│   │   ├── step_8_search_elements_1758770437.png
+│   │   ├── step_9_fallback_1758589906.png
+│   │   ├── step_9_fallback_1758589915.png
+│   │   ├── step_9_fallback_1758590417.png
+│   │   ├── step_9_fallback_1758590536.png
+│   │   ├── step_9_fallback_1758590655.png
+│   │   ├── step_9_fallback_1758590715.png
+│   │   ├── step_9_llm_decision_1758589604.png
+│   │   ├── step_9_search_elements_1758770006.png
+│   │   ├── step_9_search_elements_1758770078.png
+│   │   ├── step_9_search_elements_1758770437.png
+│   │   ├── ticket_233_1760420326_00_initial.png
+│   │   ├── ticket_233_1760420739_00_initial.png
+│   │   ├── ticket_233_1760420864_00_initial.png
+│   │   ├── ticket_233_1760421120_00_initial.png
+│   │   ├── ticket_233_1760421120_00_open_web_browser.png
+│   │   ├── ticket_233_1760421585_00_initial.png
+│   │   ├── ticket_233_1760421585_00_open_web_browser.png
+│   │   ├── ticket_233_1760421793_00_initial.png
+│   │   ├── ticket_233_1760421793_00_open_web_browser.png
+│   │   ├── ticket_233_1760421793_01_click_at.png
+│   │   ├── ticket_233_1760421793_02_click_at.png
+│   │   ├── ticket_233_1760421793_03_click_at.png
+│   │   ├── ticket_233_1760421793_04_navigate.png
+│   │   ├── ticket_233_1760421793_05_go_back.png
+│   │   ├── ticket_233_1760421793_06_error_navigate.png
+│   │   ├── ticket_233_1760421793_07_go_back.png
+│   │   ├── ticket_233_1760421793_08_navigate.png
+│   │   ├── ticket_233_1760421793_09_error_search.png
+│   │   ├── ticket_233_1760421793_10_navigate.png
+│   │   ├── ticket_233_1760421793_11_type_text_at.png
+│   │   ├── ticket_233_1760421793_12_type_text_at.png
+│   │   ├── ticket_233_1760421793_13_type_text_at.png
+│   │   ├── ticket_233_1760422008_00_initial.png
+│   │   ├── ticket_233_1760422008_00_open_web_browser.png
+│   │   ├── ticket_233_1760422008_01_click_at.png
+│   │   ├── ticket_233_1760422008_02_scroll_document.png
+│   │   ├── ticket_233_1760422008_03_type_text_at.png
+│   │   ├── ticket_233_1760422008_04_type_text_at.png
+│   │   ├── ticket_233_1760422008_05_type_text_at.png
+│   │   ├── ticket_233_1760422008_06_click_at.png
+│   │   ├── ticket_233_1760422008_07_go_back.png
+│   │   ├── ticket_233_1760422008_08_click_at.png
+│   │   ├── ticket_233_1760422008_09_go_back.png
+│   │   ├── ticket_233_1760422008_10_click_at.png
+│   │   ├── ticket_233_1760422008_11_click_at.png
+│   │   ├── ticket_233_1760422008_12_type_text_at.png
+│   │   ├── ticket_233_1760422008_13_click_at.png
+│   │   ├── ticket_233_1760422171_00_initial.png
+│   │   ├── ticket_233_1760422171_00_open_web_browser.png
+│   │   ├── ticket_233_1760422171_01_click_at.png
+│   │   ├── ticket_233_1760422171_02_click_at.png
+│   │   ├── ticket_233_1760422171_03_click_at.png
+│   │   ├── ticket_233_1760422171_04_scroll_document.png
+│   │   ├── ticket_233_1760422171_05_type_text_at.png
+│   │   ├── ticket_233_1760422171_06_type_text_at.png
+│   │   ├── ticket_233_1760422171_07_type_text_at.png
+│   │   ├── ticket_233_1760422171_08_click_at.png
+│   │   ├── ticket_233_1760422171_09_type_text_at.png
+│   │   ├── ticket_233_1760422171_10_click_at.png
+│   │   ├── ticket_233_1760422171_11_click_at.png
+│   │   ├── ticket_233_1760422171_12_click_at.png
+│   │   ├── ticket_233_1760422171_13_click_at.png
+│   │   ├── ticket_233_1760422171_14_click_at.png
+│   │   ├── ticket_233_1760422171_15_click_at.png
+│   │   ├── ticket_233_1760422493_00_initial.png
+│   │   ├── ticket_233_1760422550_00_initial.png
+│   │   ├── ticket_233_1760422550_00_open_web_browser.png
+│   │   ├── ticket_233_1760422550_01_click_at.png
+│   │   ├── ticket_233_1760422550_02_click_at.png
+│   │   ├── ticket_233_1760422550_03_type_text_at.png
+│   │   ├── ticket_233_1760422637_00_initial.png
+│   │   ├── ticket_233_1760422637_00_open_web_browser.png
+│   │   ├── ticket_233_1760422637_01_click_at.png
+│   │   ├── ticket_233_1760422637_02_click_at.png
+│   │   ├── ticket_233_1760422637_03_click_at.png
+│   │   ├── ticket_233_1760422637_04_click_at.png
+│   │   ├── ticket_233_1760422637_05_error_navigate.png
+│   │   ├── ticket_233_1760422637_06_navigate.png
+│   │   ├── ticket_233_1760422637_07_scroll_document.png
+│   │   ├── ticket_233_1760422637_08_click_at.png
+│   │   ├── ticket_233_1760422637_09_type_text_at.png
+│   │   ├── ticket_233_1760422637_10_type_text_at.png
+│   │   ├── ticket_234_1760423267_00_initial.png
+│   │   ├── ticket_234_1760423267_00_open_web_browser.png
+│   │   ├── ticket_234_1760423267_01_click_at.png
+│   │   ├── ticket_234_1760423267_02_type_text_at.png
+│   │   ├── ticket_234_1760423267_03_type_text_at.png
+│   │   ├── ticket_234_1760423267_04_type_text_at.png
+│   │   ├── ticket_234_1760423267_05_type_text_at.png
+│   │   ├── ticket_234_1760423267_06_type_text_at.png
+│   │   ├── ticket_234_1760423267_07_type_text_at.png
+│   │   ├── ticket_234_1760423267_08_click_at.png
+│   │   ├── ticket_234_1760423267_09_wait_5_seconds.png
+│   │   ├── ticket_234_1760423267_10_click_at.png
+│   │   ├── ticket_234_1760423267_11_click_at.png
+│   │   ├── ticket_234_1760423267_12_click_at.png
+│   │   ├── ticket_234_1760423267_13_type_text_at.png
+│   │   ├── ticket_234_1760423267_14_click_at.png
+│   │   ├── ticket_235_1760424418_00_initial.png
+│   │   ├── ticket_235_1760424418_00_open_web_browser.png
+│   │   ├── ticket_235_1760424418_01_click_at.png
+│   │   ├── ticket_235_1760424418_02_click_at.png
+│   │   ├── ticket_235_1760424418_03_click_at.png
+│   │   ├── ticket_235_1760424418_04_scroll_document.png
+│   │   ├── ticket_235_1760424418_05_scroll_document.png
+│   │   ├── ticket_235_1760424418_06_click_at.png
+│   │   ├── ticket_235_1760424418_07_scroll_document.png
+│   │   ├── ticket_235_1760424418_08_scroll_document.png
+│   │   ├── ticket_235_1760424418_09_scroll_document.png
+│   │   ├── ticket_236_1760424841_00_initial.png
+│   │   ├── ticket_236_1760424841_00_open_web_browser.png
+│   │   ├── ticket_236_1760424841_01_scroll_document.png
+│   │   ├── ticket_236_1760424841_02_scroll_document.png
+│   │   ├── ticket_236_1760424841_03_scroll_document.png
+│   │   ├── ticket_236_1760424841_04_scroll_document.png
+│   │   ├── ticket_237_1760425031_00_initial.png
+│   │   ├── ticket_237_1760425031_00_open_web_browser.png
+│   │   ├── ticket_237_1760425031_01_click_at.png
+│   │   ├── ticket_237_1760425031_02_click_at.png
+│   │   ├── ticket_237_1760425031_03_navigate.png
+│   │   ├── ticket_237_1760425031_04_scroll_document.png
+│   │   ├── ticket_237_1760425031_05_click_at.png
+│   │   ├── ticket_237_1760425031_06_click_at.png
+│   │   ├── ticket_237_1760425031_07_error_search.png
+│   │   ├── ticket_237_1760425031_08_type_text_at.png
+│   │   ├── ticket_237_1760425031_09_error_navigate.png
+│   │   ├── ticket_237_1760425031_10_go_back.png
+│   │   ├── ticket_237_1760425031_11_error_navigate.png
+│   │   ├── ticket_237_1760425031_12_go_back.png
+│   │   ├── ticket_237_1760425031_13_navigate.png
+│   │   ├── ticket_237_1760425031_14_click_at.png
+│   │   ├── ticket_237_1760425031_15_wait_5_seconds.png
+│   │   ├── ticket_237_1760425031_16_error_search.png
+│   │   ├── ticket_238_1760457610_00_initial.png
+│   │   ├── ticket_238_1760457610_00_open_web_browser.png
+│   │   ├── ticket_238_1760457610_01_click_at.png
+│   │   ├── ticket_238_1760457610_02_click_at.png
+│   │   ├── ticket_238_1760457610_03_scroll_document.png
+│   │   ├── ticket_238_1760457610_04_error_navigate.png
+│   │   ├── ticket_238_1760457610_05_error_navigate.png
+│   │   ├── ticket_238_1760457610_06_navigate.png
+│   │   ├── ticket_238_1760457610_07_click_at.png
+│   │   ├── ticket_238_1760457610_08_navigate.png
+│   │   ├── ticket_238_1760457610_09_navigate.png
+│   │   ├── ticket_238_1760457610_10_error_navigate.png
+│   │   ├── ticket_238_1760457610_11_navigate.png
+│   │   ├── ticket_238_1760457610_12_click_at.png
+│   │   ├── ticket_238_1760458115_00_initial.png
+│   │   ├── ticket_238_1760458115_00_open_web_browser.png
+│   │   ├── ticket_238_1760458115_01_click_at.png
+│   │   ├── ticket_238_1760458115_02_click_at.png
+│   │   ├── ticket_238_1760458115_03_click_at.png
+│   │   ├── ticket_238_1760458115_04_error_navigate.png
+│   │   ├── ticket_238_1760458115_05_scroll_document.png
+│   │   ├── ticket_238_1760458115_06_navigate.png
+│   │   ├── ticket_238_1760458115_07_scroll_document.png
+│   │   ├── ticket_238_1760458115_08_scroll_document.png
+│   │   ├── ticket_238_1760458115_09_scroll_document.png
+│   │   ├── ticket_238_1760458115_10_click_at.png
+│   │   ├── ticket_238_1760458780_00_initial.png
+│   │   ├── ticket_238_1760458780_00_open_web_browser.png
+│   │   ├── ticket_238_1760458780_01_navigate.png
+│   │   ├── ticket_238_1760458780_02_click_at.png
+│   │   ├── ticket_238_1760458780_03_click_at.png
+│   │   ├── ticket_238_1760458780_04_navigate.png
+│   │   ├── ticket_238_1760458780_05_type_text_at.png
+│   │   ├── ticket_238_1760458780_06_type_text_at.png
+│   │   ├── ticket_238_1760458780_07_click_at.png
+│   │   ├── ticket_238_1760458780_08_type_text_at.png
+│   │   ├── ticket_238_1760458780_09_type_text_at.png
+│   │   ├── ticket_238_1760458780_10_type_text_at.png
+│   │   ├── ticket_238_1760458780_11_type_text_at.png
+│   │   ├── ticket_238_1760459446_00_initial.png
+│   │   ├── ticket_238_1760459446_00_open_web_browser.png
+│   │   ├── ticket_238_1760459446_01_navigate.png
+│   │   ├── ticket_238_1760459446_02_click_at.png
+│   │   ├── ticket_238_1760459446_03_scroll_document.png
+│   │   ├── ticket_238_1760459446_04_click_at.png
+│   │   ├── ticket_238_1760459446_05_click_at.png
+│   │   ├── ticket_238_1760459692_00_initial.png
+│   │   ├── ticket_238_1760459692_00_open_web_browser.png
+│   │   ├── ticket_238_1760459692_01_navigate.png
+│   │   ├── ticket_238_1760459692_02_navigate.png
+│   │   ├── ticket_238_1760459692_03_click_at.png
+│   │   ├── ticket_238_1760459692_04_go_back.png
+│   │   ├── ticket_238_1760459692_05_click_at.png
+│   │   ├── ticket_238_1760459692_06_navigate.png
+│   │   ├── ticket_238_1760459692_07_navigate.png
+│   │   ├── ticket_238_1760459692_08_scroll_document.png
+│   │   └── ticket_238_1760459692_09_click_at.png
+│   ├── components
+│   │   ├── button.html
+│   │   ├── CapturedFieldsPanel.tsx
+│   │   ├── components.js
+│   │   ├── data-table.html
+│   │   ├── DetectedSummary.tsx
+│   │   ├── ExpenseFormFull.tsx
+│   │   ├── ExpenseRegistration.tsx
+│   │   ├── FooterActions.tsx
+│   │   ├── global-header.html
+│   │   ├── LiveTranscript.tsx
+│   │   ├── MissingFieldsPanel.tsx
+│   │   ├── page-header.html
+│   │   ├── PendingFieldsPanel.js
+│   │   ├── PendingFieldsPanel.jsx
+│   │   ├── PlaceholderBadge.jsx
+│   │   ├── PlaceholderCompletionModal.jsx
+│   │   ├── ProgressBar.tsx
+│   │   ├── stat-card.html
+│   │   ├── tabs.html
+│   │   ├── toast.html
+│   │   └── VoiceBar.tsx
+│   ├── config
+│   │   └── expenseCompleteness.ts
+│   ├── css
+│   │   ├── contaflow-icons.css
+│   │   ├── contaflow-theme.css
+│   │   └── contaflow-typography.css
+│   ├── img
+│   │   ├── screenshots
+│   │   ├── ContaFlow.png
+│   │   ├── IsotipoContaFlow.png
+│   │   ├── landing-bancos.png
+│   │   ├── landing-captura.svg
+│   │   ├── landing-conciliacion.png
+│   │   ├── landing-conciliacion.svg
+│   │   ├── landing-contexto.png
+│   │   ├── landing-gasto.png
+│   │   ├── landing-login.png
+│   │   └── landing-reporting.svg
+│   ├── js
+│   │   ├── auth-interceptor.js
+│   │   ├── data-consistency-monitor.js
+│   │   └── mcp-header.js
+│   ├── old_dashboards
+│   │   ├── advanced-ticket-dashboard.html
+│   │   ├── dashboard-fiscal-fixed.html
+│   │   ├── dashboard-fiscal-simple.html
+│   │   ├── debug_dashboard.html
+│   │   ├── test-dashboard.html
+│   │   └── test-fiscal-dashboard.html
+│   ├── onboarding-ia
+│   │   ├── index.html
+│   │   └── index.html.backup
+│   ├── types
+│   │   └── speech.d.ts
+│   ├── utils
+│   │   ├── accountingCatalog.ts
+│   │   └── expenseParser.ts
+│   ├── admin-panel.html
+│   ├── advanced-complete-expenses.js
+│   ├── advanced-ticket-dashboard.html
+│   ├── app.js
+│   ├── auth-debug.html
+│   ├── auth-login.html
+│   ├── auth-login.js
+│   ├── auth-register.html
+│   ├── automation-viewer.html
+│   ├── bank-reconciliation.bundle.js
+│   ├── bank-reconciliation.entry.js
+│   ├── bank-reconciliation.html
+│   ├── bank-reconciliation.source.jsx
+│   ├── bank-statements-viewer.html
+│   ├── client-settings.html
+│   ├── complete-expenses.html
+│   ├── complete-expenses.js
+│   ├── context-wizard.bundle.js
+│   ├── context-wizard.entry.js
+│   ├── context-wizard.source.jsx
+│   ├── dashboard.html
+│   ├── debug-voice.js
+│   ├── employee-advances.html
+│   ├── expenses-viewer-enhanced.html
+│   ├── favicon.ico
+│   ├── financial-reports-dashboard.html
+│   ├── index.html
+│   ├── landing.bundle.dev.js
+│   ├── landing.bundle.js
+│   ├── landing.entry.js
+│   ├── landing.html
+│   ├── landing.source.jsx
+│   ├── minimal-voice.js
+│   ├── onboarding-context.html
+│   ├── onboarding.html
+│   ├── payment-accounts.html
+│   ├── placeholder-screenshot.png
+│   ├── polizas-dashboard.html
+│   ├── sat-accounts.html
+│   ├── simple-expenses.js
+│   ├── test-bundle.js
+│   ├── test-tax-badges.html
+│   ├── test-tickets.html
+│   ├── theme-manager.js
+│   ├── theme-styles.css
+│   ├── voice-expenses-final.bundle.js
+│   ├── voice-expenses-fixed.bundle.js
+│   ├── voice-expenses.bundle.js
+│   ├── voice-expenses.bundle.js.backup
+│   ├── voice-expenses.entry.js
+│   ├── voice-expenses.html
+│   ├── voice-expenses.source.jsx
+│   ├── voice-expenses.source.jsx.backup
+│   ├── voice-expenses.source.jsx.backup.old
+│   └── working-expenses.js
+├── t
+│   ├── baddata.txt
+│   ├── data.sig
+│   ├── data.sig2
+│   ├── data.sig3
+│   ├── data.txt
+│   ├── privkey-explicit.pem
+│   ├── privkey-p8-explicit.pem
+│   ├── privkey-p8.pem
+│   ├── privkey.pem
+│   ├── pubkey.der
+│   └── pubkey.pem
+├── templates
+│   ├── invoicing
+│   │   ├── fiscal-data-form.html
+│   │   └── simple-dashboard.html
+│   ├── base.html
+│   └── index.html
+├── tests
+│   ├── fixtures
+│   │   ├── bank_statements
+│   │   └── test_data_generator.py
+│   ├── integration
+│   │   └── test_ocr_to_automation.py
+│   ├── unit
+│   │   ├── automation
+│   │   ├── core
+│   │   └── test_accounting_normalization.py
+│   ├── conftest.py
+│   ├── README_TEST_SUITE.md
+│   ├── test_advanced_invoicing_system.py
+│   ├── test_api.py
+│   ├── test_automation_endpoints.py
+│   ├── test_bank_parser_golden.py
+│   ├── test_bank_reconciliation.py
+│   ├── test_bank_rules_loader.py
+│   ├── test_category_mappings.py
+│   ├── test_classification_feedback.py
+│   ├── test_classification_matrix.py
+│   ├── test_cleanup_script.py
+│   ├── test_core_functionality.py
+│   ├── test_detailed_stats_endpoint.py
+│   ├── test_duplicate_validation.py
+│   ├── test_e2e_user_flows.py
+│   ├── test_expense_endpoints.py
+│   ├── test_expense_models.py
+│   ├── test_expenses_api.py
+│   ├── test_field_mapping_validation.py
+│   ├── test_fiscal_pipeline.py
+│   ├── test_idempotency_validation.py
+│   ├── test_intelligent_validation.py
+│   ├── test_invoicing_agent.py
+│   ├── test_main_endpoints.py
+│   ├── test_onboarding.py
+│   ├── test_placeholder_full_flow_e2e.py
+│   ├── test_regression_suite.py
+│   ├── test_structured_logging.py
+│   ├── test_ui_api_bd_coherence.py
+│   ├── test_v1_compatibility.py
+│   └── test_v2_features.py
+├── uploads
+│   ├── statements
+│   │   ├── 11_20250930_104600_inbursa_2025-07.pdf
+│   │   ├── 11_20250930_105250_inbursa_2025-07.pdf
+│   │   ├── 11_20250930_110352_inbursa_2025-07.pdf
+│   │   ├── 16_20251014_140940_inbursa_Periodo_JUL 2025 (1).pdf
+│   │   ├── 16_20251014_144515_inbursa_Periodo_AGO 2025.pdf
+│   │   ├── 16_20251014_144905_inbursa_Periodo_AGO 2025.pdf
+│   │   ├── 16_20251014_144941_inbursa_Periodo_JUL 2025.pdf
+│   │   ├── 16_20251014_145211_inbursa_Periodo_AGO 2025.pdf
+│   │   ├── 16_20251014_162057_inbursa_Periodo_MAR 2024.pdf
+│   │   ├── 16_20251014_165310_inbursa_Periodo_AGO 2025.pdf
+│   │   ├── 16_20251014_170208_inbursa_Periodo_MAR 2025.pdf
+│   │   ├── 16_20251014_170616_inbursa_Periodo_MAR 2024.pdf
+│   │   ├── 16_20251014_175308_inbursa_Periodo_MAY 2025.pdf
+│   │   ├── 16_20251014_175741_inbursa_Periodo_JUL 2025 (1).pdf
+│   │   └── 29_20251020_180333_banco-santander_Periodo_DIC 2024 (1).pdf
+│   └── demo-ticket.csv
+├── vendor
+│   └── six.py
+├── venv
+│   ├── backup_old_deps
+│   │   ├── anyio
+│   │   ├── anyio-3.7.1.dist-info
+│   │   ├── fastapi
+│   │   ├── fastapi-0.104.1.dist-info
+│   │   ├── h11
+│   │   ├── h11-0.14.0.dist-info
+│   │   ├── httpcore
+│   │   ├── httpcore-0.17.3.dist-info
+│   │   ├── httpx
+│   │   ├── httpx-0.24.1.dist-info
+│   │   ├── pydantic
+│   │   ├── pydantic-2.5.0.dist-info
+│   │   ├── pydantic_core
+│   │   ├── pydantic_core-2.14.1.dist-info
+│   │   ├── python_dotenv-1.0.0.dist-info
+│   │   ├── python_multipart-0.0.6.dist-info
+│   │   ├── sniffio
+│   │   ├── sniffio-1.3.1.dist-info
+│   │   ├── starlette
+│   │   ├── starlette-0.27.0.dist-info
+│   │   ├── typing_extensions-4.14.1.dist-info
+│   │   ├── uvicorn
+│   │   ├── uvicorn-0.24.0.dist-info
+│   │   └── typing_extensions.py
+│   ├── bin
+│   │   ├── activate
+│   │   ├── activate.csh
+│   │   ├── activate.fish
+│   │   ├── Activate.ps1
+│   │   ├── distro
+│   │   ├── dotenv
+│   │   ├── dumppdf.py
+│   │   ├── f2py
+│   │   ├── f2py3
+│   │   ├── f2py3.9
+│   │   ├── faker
+│   │   ├── hf
+│   │   ├── httpx
+│   │   ├── huggingface-cli
+│   │   ├── isympy
+│   │   ├── normalizer
+│   │   ├── openai
+│   │   ├── pdf2txt.py
+│   │   ├── pdfplumber
+│   │   ├── pip
+│   │   ├── pip3
+│   │   ├── pip3.9
+│   │   ├── py.test
+│   │   ├── pygmentize
+│   │   ├── pymupdf
+│   │   ├── pypdfium2
+│   │   ├── pytest
+│   │   ├── python
+│   │   ├── python3
+│   │   ├── python3.9
+│   │   ├── tiny-agents
+│   │   ├── torchfrtrace
+│   │   ├── torchrun
+│   │   ├── tqdm
+│   │   ├── transformers
+│   │   ├── transformers-cli
+│   │   ├── uvicorn
+│   │   ├── watchfiles
+│   │   ├── websockets
+│   │   └── wsdump
+│   ├── include
+│   ├── lib
+│   │   └── python3.9
+│   ├── share
+│   │   └── man
+│   └── pyvenv.cfg
+├── venv_relock
+│   ├── bin
+│   │   ├── activate
+│   │   ├── activate.csh
+│   │   ├── activate.fish
+│   │   ├── Activate.ps1
+│   │   ├── pip
+│   │   ├── pip3
+│   │   ├── pip3.9
+│   │   ├── python
+│   │   ├── python3
+│   │   └── python3.9
+│   ├── include
+│   ├── lib
+│   │   └── python3.9
+│   └── pyvenv.cfg
+├── venv_test
+│   ├── bin
+│   │   ├── activate
+│   │   ├── activate.csh
+│   │   ├── activate.fish
+│   │   ├── Activate.ps1
+│   │   ├── alembic
+│   │   ├── black
+│   │   ├── blackd
+│   │   ├── coverage
+│   │   ├── coverage-3.9
+│   │   ├── coverage3
+│   │   ├── distro
+│   │   ├── dmypy
+│   │   ├── dotenv
+│   │   ├── dumppdf.py
+│   │   ├── f2py
+│   │   ├── fastapi
+│   │   ├── flake8
+│   │   ├── gunicorn
+│   │   ├── hf
+│   │   ├── httpx
+│   │   ├── huggingface-cli
+│   │   ├── identify-cli
+│   │   ├── isort
+│   │   ├── isort-identify-imports
+│   │   ├── isympy
+│   │   ├── jp.py
+│   │   ├── jsonschema
+│   │   ├── mako-render
+│   │   ├── mprof
+│   │   ├── mypy
+│   │   ├── mypyc
+│   │   ├── nodeenv
+│   │   ├── normalizer
+│   │   ├── numba
+│   │   ├── numpy-config
+│   │   ├── openai
+│   │   ├── pdf2txt.py
+│   │   ├── pdfplumber
+│   │   ├── pip
+│   │   ├── pip3
+│   │   ├── pip3.9
+│   │   ├── playwright
+│   │   ├── pre-commit
+│   │   ├── py.test
+│   │   ├── pycodestyle
+│   │   ├── pyflakes
+│   │   ├── pygmentize
+│   │   ├── pypdfium2
+│   │   ├── pyrsa-decrypt
+│   │   ├── pyrsa-encrypt
+│   │   ├── pyrsa-keygen
+│   │   ├── pyrsa-priv2pub
+│   │   ├── pyrsa-sign
+│   │   ├── pyrsa-verify
+│   │   ├── pytesseract
+│   │   ├── pytest
+│   │   ├── python
+│   │   ├── python-grpc-tools-protoc
+│   │   ├── python3
+│   │   ├── python3.9
+│   │   ├── stubgen
+│   │   ├── stubtest
+│   │   ├── tiny-agents
+│   │   ├── torchfrtrace
+│   │   ├── torchrun
+│   │   ├── tqdm
+│   │   ├── transformers
+│   │   ├── transformers-cli
+│   │   ├── uvicorn
+│   │   ├── virtualenv
+│   │   ├── watchfiles
+│   │   ├── websockets
+│   │   ├── whisper
+│   │   └── wsdump
+│   ├── include
+│   │   └── site
+│   ├── lib
+│   │   └── python3.9
+│   ├── share
+│   │   └── man
+│   └── pyvenv.cfg
+├── vercel-landing
+│   ├── scripts
+│   │   └── update-landing-entry-version.js
+│   ├── static
+│   │   ├── img
+│   │   ├── screenshots
+│   │   ├── favicon.ico
+│   │   ├── index.html
+│   │   ├── landing.bundle.js
+│   │   ├── landing.entry.js
+│   │   └── landing.source.jsx
+│   ├── package.json
+│   ├── README.md
+│   └── vercel.json
+├── wheels
+│   ├── annotated_types-0.7.0-py3-none-any.whl
+│   ├── cachetools-6.2.1-py3-none-any.whl
+│   ├── certifi-2025.10.5-py3-none-any.whl
+│   ├── charset_normalizer-3.4.4-cp39-cp39-macosx_10_9_universal2.whl
+│   ├── google_auth-2.41.1-py2.py3-none-any.whl
+│   ├── google_genai-0.3.0-py3-none-any.whl
+│   ├── idna-3.11-py3-none-any.whl
+│   ├── pillow-11.3.0-cp39-cp39-macosx_11_0_arm64.whl
+│   ├── pyasn1-0.6.1-py3-none-any.whl
+│   ├── pyasn1_modules-0.4.2-py3-none-any.whl
+│   ├── pydantic-2.12.2-py3-none-any.whl
+│   ├── pydantic_core-2.41.4-cp39-cp39-macosx_11_0_arm64.whl
+│   ├── requests-2.32.5-py3-none-any.whl
+│   ├── rsa-4.9.1-py3-none-any.whl
+│   ├── typing_extensions-4.15.0-py3-none-any.whl
+│   ├── typing_inspection-0.4.2-py3-none-any.whl
+│   ├── urllib3-2.5.0-py3-none-any.whl
+│   └── websockets-14.2-cp39-cp39-macosx_11_0_arm64.whl
+├── 404_ERROR_RESOLUTION.md
+├── add_llm_analysis_column.py
+├── alembic.ini
+├── ARCHITECTURE_DIAGRAM.md
+├── ARCHITECTURE_ESCALABLE.md
+├── AUDITORIA_COMPLETA_ATRIBUTOS_SISTEMA.md
+├── AUDITORIA_COMPLETA_ATRIBUTOS_SISTEMA_POST_MIGRACION.json
+├── AUDITORIA_COMPLETA_SISTEMA_MCP.md
+├── AUDITORIA_CORRECCIONES_IMPLEMENTADAS.md
+├── AUDITORIA_DEPENDENCIAS_FUNCIONALES.json
+├── AUDITORIA_DEPENDENCIAS_FUNCIONALES.md
+├── AUDITORIA_SISTEMA_PLACEHOLDERS.md
+├── backup_cron.sh
+├── bank_movements_backup_20250928.sql
+├── BRANDING_UPDATE.md
+├── check_openai_usage.py
+├── claude_integration.py
+├── cleanup_dead_code.py
+├── CLEANUP_SUMMARY.md
+├── complete_expense_tables.sql
+├── context_wizard.source.jsx
+├── create_bank_movements_table.sql
+├── create_food_expense.py
+├── create_onboarding_tables.sql
+├── create_test_audio.py
+├── create_test_placeholder.sh
+├── create_unified_db.sql
+├── dashboard-completo-23-funcionalidades.html
+├── dashboard-simple.html
+├── dashboard_stats_calculator.py
+├── demo_complete_system.html
+├── DESIGN_SYSTEM_GUIDE.md
+├── dev.db
+├── docker-compose.yml
+├── Dockerfile
+├── dynamic_page_handler.py
+├── endpoint_records.json
+├── enhance_bank_movements_fiscal.sql
+├── enhanced_web_automation.py
+├── expense_summary.py
+├── expenses.db
+├── fastapi_domains_summary.json
+├── FASTAPI_DOMAINS_SUMMARY.md
+├── FASTAPI_ENDPOINTS.md
+├── fix_auth_schema.sql
+├── fix_column_names.sh
+├── FIX_COMPANY_ID_FILTER.md
+├── fix_gasoline_expense.py
+├── gemini_test_results_20251012_170232.json
+├── gpt_usage_analytics.db
+├── HEADER_CONSISTENCY_FINAL_REPORT.md
+├── HEADER_INCONSISTENCY_REPORT.md
+├── ICON_TYPOGRAPHY_CONSISTENCY_REPORT.md
+├── improve_bank_movements_schema.sql
+├── INTEGRACION_UI_PLACEHOLDERS.md
+├── INTEGRATION_COMPLETE.md
+├── INVOICING_AGENT_README.md
+├── list_gemini_models.py
+├── LOGIN_FIX_SUMMARY.md
+├── login_flow.txt
+├── main.py
+├── main.py}
+├── main_enhanced.py
+├── Makefile
+├── manual_test_guide.md
+├── MAPEO_SISTEMA_FACTURAS.md
+├── MEJORAS_COMPLETADAS_RESUMEN.md
+├── migrate_invoice_system.py
+├── migrate_tickets_table.py
+├── MODEL_VERSION
+├── MULTI_TENANCY_IMPLEMENTATION_STATUS.md
+├── MULTI_TENANCY_NEXT_STEPS.md
+├── MULTI_TENANCY_PHASE2_STATUS.md
+├── optimize_indexes.sql
+├── package-lock.json
+├── package.json
+├── pip-aliases.txt
+├── PREVIEW_UI.md
+├── project_structure.txt
+├── PROMPT_VERSION
+├── pytest.ini
+├── pytest.log
+├── pytest_pkg.tar.gz
+├── QA_CHECKLIST.md
+├── README.md
+├── README_ADVANCED_INVOICING.md
+├── README_IA_PIPELINE.md
+├── README_SPRINT_1.md
+├── requirements-advanced.txt
+├── requirements-dev.txt
+├── requirements-lock.txt
+├── requirements-prod.txt
+├── requirements-unified.txt
+├── requirements.txt
+├── reset_and_migrate_db.py
+├── reset_database.py
+├── reset_database_auto.py
+├── reset_test_users.py
+├── RESPUESTAS_AUDITORIA.md
+├── RISK_MITIGATION_COMPLETE.md
+├── ROLLBACK_CHECKLIST.md
+├── routes_get.txt
+├── routes_post.txt
+├── run_migrations.py
+├── safe-pip-install.sh
+├── secure_credentials.py
+├── server.log
+├── SISTEMA_TICKETS_SETUP.md
+├── SOLUCION_ERROR_401.md
+├── SPRINT_1_COMPLETION_REPORT.md
+├── SPRINT_1_DASHBOARD.md
+├── SPRINT_1_PLAN_DE_ACCION.md
+├── state_machine_integration.py
+├── static_routes.txt
+├── structure.txt
+├── TECHNICAL_QUESTIONS_7_TO_10.md
+├── test_bulk_invoice_placeholder.py
+├── test_complete_flow.sh
+├── test_dashboard.html
+├── test_escalation.py
+├── test_escalation.sh
+├── test_escalation_direct.py
+├── test_gemini_haiku_pipeline.py
+├── test_gemini_native.py
+├── test_llm_integration.py
+├── test_placeholder_completion_flow.py
+├── test_placeholder_completion_simple.py
+├── test_placeholder_simple.py
+├── test_placeholder_ui.sh
+├── TEST_RESULTS.md
+├── test_validation_only.py
+├── UI_AUDIT_REPORT.md
+├── UI_AUDIT_SUMMARY.md
+├── UI_VISOR_GASTOS_ACTUALIZACION.md
+├── unified_db_config.py
+├── unified_expenses.db
+├── UNIFIED_LOOK_AND_FEEL_REPORT.md
+├── unified_mcp.db
+├── unified_mcp_system.db
+├── unified_mcp_system.db-shm
+├── unified_mcp_system.db-wal
+├── unified_mcp_system.db.bak
+├── upgrade_bank_reconciliation.sql
+├── upgrade_category_prediction.sql
+├── upgrade_duplicate_detection.sql
+├── upgrade_expense_schema_v2.sql
+├── upgrade_expense_schema_v2_fixed.sql
+├── upgrade_invoice_schema.sql
+├── UX_TRANSPARENCY_IMPROVEMENTS.md
+├── VALIDACION_SPOFS_POST_MIGRACION.md
+├── validate_system.py
+├── VALIDATION_SYSTEM_SUMMARY.md
+├── ver_cuenta_5.sh
+└── verify_clean_database.py
+
+
+Project structure generated with tree -L 3 equivalent
+Total lines: 1730

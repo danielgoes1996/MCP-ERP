@@ -1,0 +1,60 @@
+<svg width="960" height="600" viewBox="0 0 960 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="conciliateGradient" x1="80" y1="40" x2="880" y2="560" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F2F8FF"/>
+      <stop offset="0.5" stop-color="#E1ECFF"/>
+      <stop offset="1" stop-color="#E8F3F9"/>
+    </linearGradient>
+    <linearGradient id="conciliatePanel" x1="0" y1="0" x2="320" y2="220" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.75"/>
+    </linearGradient>
+    <linearGradient id="conciliateChip" x1="0" y1="0" x2="140" y2="40" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#60B97B"/>
+      <stop offset="1" stop-color="#86D7A1"/>
+    </linearGradient>
+  </defs>
+  <rect x="48" y="44" width="864" height="512" rx="32" fill="url(#conciliateGradient)"/>
+  <rect x="80" y="96" width="820" height="72" rx="20" fill="#10466E" opacity="0.9"/>
+  <rect x="120" y="118" width="180" height="26" rx="13" fill="#FFFFFF" opacity="0.45"/>
+  <rect x="320" y="118" width="120" height="26" rx="13" fill="#FFFFFF" opacity="0.25"/>
+  <rect x="460" y="118" width="220" height="26" rx="13" fill="#FFFFFF" opacity="0.15"/>
+  <rect x="720" y="118" width="120" height="26" rx="13" fill="#FFFFFF" opacity="0.25"/>
+
+  <rect x="96" y="208" width="340" height="312" rx="24" fill="url(#conciliatePanel)" stroke="rgba(16,70,110,0.08)" stroke-width="2"/>
+  <rect x="120" y="236" width="200" height="18" rx="9" fill="#10466E" opacity="0.6"/>
+  <rect x="120" y="266" width="260" height="12" rx="6" fill="#10466E" opacity="0.12"/>
+  <g opacity="0.85">
+    <rect x="120" y="296" width="280" height="54" rx="14" fill="#FFFFFF"/>
+    <rect x="140" y="312" width="180" height="12" rx="6" fill="#2D6DAA" opacity="0.5"/>
+    <rect x="140" y="332" width="110" height="10" rx="5" fill="#2D6DAA" opacity="0.25"/>
+    <rect x="320" y="312" width="60" height="24" rx="12" fill="#60B97B" opacity="0.85"/>
+  </g>
+  <g opacity="0.8">
+    <rect x="120" y="360" width="280" height="54" rx="14" fill="#FFFFFF"/>
+    <rect x="140" y="376" width="160" height="12" rx="6" fill="#2D6DAA" opacity="0.45"/>
+    <rect x="140" y="396" width="120" height="10" rx="5" fill="#2D6DAA" opacity="0.25"/>
+    <rect x="320" y="376" width="60" height="24" rx="12" fill="#FFB347" opacity="0.8"/>
+  </g>
+  <g opacity="0.9">
+    <rect x="120" y="424" width="280" height="54" rx="14" fill="#FFFFFF"/>
+    <rect x="140" y="440" width="190" height="12" rx="6" fill="#2D6DAA" opacity="0.65"/>
+    <rect x="140" y="460" width="150" height="10" rx="5" fill="#2D6DAA" opacity="0.24"/>
+    <rect x="320" y="440" width="60" height="24" rx="12" fill="#DC6B88" opacity="0.8"/>
+  </g>
+
+  <rect x="468" y="208" width="412" height="140" rx="24" fill="#FFFFFF" opacity="0.9"/>
+  <rect x="500" y="234" width="160" height="16" rx="8" fill="#10466E" opacity="0.45"/>
+  <rect x="680" y="234" width="120" height="16" rx="8" fill="url(#conciliateChip)"/>
+  <rect x="500" y="264" width="320" height="12" rx="6" fill="#10466E" opacity="0.15"/>
+  <rect x="500" y="288" width="260" height="12" rx="6" fill="#10466E" opacity="0.12"/>
+
+  <rect x="468" y="368" width="412" height="152" rx="24" fill="#FFFFFF" opacity="0.95"/>
+  <rect x="500" y="394" width="220" height="18" rx="9" fill="#10466E" opacity="0.55"/>
+  <rect x="500" y="428" width="320" height="12" rx="6" fill="#10466E" opacity="0.15"/>
+  <rect x="500" y="452" width="280" height="12" rx="6" fill="#10466E" opacity="0.12"/>
+  <g opacity="0.9">
+    <rect x="780" y="394" width="60" height="26" rx="13" fill="#60B97B"/>
+    <rect x="780" y="430" width="60" height="26" rx="13" fill="#9DCAD8" opacity="0.85"/>
+  </g>
+</svg>

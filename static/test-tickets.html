@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head><title>Test Tickets API</title></head>
+<body>
+<h1>Testing Tickets API Response</h1>
+<pre id="output">Loading...</pre>
+
+<script>
+async function testAPI() {
+    const response = await fetch('/invoicing/tickets?company_id=tenant-4&limit=3');
+    const data = await response.json();
+    
+    const output = document.getElementById('output');
+    output.textContent = 'Total tickets: ' + data.tickets.length + '\n\n';
+    
+    data.tickets.forEach((ticket, i) => {
+        output.textContent += '\n=== TICKET ' + (i+1) + ' (ID: ' + ticket.id + ') ===\n';
+        output.textContent += '  merchant: ' + ticket.merchant_name + '\n';
+        output.textContent += '  created_at: ' + ticket.created_at + '\n';
+        output.textContent += '  Has extracted_text field: ' + ('extracted_text' in ticket) + '\n';
+        output.textContent += '  extracted_text is null: ' + (ticket.extracted_text === null) + '\n';
+        output.textContent += '  extracted_text is empty: ' + (ticket.extracted_text === '') + '\n';
+        output.textContent += '  extracted_text length: ' + (ticket.extracted_text ? ticket.extracted_text.length : 0) + '\n';
+        output.textContent += '  extracted_text preview: ' + (ticket.extracted_text ? ticket.extracted_text.substring(0, 100) + '...' : 'NONE') + '\n';
+        
+        if (ticket.extracted_text) {
+            const fechaMatch = ticket.extracted_text.match(/FECHA:\s*(\d{2})[\/\-](\d{2})[\/\-](\d{4})/i);
+            if (fechaMatch) {
+                output.textContent += '  FECHA ENCONTRADA: ' + fechaMatch[0] + '\n';
+            }
+        }
+    });
+}
+
+testAPI();
+</script>
+</body>
+</html>

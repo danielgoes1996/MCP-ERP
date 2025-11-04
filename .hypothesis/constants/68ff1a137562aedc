@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/modules/invoicing_agent/integration_layer.py
+# hypothesis_version: 6.140.3
+
+[0.5, 'Unknown', 'alternative_urls', 'auto_created', 'automation_data', 'automation_engine', 'automation_summary', 'available', 'available_services', 'capabilities', 'captcha_solving', 'claude', 'claude_analysis', 'completado', 'cost_breakdown', 'database', 'degraded', 'enhanced', 'enhanced_automation', 'error', 'error_report', 'errors', 'fallido', 'google_vision', 'google_vision_ocr', 'healthy', 'id', 'legacy', 'merchant_hint', 'merchant_identified', 'metadata', 'mode', 'multi_url_navigation', 'nombre', 'portal', 'portal_url', 'procesando', 'processing_time_ms', 'readiness_score', 'result', 'screenshot_evidence', 'service_stack_used', 'services', 'status', 'success', 'tested', 'texto_extraido', 'ticket_read', 'twocaptcha', 'warnings']

@@ -3146,7 +3146,6 @@ const MISSION_DETAILS = {
                 }
             });
             const [showNavigationDrawer, setShowNavigationDrawer] = useState(false);
-            const [showAccountMenu, setShowAccountMenu] = useState(false);
 
             const getLocalExpensesMap = () => {
                 try {
@@ -3343,6 +3342,80 @@ const MISSION_DETAILS = {
                 }
             }, []);
 
+            const formatHeaderLabel = useCallback((value, fallback = 'ContaFlow') => {
+                if (!value) return fallback;
+                let working = value.trim();
+                if (!working || working === 'default') return fallback;
+                working = working.replace(/[._-]+/g, ' ');
+                const shouldTitleCase = working === working.toLowerCase() || working === working.toUpperCase();
+                if (shouldTitleCase) {
+                    return working.replace(/\b\w/g, (char) => char.toUpperCase()).trim();
+                }
+                return working.trim();
+            }, []);
+
+            const refreshHeaderContext = useCallback(() => {
+                try {
+                    let label = formatHeaderLabel(resolvedCompanyId, '');
+
+                    if (!label || label === 'ContaFlow') {
+                        const storedLabel = localStorage.getItem('mcp_company_label');
+                        if (storedLabel) {
+                            label = formatHeaderLabel(storedLabel, label || 'ContaFlow');
+                        }
+                    }
+
+                    if ((!label || label === 'ContaFlow') && resolvedCompanyId === 'default') {
+                        const tenantData = localStorage.getItem('tenant_data');
+                        if (tenantData) {
+                            try {
+                                const tenant = JSON.parse(tenantData);
+                                if (tenant?.name) {
+                                    label = formatHeaderLabel(tenant.name, label || 'ContaFlow');
+                                }
+                            } catch (error) {
+                                console.warn('No se pudo interpretar tenant_data para header:', error);
+                            }
+                        }
+                    }
+
+                    setHeaderCompany(label || 'ContaFlow');
+
+                    let resolvedUser = 'Usuario demo';
+                    const userData = localStorage.getItem('user_data');
+                    if (userData) {
+                        try {
+                            const user = JSON.parse(userData);
+                            if (user?.full_name) {
+                                resolvedUser = user.full_name;
+                            } else if (user?.name) {
+                                resolvedUser = user.name;
+                            } else if (user?.username) {
+                                resolvedUser = formatHeaderLabel(user.username, resolvedUser);
+                            } else if (user?.email) {
+                                const [localPart] = user.email.split('@');
+                                resolvedUser = formatHeaderLabel(localPart, resolvedUser);
+                            }
+                        } catch (error) {
+                            console.warn('No se pudo interpretar user_data para header:', error);
+                        }
+                    } else {
+                        const email = localStorage.getItem('mcp_user_email');
+                        if (email) {
+                            const [localPart] = email.split('@');
+                            resolvedUser = formatHeaderLabel(localPart, resolvedUser);
+                        }
+                    }
+                    setHeaderUser(resolvedUser);
+                } catch (error) {
+                    console.warn('No se pudo refrescar información del header:', error);
+                }
+            }, [formatHeaderLabel, resolvedCompanyId]);
+
+            useEffect(() => {
+                refreshHeaderContext();
+            }, [refreshHeaderContext]);
+
             useEffect(() => {
                 const handler = () => {
                     try {
@@ -3355,6 +3428,7 @@ const MISSION_DETAILS = {
                         if (Array.isArray(parsed)) {
                             setCompletedMissions(parsed.map(String));
                         }
+                        refreshHeaderContext();
                     } catch (error) {
                         console.warn('No se pudo sincronizar estado del demo:', error);
                     }
@@ -3365,7 +3439,7 @@ const MISSION_DETAILS = {
                     window.removeEventListener('storage', handler);
                     window.removeEventListener('mcp-company-change', handler);
                 };
-            }, []);
+            }, [refreshHeaderContext]);
 
             useEffect(() => {
                 try {
@@ -3399,6 +3473,24 @@ const MISSION_DETAILS = {
             const [selectedExpenseForNonReconciliation, setSelectedExpenseForNonReconciliation] = useState(null);
             const [moreActionsOpen, setMoreActionsOpen] = useState(false);
             const [quickViewExpense, setQuickViewExpense] = useState(null);
+            const [headerUser, setHeaderUser] = useState('Usuario demo');
+            const [headerCompany, setHeaderCompany] = useState(() => {
+                if (resolvedCompanyId && resolvedCompanyId !== 'default') {
+                    return resolvedCompanyId;
+                }
+                try {
+                    const tenantData = localStorage.getItem('tenant_data');
+                    if (tenantData) {
+                        const tenant = JSON.parse(tenantData);
+                        if (tenant?.name) {
+                            return tenant.name;
+                        }
+                    }
+                } catch (error) {
+                    console.warn('No se pudo inicializar headerCompany desde tenant_data:', error);
+                }
+                return 'ContaFlow';
+            });
 
             // Estados de operaciones
             const [isSaving, setIsSaving] = useState(false);
@@ -3407,6 +3499,38 @@ const MISSION_DETAILS = {
             const [isPredictingCategory, setIsPredictingCategory] = useState(false);
             const [categoryPrediction, setCategoryPrediction] = useState(null);
             const [lastSaveTime, setLastSaveTime] = useState(null);
+            const navItems = useMemo(() => ([
+                {
+                    label: 'Gastos',
+                    href: '/voice-expenses',
+                    icon: 'fa-microphone',
+                    matches: ['/voice-expenses'],
+                },
+                {
+                    label: 'Facturación & Tickets',
+                    href: '/advanced-ticket-dashboard.html',
+                    icon: 'fa-receipt',
+                    matches: ['/advanced-ticket-dashboard'],
+                },
+                {
+                    label: 'Cuentas de Banco y Efectivo',
+                    href: '/payment-accounts',
+                    icon: 'fa-wallet',
+                    matches: ['/payment-accounts'],
+                },
+                {
+                    label: 'Conciliación Bancaria',
+                    href: '/bank-reconciliation',
+                    icon: 'fa-balance-scale',
+                    matches: ['/bank-reconciliation'],
+                },
+                {
+                    label: 'Configuración de la cuenta',
+                    href: '/client-settings',
+                    icon: 'fa-sliders-h',
+                    matches: ['/client-settings'],
+                },
+            ]), []);
 
             const normalizeExpense = useCallback((expense) => {
                 const hasInvoice = !!expense.factura_id;
@@ -4221,7 +4345,7 @@ const MISSION_DETAILS = {
                 }
             }, [missingRequiredFields, buildExpenseData, saveExpenseToDatabase, syncDemoMode, activeMission, loadExpenses]);
 
-            // Enviar a Odoo
+            // Guardar gasto
             const handleSendToOdoo = useCallback(async () => {
                 setIsSending(true);
                 try {
@@ -4393,21 +4517,43 @@ const MISSION_DETAILS = {
                 }
             }, [buildExpenseData, formData]);
 
-            // Calcular progreso básico
-            const calculateProgress = () => {
-                const requiredFields = ['descripcion', 'monto_total', 'fecha_gasto', 'proveedor.nombre', 'forma_pago', 'will_have_cfdi', 'paid_by'];
-                const completedRequired = requiredFields.filter(field => {
-                    const value = getFieldValue(field);
-                    return value !== undefined && value !== null && value !== '';
-                }).length;
-
-                return Math.round((completedRequired / requiredFields.length) * 100);
-            };
-
             // Cargar gastos desde el backend
             const loadExpenses = useCallback(async () => {
                 try {
-                    const response = await fetch(`/expenses?company_id=${encodeURIComponent(resolvedCompanyId)}`);
+                    // Get JWT token from localStorage
+                    const token = localStorage.getItem('access_token');
+
+                    // 🔒 Si no hay token, redirigir al login
+                    if (!token) {
+                        console.warn('🔒 No se encontró token de autenticación - Redirigiendo al login...');
+                        window.location.href = '/auth-login.html?error=Por favor inicia sesión para continuar.';
+                        return;
+                    }
+
+                    const headers = {
+                        'Content-Type': 'application/json'
+                    };
+
+                    if (token) {
+                        headers['Authorization'] = `Bearer ${token}`;
+                    }
+
+                    const response = await fetch(`/expenses?company_id=${encodeURIComponent(resolvedCompanyId)}`, {
+                        headers: headers
+                    });
+
+                    // 🔒 Manejar error 401 - Redirigir al login
+                    if (response.status === 401) {
+                        console.warn('🔒 No autorizado (401) - Redirigiendo al login...');
+                        // Limpiar token inválido
+                        localStorage.removeItem('access_token');
+                        localStorage.removeItem('user_data');
+                        localStorage.removeItem('tenant_data');
+                        // Redirigir al login con mensaje
+                        window.location.href = '/auth-login.html?error=Tu sesión ha expirado. Por favor inicia sesión nuevamente.';
+                        return;
+                    }
+
                     if (response.ok) {
                         const backendExpenses = await response.json();
                         if (backendExpenses.length === 0) {
@@ -5217,213 +5363,195 @@ const MISSION_DETAILS = {
             };
 
 
-            const progress = calculateProgress();
+            const progress = calculateCompleteness(
+                formData.will_have_cfdi || false,
+                formData.invoice_status || 'no_invoice',
+                formData.proveedor?.rfc || null
+            );
             const missingRequiredFields = ['descripcion', 'monto_total', 'fecha_gasto', 'proveedor.nombre', 'forma_pago', 'will_have_cfdi', 'paid_by'].filter(field => {
                 const value = getFieldValue(field);
                 return !value;
             });
 
+            const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+
             return (
-                <div className="min-h-screen bg-slate-50 text-gray-900">
-                    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-slate-200">
-                        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3">
+                <div className="min-h-screen bg-slate-100 text-slate-900">
+                    <header className="bg-white border-b shadow-sm sticky top-0 z-50">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div className="flex items-center justify-between h-16 gap-6">
+                                <div className="flex items-center gap-6">
+                                    <a href="/dashboard" className="flex items-center gap-2">
+                                        <img src="/static/img/ContaFlow.png" alt="ContaFlow" className="h-9 w-auto" />
+                                    </a>
+                                    <nav className="hidden xl:flex items-center gap-4 text-sm font-semibold text-slate-600">
+                                        {navItems.map((item) => {
+                                            const isActive = item.matches.some((path) => currentPath.startsWith(path));
+                                            return (
+                                                <a
+                                                    key={item.href}
+                                                    href={item.href}
+                                                    className={`inline-flex items-center gap-2 border-b-2 pb-1 transition-colors ${isActive ? 'text-blue-600 border-blue-600' : 'border-transparent hover:text-blue-600 hover:border-blue-200'}`}
+                                                >
+                                                    <i className={`fas ${item.icon}`}></i>
+                                                    {item.label}
+                                                </a>
+                                            );
+                                        })}
+                                    </nav>
+                                </div>
+                                <div className="flex items-center gap-4 text-sm">
+                                    <div className="hidden lg:flex items-center gap-2 text-slate-600">
+                                        <i className="fas fa-building text-blue-600"></i>
+                                        <span className="font-semibold text-slate-900">{headerCompany}</span>
+                                    </div>
+                                    <div className="hidden lg:flex items-center gap-2 text-slate-500">
+                                        <i className="fas fa-user-circle text-slate-400 text-lg"></i>
+                                        <span>{headerUser}</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowNavigationDrawer(true)}
+                                        className="inline-flex lg:hidden items-center justify-center h-10 w-10 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-100"
+                                        aria-label="Abrir menú"
+                                    >
+                                        <i className="fas fa-bars"></i>
+                                    </button>
+                                    <a
+                                        href="/auth/logout"
+                                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                    >
+                                        <i className="fas fa-sign-out-alt"></i>
+                                        Cerrar sesión
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="xl:hidden px-4 pb-3">
+                            <nav className="flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-600">
+                                {navItems.map((item) => {
+                                    const isActive = item.matches.some((path) => currentPath.startsWith(path));
+                                    return (
+                                        <a
+                                            key={`mobile-${item.href}`}
+                                            href={item.href}
+                                            className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 ${isActive ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-slate-200 hover:border-blue-300 hover:text-blue-600'}`}
+                                        >
+                                            <i className={`fas ${item.icon}`}></i>
+                                            {item.label}
+                                        </a>
+                                    );
+                                })}
+                            </nav>
+                        </div>
+                    </header>
+                    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        <header className="page-header">
+                            <div className="page-header__content">
+                                <div className="page-header__meta">
+                                    <h1 className="page-header__title"><span aria-hidden="true">🎤</span> Centro de Gastos por Voz</h1>
+                                    <p className="page-header__subtitle">Captura gastos por voz, ticket u OCR, vincula CFDI demo y concilia con tus cuentas bancarias.</p>
+                                </div>
+                                <div className="page-header__actions">
+                                    <span className="badge-secondary">Gasto → Factura → Banco</span>
+                                </div>
+                            </div>
+                        </header>
+                    </section>
+
+                    <div className="sticky top-[6.5rem] xl:top-[4.5rem] z-30 border-b bg-white/90 backdrop-blur">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-4">
+                            <div className="flex flex-wrap items-center gap-4">
+                                <div>
+                                    <span className="block text-xs font-semibold uppercase text-slate-500 mb-1">Empresa activa</span>
+                                    <div className="inline-flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm">
+                                        <i className="fas fa-building text-slate-500"></i>
+                                        <select
+                                            value={companyId}
+                                            onChange={(event) => handleCompanyChange(event.target.value)}
+                                            className="bg-transparent focus:outline-none"
+                                        >
+                                            {knownCompanies.map((company) => (
+                                                <option key={company} value={company}>{company}</option>
+                                            ))}
+                                            {!knownCompanies.includes('default') && (
+                                                <option value="default">default</option>
+                                            )}
+                                            <option value="__new__">➕ Registrar empresa…</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <span className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold ${demoMode ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                                    <i className={`fas ${demoMode ? 'fa-rocket' : 'fa-plug'}`}></i>
+                                    {demoMode ? 'Demo activa' : 'Empresa real'}
+                                </span>
                                 <button
-                                    className="inline-flex md:hidden items-center justify-center h-10 w-10 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"
-                                    onClick={() => {
-                                        setShowNavigationDrawer(true);
-                                        setShowAccountMenu(false);
-                                    }}
-                                    aria-label="Abrir menú de navegación"
+                                    type="button"
+                                    onClick={() => setShowNavigationDrawer(true)}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 md:hidden"
                                 >
                                     <i className="fas fa-bars"></i>
+                                    Accesos rápidos
                                 </button>
-                                <div className="flex items-center gap-2">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-semibold">
-                                        MCP
-                                    </div>
-                                    <div className="leading-tight">
-                                        <p className="font-semibold text-slate-900">MCP Expenses</p>
-                                        <p className="text-xs text-slate-500">Gasto → Factura → Banco</p>
+                                <div className="flex-1 hidden md:block">
+                                    <div className="text-xs uppercase text-slate-500">Avance del flujo</div>
+                                    <div className="flex items-center gap-3 text-sm">
+                                        <strong>{progress.porcentaje}% completado</strong>
+                                        <span className="text-slate-500">Faltan {progress.detalles.faltan} pasos</span>
                                     </div>
                                 </div>
                             </div>
-                            <div className="hidden md:flex items-center gap-3">
-                                <div className="flex items-center gap-2 border border-slate-200 rounded-full px-3 py-1 bg-white shadow-sm">
-                                    <i className="fas fa-building text-slate-500"></i>
-                                    <select
-                                        value={companyId}
-                                        onChange={(event) => handleCompanyChange(event.target.value)}
-                                        className="bg-transparent text-sm focus:outline-none focus:ring-0"
-                                    >
-                                        {knownCompanies.map((company) => (
-                                            <option key={company} value={company}>{company}</option>
-                                        ))}
-                                        {!knownCompanies.includes('default') && (
-                                            <option value="default">default</option>
-                                        )}
-                                        <option value="__new__">➕ Registrar empresa…</option>
-                                    </select>
-                                </div>
+
+                            <div className="flex flex-wrap items-center gap-3">
                                 <button
                                     onClick={() => {
-                                        setShowExpensesDashboard(true);
-                                        setShowAccountMenu(false);
+                                        document.getElementById('capture-mode-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                                     }}
-                                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-100"
+                                    className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
                                 >
-                                    <i className="fas fa-chart-line"></i>
-                                    Dashboard
+                                    <i className="fas fa-microphone"></i>
+                                    Registrar gasto
                                 </button>
                                 <button
-                                    onClick={() => {
-                                        setShowInvoiceUpload(true);
-                                        setShowAccountMenu(false);
-                                    }}
-                                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700"
+                                    onClick={() => setShowPendingInvoices(true)}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
                                 >
-                                    <i className="fas fa-file-upload"></i>
-                                    Cargar facturas
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setShowReconciliation(true);
-                                        setShowAccountMenu(false);
-                                    }}
-                                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-100"
-                                >
-                                    <i className="fas fa-balance-scale"></i>
-                                    Conciliar gastos
+                                    <i className="fas fa-file-invoice"></i>
+                                    Facturas pendientes
                                 </button>
                                 <button
                                     onClick={() => {
                                         setShowBankReconciliation(true);
-                                        setShowAccountMenu(false);
+                                        markMissionComplete('3');
                                     }}
-                                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-100"
+                                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
                                 >
-                                    <i className="fas fa-university"></i>
-                                    Bancos
-                                </button>
-                                <div className="relative">
-                                    <button
-                                        onClick={() => {
-                                            setShowAccountMenu((prev) => !prev);
-                                            setShowNavigationDrawer(false);
-                                        }}
-                                        className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300"
-                                        aria-label="Abrir menú de cuenta"
-                                    >
-                                        <i className="fas fa-user"></i>
-                                    </button>
-                                    {showAccountMenu && (
-                                        <div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white shadow-lg z-50">
-                                            <button
-                                                onClick={() => {
-                                                    handleCompanyChange('__new__');
-                                                    setShowAccountMenu(false);
-                                                }}
-                                                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
-                                            >
-                                                <i className="fas fa-building"></i>
-                                                Registrar empresa
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    alert('Cerrar sesión no está disponible en la demo.');
-                                                    setShowAccountMenu(false);
-                                                }}
-                                                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
-                                            >
-                                                <i className="fas fa-sign-out-alt"></i>
-                                                Cerrar sesión
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </header>
-                    {showAccountMenu && (
-                        <div
-                            className="fixed inset-0 z-30 hidden md:block"
-                            onClick={() => setShowAccountMenu(false)}
-                        ></div>
-                    )}
-                    <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-                        <section className="text-center space-y-4">
-                            <h2 className="text-3xl font-bold text-gray-900">📊 Centro de Control de Gastos</h2>
-                            <p className="text-gray-600">Captura por voz o ticket, vincula facturas y concilia con el banco en un solo flujo.</p>
-                            <div className="flex flex-col items-center justify-center gap-3 text-sm text-slate-600 md:flex-row md:gap-4">
-                                <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm">
-                                    <i className="fas fa-building text-slate-500"></i>
-                                    <span className="font-medium text-slate-700">Empresa: {resolvedCompanyId}</span>
-                                    <button
-                                        onClick={() => {
-                                            setShowNavigationDrawer(true);
-                                            setShowAccountMenu(false);
-                                        }}
-                                        className="text-xs font-semibold text-blue-600 hover:underline"
-                                        type="button"
-                                    >
-                                        Cambiar
-                                    </button>
-                                </div>
-                                {demoMode ? (
-                                    <span className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                                        <i className="fas fa-rocket"></i>
-                                        Estás en modo demo
-                                    </span>
-                                ) : (
-                                    <span className="inline-flex items-center gap-2 rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-600">
-                                        <i className="fas fa-plug"></i>
-                                        Registrando en empresa real
-                                    </span>
-                                )}
-                            </div>
-                            <div className="flex justify-center gap-3 flex-wrap">
-                                <button
-                                    onClick={() => {
-                                        setShowExpensesDashboard(true);
-                                        if (demoMode) {
-                                            markMissionComplete('4');
-                                        }
-                                    }}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                                >
-                                    <i className="fas fa-chart-bar mr-2"></i>
-                                    Dashboard de Gastos
-                                </button>
-                                <button
-                                    onClick={() => setShowPendingInvoices(true)}
-                                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm"
-                                >
-                                    <i className="fas fa-file-invoice mr-2"></i>
-                                    Facturas Pendientes
+                                    <i className="fas fa-wallet"></i>
+                                    Cuentas de Banco y Efectivo
                                 </button>
                                 <div className="relative">
                                     <button
                                         onClick={() => setMoreActionsOpen((open) => !open)}
                                         aria-haspopup="true"
                                         aria-expanded={moreActionsOpen}
-                                        className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors text-sm flex items-center"
+                                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
                                     >
-                                        <i className="fas fa-ellipsis-h mr-2"></i>
+                                        <i className="fas fa-ellipsis-h"></i>
                                         Más opciones
                                     </button>
                                     {moreActionsOpen && (
-                                        <div className="absolute right-0 mt-2 w-56 bg-white shadow-lg rounded-lg border border-gray-200 z-10">
-                                            <ul className="py-2 text-sm text-gray-700">
+                                        <div className="absolute left-0 mt-2 w-60 rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-xl z-20">
+                                            <ul className="py-2 text-sm">
                                                 <li>
                                                     <button
                                                         onClick={() => {
                                                             setShowInvoiceUpload(true);
                                                             setMoreActionsOpen(false);
                                                         }}
-                                                        className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                                        className="flex w-full items-center gap-3 px-4 py-2 hover:bg-slate-100"
                                                     >
-                                                        <i className="fas fa-upload mr-2 text-green-600"></i>
-                                                        Cargar Facturas
+                                                        <i className="fas fa-upload text-emerald-500"></i>
+                                                        Cargar facturas demo
                                                     </button>
                                                 </li>
                                                 <li>
@@ -5432,22 +5560,10 @@ const MISSION_DETAILS = {
                                                             setShowReconciliation(true);
                                                             setMoreActionsOpen(false);
                                                         }}
-                                                        className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                                        className="flex w-full items-center gap-3 px-4 py-2 hover:bg-slate-100"
                                                     >
-                                                        <i className="fas fa-balance-scale mr-2 text-purple-600"></i>
-                                                        Conciliar Gastos
-                                                    </button>
-                                                </li>
-                                                <li>
-                                                    <button
-                                                        onClick={() => {
-                                                            setShowBankReconciliation(true);
-                                                            setMoreActionsOpen(false);
-                                                        }}
-                                                        className="w-full text-left px-4 py-2 hover:bg-gray-100"
-                                                    >
-                                                        <i className="fas fa-university mr-2 text-teal-600"></i>
-                                                        Conciliación Bancaria
+                                                        <i className="fas fa-balance-scale text-purple-500"></i>
+                                                        Conciliar gastos
                                                     </button>
                                                 </li>
                                                 <li>
@@ -5456,10 +5572,10 @@ const MISSION_DETAILS = {
                                                             setShowCompletenessView(true);
                                                             setMoreActionsOpen(false);
                                                         }}
-                                                        className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                                        className="flex w-full items-center gap-3 px-4 py-2 hover:bg-slate-100"
                                                     >
-                                                        <i className="fas fa-clipboard-check mr-2 text-indigo-600"></i>
-                                                        Vista Contable
+                                                        <i className="fas fa-clipboard-check text-indigo-500"></i>
+                                                        Vista contable
                                                     </button>
                                                 </li>
                                                 <li>
@@ -5468,9 +5584,9 @@ const MISSION_DETAILS = {
                                                             setShowConversationalAssistant(true);
                                                             setMoreActionsOpen(false);
                                                         }}
-                                                        className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                                        className="flex w-full items-center gap-3 px-4 py-2 hover:bg-slate-100"
                                                     >
-                                                        <i className="fas fa-robot mr-2 text-pink-600"></i>
+                                                        <i className="fas fa-robot text-pink-500"></i>
                                                         Asistente IA
                                                     </button>
                                                 </li>
@@ -5478,6 +5594,60 @@ const MISSION_DETAILS = {
                                         </div>
                                     )}
                                 </div>
+                                <button
+                                    onClick={() => setShowExpensesDashboard(true)}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                                >
+                                    <i className="fas fa-chart-line"></i>
+                                    Abrir tablero demo
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+                        <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold text-slate-900">Gastos</h3>
+                                    <span className="text-sm font-semibold text-blue-600">{expensesData.length}</span>
+                                </div>
+                                <p className="mt-3 text-sm text-slate-600">Centraliza los gastos que dictas, subes por ticket o capturas manualmente.</p>
+                                <button
+                                    onClick={() => document.getElementById('capture-mode-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                                    className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#11446e] hover:text-[#0b3050]"
+                                >
+                                    <i className="fas fa-arrow-right"></i>
+                                    Abrir captura
+                                </button>
+                            </div>
+                            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold text-slate-900">Facturas</h3>
+                                    <span className="text-sm font-semibold text-emerald-600">{invoiceCounts.facturado || 0}</span>
+                                </div>
+                                <p className="mt-3 text-sm text-slate-600">Adjunta CFDI demo o revisa las pendientes antes de conciliar en bancos.</p>
+                                <button
+                                    onClick={() => setShowPendingInvoices(true)}
+                                    className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-600 hover:text-emerald-700"
+                                >
+                                    <i className="fas fa-file-invoice"></i>
+                                    Ver pendientes
+                                </button>
+                            </div>
+                            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold text-slate-900">Cuentas de Banco y Efectivo</h3>
+                                    <span className="text-sm font-semibold text-purple-600">{bankCounts.reconciled}/{expensesData.length}</span>
+                                </div>
+                                <p className="mt-3 text-sm text-slate-600">Conciliación demo lista para ilustrar cómo se relacionan pagos y gastos.</p>
+                                <button
+                                    onClick={() => setShowBankReconciliation(true)}
+                                    className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-purple-600 hover:text-purple-700"
+                                >
+                                    <i className="fas fa-university"></i>
+                                    Revisar conciliación
+                                </button>
                             </div>
                         </section>
 
@@ -5866,29 +6036,29 @@ Ejemplo: 'Compra de gasolina por 500 pesos en Pemex, pagado con tarjeta de empre
                                 <div className="flex items-center justify-between mb-3">
                                     <h3 className="text-lg font-medium text-gray-900">Progreso de Completitud</h3>
                                     <div className="text-right">
-                                        <div className="text-2xl font-bold text-gray-900">{progress}%</div>
+                                        <div className="text-2xl font-bold text-gray-900">{progress.porcentaje}%</div>
                                         <div className="text-sm text-gray-500">
-                                            {Object.keys(formData).filter(k => !k.startsWith('_')).length}/{Object.keys(EXPENSE_FIELDS).length} campos
+                                            {progress.detalles.score}/{progress.detalles.total} campos
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="mb-4">
                                     <div className={`w-full h-3 rounded-full ${
-                                        progress >= 80 ? 'bg-green-50' : progress >= 50 ? 'bg-yellow-50' : 'bg-red-50'
+                                        progress.porcentaje >= 80 ? 'bg-green-50' : progress.porcentaje >= 50 ? 'bg-yellow-50' : 'bg-red-50'
                                     }`}>
                                         <div
                                             className={`h-3 rounded-full transition-all duration-500 ${
-                                                progress >= 80 ? 'bg-green-500' : progress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                                                progress.porcentaje >= 80 ? 'bg-green-500' : progress.porcentaje >= 50 ? 'bg-yellow-500' : 'bg-red-500'
                                             }`}
-                                            style={{ width: `${progress}%` }}
+                                            style={{ width: `${progress.porcentaje}%` }}
                                         />
                                     </div>
                                 </div>
 
                                 <div className="text-center text-sm text-gray-600">
-                                    {progress >= 80 ? 'Listo para enviar' :
-                                     progress >= 50 ? 'En progreso' : 'Necesita más información'}
+                                    {progress.porcentaje >= 80 ? 'Listo para enviar' :
+                                     progress.porcentaje >= 50 ? 'En progreso' : 'Necesita más información'}
                                 </div>
                             </div>
 
@@ -6334,14 +6504,14 @@ Ejemplo: 'Compra de gasolina por 500 pesos en Pemex, pagado con tarjeta de empre
                                 <div className="flex items-center gap-2">
                                     <div className={`w-3 h-3 rounded-full ${
                                         missingRequiredFields.length === 0 ? 'bg-green-500' :
-                                        progress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                                        progress.porcentaje >= 50 ? 'bg-yellow-500' : 'bg-red-500'
                                     }`} />
                                     <span className="text-sm text-gray-600">
                                         {missingRequiredFields.length === 0 ? 'Listo para enviar' :
-                                         progress >= 50 ? 'En progreso' : 'Necesita más información'}
+                                         progress.porcentaje >= 50 ? 'En progreso' : 'Necesita más información'}
                                     </span>
                                 </div>
-                                <div className="text-sm text-gray-500">{progress}% completo</div>
+                                <div className="text-sm text-gray-500">{progress.porcentaje}% completo</div>
                                 {missingRequiredFields.length > 0 && (
                                     <div className="text-sm text-red-600">
                                         {missingRequiredFields.length} campos requeridos faltantes
@@ -6405,7 +6575,7 @@ Ejemplo: 'Compra de gasolina por 500 pesos en Pemex, pagado con tarjeta de empre
                                         ) : (
                                             <>
                                                 <i className="fas fa-paper-plane mr-2"></i>
-                                                Enviar a Odoo
+                                                Guardar gasto
                                             </>
                                         )}
                                     </button>
@@ -6524,7 +6694,7 @@ Ejemplo: 'Compra de gasolina por 500 pesos en Pemex, pagado con tarjeta de empre
                     <p className="mt-10 text-center text-xs text-gray-500">
                         Cuando quieras, cambia de la empresa demo a tu empresa real para registrar gastos auténticos.
                     </p>
-                </main>
+                </div>
 
                 {/* Modal de Conciliación */}
                     {showReconciliation && (

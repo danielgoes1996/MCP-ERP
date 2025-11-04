@@ -14,12 +14,24 @@
 
     <style>
         .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #11446e 0%, #60b97b 100%);
         }
 
         .auth-card {
             backdrop-filter: blur(10px);
             background: rgba(255, 255, 255, 0.95);
+        }
+
+        .contaflow-logo {
+            background: linear-gradient(135deg, #11446e 0%, #1f5f92 100%);
+        }
+
+        .btn-contaflow {
+            background: linear-gradient(90deg, #11446e, #60b97b);
+        }
+
+        .btn-contaflow:hover {
+            background: linear-gradient(90deg, #0b3050, #3d8a5d);
         }
     </style>
 </head>
@@ -34,11 +46,11 @@
         <div class="auth-card rounded-2xl shadow-2xl p-8">
             <!-- Logo y Header -->
             <div class="text-center mb-8">
-                <div class="mx-auto w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mb-4">
-                    <span class="text-white text-2xl font-bold">M</span>
+                <div class="mx-auto mb-4 flex items-center justify-center">
+                    <img src="/static/img/ContaFlow.png" alt="ContaFlow" class="h-16" style="max-width: 200px;">
                 </div>
-                <h1 class="text-2xl font-bold text-gray-900 mb-2">Bienvenido de nuevo</h1>
-                <p class="text-gray-600">Inicia sesión en tu cuenta MCP System</p>
+                <h1 class="text-2xl font-bold mb-2" style="color: #11446e;">Bienvenido a ContaFlow</h1>
+                <p class="text-gray-600">Sistema de Gestión de Gastos Empresariales</p>
             </div>
 
             <!-- Mensajes de Error/Éxito -->
@@ -103,7 +115,7 @@
                 </div>
 
                 <button type="submit" id="login-btn"
-                        class="w-full gradient-bg text-white py-3 px-4 rounded-lg hover:opacity-90 transition-opacity font-medium">
+                        class="w-full btn-contaflow text-white py-3 px-4 rounded-lg transition-all font-medium">
                     <span id="login-text">
                         <i class="fas fa-sign-in-alt mr-2"></i>
                         Iniciar Sesión
@@ -151,7 +163,7 @@
 
         <!-- Footer -->
         <div class="text-center mt-8 text-white text-sm opacity-75">
-            <p>&copy; 2024 MCP System. Plataforma de gestión de gastos empresariales.</p>
+            <p>&copy; 2024 ContaFlow. Plataforma de gestión de gastos empresariales.</p>
         </div>
     </div>
 
@@ -269,7 +281,7 @@
 
                         // Redirect después de login exitoso
                         setTimeout(() => {
-                            window.location.href = '/dashboard?welcome=true';
+                            window.location.href = '/voice-expenses?welcome=true';
                         }, 1000);
 
                     } else {

@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/voice_handler.py
+# hypothesis_version: 6.140.3
+
+[0.0, 100.0, '(\\d+(?:\\.\\d+)?)', '.mp3', 'Respuesta procesada.', 'Text cannot be empty', 'Usuario Voz', 'alloy', 'amount', 'audio_data', 'audio_file', 'crear', 'create_expense', 'data', 'description', 'duration', 'echo', 'employee', 'error', 'expense', 'expense_id', 'expenses', 'fable', 'gasto', 'language', 'mcp_response', 'message', 'method', 'nova', 'onyx', 'params', 'process_text', 'rb', 'registrar', 'response_text', 'shimmer', 'success', 'text', 'transcript', 'tts-1', 'tts_error', 'tts_success', 'unknown', 'verbose_json', 'whisper-1']

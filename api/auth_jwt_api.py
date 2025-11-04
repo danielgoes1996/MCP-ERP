@@ -50,11 +50,14 @@ class TenantInfo(BaseModel):
 # =====================================================
 
 @router.get("/tenants", response_model=List[TenantInfo])
-async def get_available_tenants() -> List[TenantInfo]:
+async def get_available_tenants(email: Optional[str] = None) -> List[TenantInfo]:
     """
     Get list of available tenants for login selection
 
     **Public endpoint** - No authentication required
+
+    **Query Parameters:**
+    - email: Optional email to filter tenants by user
 
     **Returns:**
     - List of tenants with id and name
@@ -63,19 +66,29 @@ async def get_available_tenants() -> List[TenantInfo]:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        cursor.execute("""
-            SELECT id, name, description
-            FROM tenants
-            WHERE is_active = 1
-            ORDER BY name
-        """)
+        if email:
+            # Filter tenants by user's email
+            cursor.execute("""
+                SELECT DISTINCT t.id, t.name
+                FROM tenants t
+                INNER JOIN users u ON u.tenant_id = t.id
+                WHERE LOWER(u.email) = LOWER(?)
+                ORDER BY t.name
+            """, (email.strip(),))
+        else:
+            # Return all tenants if no email provided
+            cursor.execute("""
+                SELECT id, name
+                FROM tenants
+                ORDER BY name
+            """)
 
         tenants = []
         for row in cursor.fetchall():
             tenants.append(TenantInfo(
                 id=row['id'],
                 name=row['name'],
-                description=row['description'] if row['description'] else None
+                description=None
             ))
 
         conn.close()
@@ -151,10 +164,10 @@ async def login(
         cursor = conn.cursor()
 
         cursor.execute("""
-            SELECT t.id, t.name, t.description
+            SELECT t.id, t.name
             FROM tenants t
             INNER JOIN users u ON u.tenant_id = t.id
-            WHERE u.id = ? AND t.id = ? AND t.is_active = 1
+            WHERE u.id = ? AND t.id = ?
         """, (user.id, tenant_id))
 
         tenant_row = cursor.fetchone()
@@ -170,7 +183,7 @@ async def login(
         tenant_info = TenantInfo(
             id=tenant_row['id'],
             name=tenant_row['name'],
-            description=tenant_row['description'] if tenant_row['description'] else None
+            description=None
         )
 
         # Update user with selected tenant_id
@@ -186,7 +199,11 @@ async def login(
             token_type="bearer",
             expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             user=user,
-            tenant=tenant_info
+            tenant={
+                "id": tenant_info.id,
+                "name": tenant_info.name,
+                "description": tenant_info.description
+            }
         )
 
     except HTTPException:

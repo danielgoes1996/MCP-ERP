@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/universal_bank_patterns.py
+# hypothesis_version: 6.140.3
+
+[0.0, 0.8, 0.9, 0.95, '.', 'ABR', 'ABRIL', 'AGO', 'AGOSTO', 'APR', 'AUG', 'BALANCE INICIAL', 'DEC', 'DIC', 'DICIEMBRE', 'ENE', 'ENERO', 'FEB', 'FEBRERO', 'JAN', 'JUL', 'JULIO', 'JUN', 'JUNIO', 'MAR', 'MARZO', 'MAY', 'MAYO', 'NOV', 'NOVIEMBRE', 'OCT', 'OCTUBRE', 'SEP', 'SEPTIEMBRE', '[,\\s]', '[\\d,]+\\.\\d{2}', '[\\d,]+\\d', '\\d+', '\\d+\\.\\d{2}', 'all_formats', 'amount', 'amount_patterns', 'balance', 'balance_inicial', 'balance_patterns', 'complete_transaction', 'confidence', 'date_patterns', 'day', 'description', 'high', 'inbursa', 'line_number', 'low', 'main_format', 'medium', 'month', 'month_day', 'pattern_used', 'raw_line', 'reference', 'simple_transaction', '|']

@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/modules/invoicing_agent/state_machine.py
+# hypothesis_version: 6.140.3
+
+[0.0, 'StateDecision', 'action', 'confidence', 'confirmation', 'context', 'current_state', 'done', 'error', 'form_filling', 'from', 'history', 'login_or_register', 'navigation', 'next_state', 'reason', 'selector', 'timestamp', 'to', 'value']

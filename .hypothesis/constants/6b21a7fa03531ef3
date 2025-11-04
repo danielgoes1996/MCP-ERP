@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/split_reconciliation_models.py
+# hypothesis_version: 6.140.3
+
+[0.0, 0.01, 100, '%Y%m%d_%H%M%S', 'Company ID', 'Error messages', 'ID of the expense', 'Warning messages', 'amount', 'cancelled', 'complete', 'default', 'expense_amount', 'expenses', 'many_to_one', 'movement_amount', 'movements', 'one_to_many', 'partial', 'pending']

@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/employee_advances_service.py
+# hypothesis_version: 6.140.3
+
+[0.0, 0.01, 100, 1000, ' AND a.status = ?', ' AND a.tenant_id = ?', ' WHERE tenant_id = ?', 'No fields to update', 'Unknown', 'advance', 'amount', 'bank_status', 'completed_count', 'default', 'employee_name = ?', 'notes = ?', 'partial_count', 'payment_method = ?', 'pending', 'pending_count', 'status = ?', 'total_advances', 'total_pending', 'total_reimbursed']

@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/modules/invoicing_agent/services/hybrid_processor.py
+# hypothesis_version: 6.140.3
+
+[0.0, 0.6, 0.7, 0.8, 1.0, '.txt', '7_ELEVEN', 'CHEDRAUI', 'COSTCO', 'FARMACIA_DEL_AHORRO', 'HOME_DEPOT', 'OXXO', 'PEMEX', 'SORIANA', 'WALMART', '__main__', 'confidence', 'error', 'extracted_text', 'extracted_urls', 'facturacion_url', 'human_intervention', 'illegible_ticket', 'intervention_reason', 'known_domains_count', 'max_retries', 'merchant_name', 'message', 'min_confidence', 'min_text_quality', 'no_merchant_found', 'no_url_found', 'ocr_failed', 'pattern_count', 'quality_thresholds', 'r', 'result', 'retake_photo', 'retry_count', 'success_merchant', 'success_url', 'unknown_business', 'url_extractor_stats', 'utf-8']

@@ -1,0 +1,842 @@
+{
+  "tickets": {
+    "table": "tickets",
+    "mentions_total": 363,
+    "mentions_by_type": {
+      "create_table": 1,
+      "insert": 2,
+      "select": 11,
+      "update": 0,
+      "delete": 0,
+      "reference": 0
+    },
+    "files": {
+      "python": [
+        "core/robust_fallback_system.py",
+        "core/advanced_ocr_service.py",
+        "core/unified_db_adapter.py",
+        "core/hybrid_vision_service.py",
+        "core/invoice_manager.py",
+        "core/service_stack_config.py",
+        "core/db_optimizer.py",
+        "core/intelligent_field_validator.py",
+        "core/google_vision_ocr.py",
+        "core/security_middleware.py",
+        "core/ticket_analyzer.py",
+        "core/internal_db.py",
+        "core/api_version_manager.py",
+        "core/data_consistency_manager.py",
+        "core/enhanced_api_models.py",
+        "core/rollback_safety.py",
+        "api/v1/invoicing.py",
+        "api/advanced_invoicing_api.py",
+        "api/automation_v2.py",
+        "modules/invoicing_agent/worker.py",
+        "modules/invoicing_agent/ticket_processor.py",
+        "modules/invoicing_agent/models.py",
+        "modules/invoicing_agent/enhanced_api.py",
+        "modules/invoicing_agent/__init__.py",
+        "modules/invoicing_agent/api.py",
+        "modules/invoicing_agent/ocr_service.py",
+        "modules/invoicing_agent/fastapi_integration.py",
+        "modules/invoicing_agent/services/queue_service.py",
+        "modules/invoicing_agent/services/__init__.py",
+        "modules/invoicing_agent/services/hybrid_processor.py",
+        "modules/invoicing_agent/services/url_extractor.py",
+        "modules/invoicing_agent/services/orchestrator.py",
+        "modules/invoicing_agent/services/ocr_service.py",
+        "modules/invoicing_agent/integration_layer.py",
+        "modules/invoicing_agent/queue_manager.py",
+        "modules/invoicing_agent/web_automation.py"
+      ],
+      "sql": [
+        "migrations/"
+      ],
+      "html": [
+        "static/"
+      ]
+    },
+    "endpoints": [],
+    "models": [
+      "core/enhanced_api_models.py",
+      "modules/invoicing_agent/models.py"
+    ],
+    "services": [
+      "modules/invoicing_agent/services/queue_service.py",
+      "modules/invoicing_agent/services/__init__.py",
+      "modules/invoicing_agent/services/hybrid_processor.py",
+      "modules/invoicing_agent/services/url_extractor.py",
+      "modules/invoicing_agent/services/orchestrator.py",
+      "modules/invoicing_agent/services/ocr_service.py"
+    ],
+    "schema_info": {
+      "columns": 10,
+      "has_tenant_id": true,
+      "column_names": [
+        "id",
+        "title",
+        "description",
+        "status",
+        "priority",
+        "assignee",
+        "tenant_id",
+        "user_id",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "recommendation": "KEEP - Alto uso en c\u00f3digo (50+ menciones)"
+  },
+  "workers": {
+    "table": "workers",
+    "mentions_total": 87,
+    "mentions_by_type": {
+      "create_table": 1,
+      "insert": 0,
+      "select": 0,
+      "update": 0,
+      "delete": 0,
+      "reference": 0
+    },
+    "files": {
+      "python": [
+        "core/advanced_ocr_service.py",
+        "core/batch_performance_optimizer.py",
+        "core/worker_system.py",
+        "core/bulk_invoice_processor.py",
+        "core/idempotent_workers.py",
+        "modules/invoicing_agent/api.py",
+        "modules/invoicing_agent/services/orchestrator.py",
+        "modules/invoicing_agent/queue_manager.py"
+      ],
+      "sql": [
+        "migrations/"
+      ],
+      "html": []
+    },
+    "endpoints": [],
+    "models": [],
+    "services": [
+      "modules/invoicing_agent/services/orchestrator.py"
+    ],
+    "schema_info": {
+      "columns": 13,
+      "has_tenant_id": true,
+      "column_names": [
+        "id",
+        "task_id",
+        "company_id",
+        "task_type",
+        "status",
+        "progress",
+        "worker_metadata",
+        "retry_policy",
+        "retry_count",
+        "result_data",
+        "created_at",
+        "updated_at",
+        "tenant_id"
+      ]
+    },
+    "recommendation": "KEEP - Alto uso en c\u00f3digo (50+ menciones)"
+  },
+  "automation_screenshots": {
+    "table": "automation_screenshots",
+    "mentions_total": 17,
+    "mentions_by_type": {
+      "create_table": 1,
+      "insert": 1,
+      "select": 3,
+      "update": 0,
+      "delete": 0,
+      "reference": 0
+    },
+    "files": {
+      "python": [
+        "core/playwright_executor.py",
+        "core/rpa_automation_engine_system.py",
+        "api/rpa_automation_engine_api.py",
+        "api/automation_v2.py",
+        "modules/invoicing_agent/robust_automation_engine.py",
+        "modules/invoicing_agent/automation_persistence.py",
+        "modules/invoicing_agent/universal_invoice_engine.py",
+        "modules/invoicing_agent/playwright_robust_engine.py",
+        "modules/invoicing_agent/playwright_automation_engine.py",
+        "modules/invoicing_agent/playwright_simple_engine.py"
+      ],
+      "sql": [
+        "migrations/"
+      ],
+      "html": []
+    },
+    "endpoints": [],
+    "models": [],
+    "services": [],
+    "schema_info": {
+      "columns": 7,
+      "has_tenant_id": true,
+      "column_names": [
+        "id",
+        "job_id",
+        "filename",
+        "file_path",
+        "step_name",
+        "timestamp",
+        "tenant_id"
+      ]
+    },
+    "recommendation": "EVALUATE - Tiene queries pero poco uso general"
+  },
+  "automation_sessions": {
+    "table": "automation_sessions",
+    "mentions_total": 20,
+    "mentions_by_type": {
+      "create_table": 1,
+      "insert": 0,
+      "select": 0,
+      "update": 0,
+      "delete": 0,
+      "reference": 0
+    },
+    "files": {
+      "python": [
+        "core/rpa_automation_engine_system.py",
+        "core/robust_automation_engine_system.py",
+        "core/web_automation_engine_system.py",
+        "core/api_models.py",
+        "api/robust_automation_engine_api.py"
+      ],
+      "sql": [
+        "migrations/"
+      ],
+      "html": []
+    },
+    "endpoints": [],
+    "models": [
+      "core/api_models.py"
+    ],
+    "services": [],
+    "schema_info": {
+      "columns": 10,
+      "has_tenant_id": true,
+      "column_names": [
+        "id",
+        "session_id",
+        "company_id",
+        "state_data",
+        "checkpoint_data",
+        "recovery_metadata",
+        "session_status",
+        "created_at",
+        "updated_at",
+        "tenant_id"
+      ]
+    },
+    "recommendation": "EVALUATE - Definido pero sin queries (roadmap futuro?)"
+  },
+  "expense_invoices": {
+    "table": "expense_invoices",
+    "mentions_total": 25,
+    "mentions_by_type": {
+      "create_table": 0,
+      "insert": 4,
+      "select": 7,
+      "update": 0,
+      "delete": 0,
+      "reference": 0
+    },
+    "files": {
+      "python": [
+        "core/unified_db_adapter.py",
+        "core/db_optimizer.py",
+        "core/internal_db.py"
+      ],
+      "sql": [],
+      "html": []
+    },
+    "endpoints": [],
+    "models": [],
+    "services": [],
+    "schema_info": {
+      "columns": 36,
+      "has_tenant_id": true,
+      "column_names": [
+        "id",
+        "expense_id",
+        "filename",
+        "file_path",
+        "content_type",
+        "parsed_data",
+        "tenant_id",
+        "created_at",
+        "uuid",
+        "rfc_emisor",
+        "nombre_emisor",
+        "subtotal",
+        "iva_amount",
+        "total",
+        "moneda",
+        "fecha_emision",
+        "xml_content",
+        "pdf_content",
+        "processing_status",
+        "match_confidence",
+        "auto_matched",
+        "processed_at",
+        "error_message",
+        "discount",
+        "retention",
+        "validation_status",
+        "processing_metadata",
+        "template_match",
+        "validation_rules",
+        "detected_format",
+        "parser_used",
+        "ocr_confidence",
+        "processing_metrics",
+        "quality_score",
+        "processor_used",
+        "extraction_confidence"
+      ]
+    },
+    "recommendation": "KEEP - Uso moderado con queries activas"
+  },
+  "system_health": {
+    "table": "system_health",
+    "mentions_total": 29,
+    "mentions_by_type": {
+      "create_table": 1,
+      "insert": 0,
+      "select": 0,
+      "update": 0,
+      "delete": 0,
+      "reference": 0
+    },
+    "files": {
+      "python": [
+        "api/robust_automation_engine_api.py",
+        "modules/invoicing_agent/enhanced_api.py",
+        "modules/invoicing_agent/api.py",
+        "modules/invoicing_agent/fastapi_integration.py",
+        "modules/invoicing_agent/services/__init__.py",
+        "modules/invoicing_agent/services/orchestrator.py",
+        "modules/invoicing_agent/integration_layer.py"
+      ],
+      "sql": [
+        "migrations/"
+      ],
+      "html": []
+    },
+    "endpoints": [],
+    "models": [],
+    "services": [
+      "modules/invoicing_agent/services/__init__.py",
+      "modules/invoicing_agent/services/orchestrator.py"
+    ],
+    "schema_info": {
+      "columns": 8,
+      "has_tenant_id": false,
+      "column_names": [
+        "id",
+        "component_name",
+        "health_status",
+        "automation_health",
+        "performance_metrics",
+        "error_count",
+        "last_check",
+        "metadata"
+      ]
+    },
+    "recommendation": "EVALUATE - Definido pero sin queries (roadmap futuro?)"
+  },
+  "bank_reconciliation_feedback": {
+    "table": "bank_reconciliation_feedback",
+    "mentions_total": 1,
+    "mentions_by_type": {
+      "create_table": 0,
+      "insert": 1,
+      "select": 0,
+      "update": 0,
+      "delete": 0,
+      "reference": 0
+    },
+    "files": {
+      "python": [
+        "core/unified_db_adapter.py"
+      ],
+      "sql": [],
+      "html": []
+    },
+    "endpoints": [],
+    "models": [],
+    "services": [],
+    "schema_info": {
+      "columns": 11,
+      "has_tenant_id": true,
+      "column_names": [
+        "id",
+        "movement_id",
+        "expense_id",
+        "feedback_type",
+        "confidence",
+        "match_criteria",
+        "user_decision",
+        "feedback_notes",
+        "created_by",
+        "created_at",
+        "tenant_id"
+      ]
+    },
+    "recommendation": "EVALUATE - Tiene queries pero poco uso general"
+  },
+  "duplicate_detection": {
+    "table": "duplicate_detection",
+    "mentions_total": 7,
+    "mentions_by_type": {
+      "create_table": 1,
+      "insert": 1,
+      "select": 2,
+      "update": 0,
+      "delete": 0,
+      "reference": 0
+    },
+    "files": {
+      "python": [
+        "core/unified_db_adapter.py"
+      ],
+      "sql": [
+        "migrations/"
+      ],
+      "html": []
+    },
+    "endpoints": [],
+    "models": [],
+    "services": [],
+    "schema_info": {
+      "columns": 9,
+      "has_tenant_id": false,
+      "column_names": [
+        "id",
+        "company_id",
+        "expense_id_1",
+        "expense_id_2",
+        "similarity_score",
+        "detection_method",
+        "status",
+        "user_decision",
+        "created_at"
+      ]
+    },
+    "recommendation": "EVALUATE - Tiene queries pero poco uso general"
+  },
+  "duplicate_detections": {
+    "table": "duplicate_detections",
+    "mentions_total": 3,
+    "mentions_by_type": {
+      "create_table": 0,
+      "insert": 1,
+      "select": 1,
+      "update": 0,
+      "delete": 0,
+      "reference": 0
+    },
+    "files": {
+      "python": [
+        "core/unified_db_adapter.py"
+      ],
+      "sql": [],
+      "html": []
+    },
+    "endpoints": [],
+    "models": [],
+    "services": [],
+    "schema_info": {
+      "columns": 14,
+      "has_tenant_id": true,
+      "column_names": [
+        "id",
+        "expense_id",
+        "potential_duplicate_id",
+        "similarity_score",
+        "risk_level",
+        "confidence_level",
+        "match_reasons",
+        "detection_method",
+        "ml_features_json",
+        "status",
+        "reviewed_by",
+        "reviewed_at",
+        "created_at",
+        "tenant_id"
+      ]
+    },
+    "recommendation": "EVALUATE - Tiene queries pero poco uso general"
+  },
+  "category_learning": {
+    "table": "category_learning",
+    "mentions_total": 7,
+    "mentions_by_type": {
+      "create_table": 1,
+      "insert": 1,
+      "select": 4,
+      "update": 0,
+      "delete": 0,
+      "reference": 0
+    },
+    "files": {
+      "python": [
+        "core/category_learning_system.py"
+      ],
+      "sql": [
+        "migrations/"
+      ],
+      "html": []
+    },
+    "endpoints": [],
+    "models": [],
+    "services": [],
+    "schema_info": {
+      "columns": 8,
+      "has_tenant_id": false,
+      "column_names": [
+        "id",
+        "company_id",
+        "description_pattern",
+        "predicted_category",
+        "confidence",
+        "user_feedback",
+        "learning_data",
+        "created_at"
+      ]
+    },
+    "recommendation": "EVALUATE - Tiene queries pero poco uso general"
+  },
+  "category_learning_metrics": {
+    "table": "category_learning_metrics",
+    "mentions_total": 6,
+    "mentions_by_type": {
+      "create_table": 0,
+      "insert": 1,
+      "select": 4,
+      "update": 0,
+      "delete": 0,
+      "reference": 0
+    },
+    "files": {
+      "python": [
+        "core/category_learning_system.py"
+      ],
+      "sql": [],
+      "html": []
+    },
+    "endpoints": [],
+    "models": [],
+    "services": [],
+    "schema_info": {
+      "columns": 12,
+      "has_tenant_id": true,
+      "column_names": [
+        "id",
+        "tenant_id",
+        "user_id",
+        "category_name",
+        "total_predictions",
+        "correct_predictions",
+        "accuracy_rate",
+        "avg_confidence",
+        "most_common_keywords",
+        "most_common_merchants",
+        "typical_amount_range",
+        "last_updated"
+      ]
+    },
+    "recommendation": "EVALUATE - Tiene queries pero poco uso general"
+  },
+  "category_prediction_history": {
+    "table": "category_prediction_history",
+    "mentions_total": 4,
+    "mentions_by_type": {
+      "create_table": 0,
+      "insert": 1,
+      "select": 2,
+      "update": 0,
+      "delete": 0,
+      "reference": 0
+    },
+    "files": {
+      "python": [
+        "core/unified_db_adapter.py"
+      ],
+      "sql": [],
+      "html": []
+    },
+    "endpoints": [],
+    "models": [],
+    "services": [],
+    "schema_info": {
+      "columns": 13,
+      "has_tenant_id": true,
+      "column_names": [
+        "id",
+        "expense_id",
+        "predicted_category",
+        "confidence",
+        "reasoning",
+        "alternatives",
+        "prediction_method",
+        "ml_model_version",
+        "user_feedback",
+        "corrected_category",
+        "feedback_date",
+        "created_at",
+        "tenant_id"
+      ]
+    },
+    "recommendation": "EVALUATE - Tiene queries pero poco uso general"
+  },
+  "expense_attachments": {
+    "table": "expense_attachments",
+    "mentions_total": 1,
+    "mentions_by_type": {
+      "create_table": 0,
+      "insert": 0,
+      "select": 0,
+      "update": 0,
+      "delete": 0,
+      "reference": 0
+    },
+    "files": {
+      "python": [
+        "core/api_models.py"
+      ],
+      "sql": [],
+      "html": []
+    },
+    "endpoints": [],
+    "models": [
+      "core/api_models.py"
+    ],
+    "services": [],
+    "schema_info": {
+      "columns": 9,
+      "has_tenant_id": false,
+      "column_names": [
+        "id",
+        "expense_id",
+        "filename",
+        "file_path",
+        "file_size",
+        "mime_type",
+        "attachment_type",
+        "uploaded_by",
+        "uploaded_at"
+      ]
+    },
+    "recommendation": "DELETE - Sin schema y sin uso"
+  },
+  "expense_ml_features": {
+    "table": "expense_ml_features",
+    "mentions_total": 4,
+    "mentions_by_type": {
+      "create_table": 0,
+      "insert": 0,
+      "select": 1,
+      "update": 0,
+      "delete": 0,
+      "reference": 0
+    },
+    "files": {
+      "python": [
+        "core/unified_db_adapter.py"
+      ],
+      "sql": [],
+      "html": []
+    },
+    "endpoints": [],
+    "models": [],
+    "services": [],
+    "schema_info": {
+      "columns": 9,
+      "has_tenant_id": true,
+      "column_names": [
+        "id",
+        "expense_id",
+        "feature_vector",
+        "embedding_vector",
+        "extraction_method",
+        "feature_quality_score",
+        "created_at",
+        "updated_at",
+        "tenant_id"
+      ]
+    },
+    "recommendation": "EVALUATE - Tiene queries pero poco uso general"
+  },
+  "expense_tag_relations": {
+    "table": "expense_tag_relations",
+    "mentions_total": 11,
+    "mentions_by_type": {
+      "create_table": 0,
+      "insert": 1,
+      "select": 8,
+      "update": 0,
+      "delete": 0,
+      "reference": 0
+    },
+    "files": {
+      "python": [
+        "core/unified_db_adapter.py",
+        "core/internal_db.py"
+      ],
+      "sql": [],
+      "html": []
+    },
+    "endpoints": [],
+    "models": [],
+    "services": [],
+    "schema_info": {
+      "columns": 4,
+      "has_tenant_id": true,
+      "column_names": [
+        "expense_id",
+        "tag_id",
+        "created_at",
+        "tenant_id"
+      ]
+    },
+    "recommendation": "EVALUATE - Tiene queries pero poco uso general"
+  },
+  "gpt_usage_events": {
+    "table": "gpt_usage_events",
+    "mentions_total": 7,
+    "mentions_by_type": {
+      "create_table": 0,
+      "insert": 2,
+      "select": 3,
+      "update": 0,
+      "delete": 0,
+      "reference": 0
+    },
+    "files": {
+      "python": [
+        "core/unified_db_adapter.py",
+        "core/cost_analytics.py"
+      ],
+      "sql": [],
+      "html": []
+    },
+    "endpoints": [],
+    "models": [],
+    "services": [],
+    "schema_info": {
+      "columns": 13,
+      "has_tenant_id": true,
+      "column_names": [
+        "id",
+        "timestamp",
+        "field_name",
+        "reason",
+        "tokens_estimated",
+        "cost_estimated_usd",
+        "confidence_before",
+        "confidence_after",
+        "success",
+        "merchant_type",
+        "ticket_id",
+        "error_message",
+        "tenant_id"
+      ]
+    },
+    "recommendation": "EVALUATE - Tiene queries pero poco uso general"
+  },
+  "user_preferences": {
+    "table": "user_preferences",
+    "mentions_total": 17,
+    "mentions_by_type": {
+      "create_table": 1,
+      "insert": 0,
+      "select": 0,
+      "update": 0,
+      "delete": 0,
+      "reference": 0
+    },
+    "files": {
+      "python": [
+        "core/category_learning_system.py",
+        "core/expense_completion_system.py",
+        "core/unified_db_adapter.py",
+        "core/api_models.py",
+        "api/expense_completion_api.py"
+      ],
+      "sql": [
+        "migrations/"
+      ],
+      "html": []
+    },
+    "endpoints": [],
+    "models": [
+      "core/api_models.py"
+    ],
+    "services": [],
+    "schema_info": {
+      "columns": 11,
+      "has_tenant_id": true,
+      "column_names": [
+        "id",
+        "user_id",
+        "company_id",
+        "preferences",
+        "onboarding_step",
+        "demo_preferences",
+        "completion_rules",
+        "field_priorities",
+        "created_at",
+        "updated_at",
+        "tenant_id"
+      ]
+    },
+    "recommendation": "EVALUATE - Definido pero sin queries (roadmap futuro?)"
+  },
+  "user_sessions": {
+    "table": "user_sessions",
+    "mentions_total": 3,
+    "mentions_by_type": {
+      "create_table": 1,
+      "insert": 1,
+      "select": 1,
+      "update": 0,
+      "delete": 0,
+      "reference": 0
+    },
+    "files": {
+      "python": [
+        "core/auth_jwt.py",
+        "api/auth_jwt_api.py"
+      ],
+      "sql": [
+        "migrations/"
+      ],
+      "html": []
+    },
+    "endpoints": [],
+    "models": [],
+    "services": [],
+    "schema_info": {
+      "columns": 10,
+      "has_tenant_id": true,
+      "column_names": [
+        "id",
+        "user_id",
+        "session_id",
+        "ip_address",
+        "user_agent",
+        "expires_at",
+        "is_active",
+        "created_at",
+        "last_activity",
+        "tenant_id"
+      ]
+    },
+    "recommendation": "EVALUATE - Tiene queries pero poco uso general"
+  }
+}

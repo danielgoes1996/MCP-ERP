@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/tenancy_middleware.py
+# hypothesis_version: 6.140.3
+
+[403, 1000, '1', '2', 'WHERE', '__main__', 'company_abc', 'default', 'tenancy_context']

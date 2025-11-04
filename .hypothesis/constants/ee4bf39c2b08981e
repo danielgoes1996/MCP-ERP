@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/modules/invoicing_agent/services/queue_service.py
+# hypothesis_version: 6.140.3
+
+[0.0, 0.1, 100, 300, 86400, 1000000, '\n=== Métricas ===', '\nProcesando jobs...', ':', 'Job', 'REDIS_URL', '__main__', 'cancelled', 'completed', 'completed_at', 'created_at', 'default', 'error', 'failed', 'final_failure', 'invoicing_job', 'invoicing_queue', 'job_id', 'jobs_enqueued', 'jobs_failed', 'jobs_processed', 'jobs_retried', 'pending', 'priority', 'process_ticket', 'processed', 'processed_at', 'processing', 'processing_time', 'queues', 'result', 'results', 'retry_count', 'retry_scheduled', 'retrying', 'scheduled_at', 'skipped', 'started_at', 'status', 'success', 'task_handlers', 'task_type', 'ticket_id', 'ticket_processing', 'total_jobs', 'total_pending_jobs', 'total_queues']

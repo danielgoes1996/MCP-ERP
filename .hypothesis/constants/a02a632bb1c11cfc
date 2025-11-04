@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/bank_detector.py
+# hypothesis_version: 6.140.3
+
+[0.0, 0.5, 0.8, 1.0, 'BANAMEX', 'BANCO INBURSA', 'BANCO SANTANDER', 'BANCOMER', 'BANCO\\s+INBURSA', 'BANCO\\s+SANTANDER', 'BANORTE', 'BBVA', 'BBVA BANCOMER', 'BBVA MÉXICO', 'BBVA.*\\*\\d{4}', 'BBVA\\s+BANCOMER', 'BBVA\\s+CREDIT', 'BBVA\\s+DEBIT', 'BBVA\\s+MÉXICO', 'Banamex', 'Banorte', 'CITIBANAMEX', 'CITIGROUP', 'INBURSA', 'INBURSA.*\\d{4,}', 'INBURSA\\s+S\\.A\\.', 'Inbursa', 'SANTANDER', 'SANTANDER MÉXICO', 'SANTANDER SERFIN', 'SANTANDER.*\\d{4,}', 'SANTANDER\\s+MÉXICO', 'SANTANDER\\s+SERFIN', 'Santander', 'account_bank', 'compatibility_score', 'detected_bank', 'is_compatible', 'warning_message', 'www\\.banamex\\.com', 'www\\.banorte\\.com', 'www\\.bbva\\.mx', 'www\\.inbursa\\.com']

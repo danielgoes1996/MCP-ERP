@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/api/client_management_api.py
+# hypothesis_version: 6.140.3
+
+['/', '/api/v1/clients', '/batch-setup', '/health', '/setup', '/{client_id}', '/{client_id}/invoice', '/{client_id}/portals', '601', 'account_status', 'client', 'client-management', 'client_id', 'credential_manager', 'error', 'failed', 'fiscal_data', 'fiscal_data_storage', 'has_credentials', 'has_fiscal_data', 'healthy', 'last_login', 'merchant', 'message', 'needs_registration', 'next_action', 'next_step', 'next_steps', 'not_configured', 'note', 'operational', 'portal_configured', 'portal_credentials', 'portal_status', 'portal_url', 'portals', 'ready_for_automation', 'results', 'rfc', 'services', 'session_config', 'session_context', 'setup_credentials', 'start_automation_job', 'status', 'success', 'successful', 'timestamp', 'total_portals', 'total_processed', 'unhealthy', 'url', 'vault_connection']

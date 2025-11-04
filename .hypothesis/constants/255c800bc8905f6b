@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/api/split_reconciliation_api.py
+# hypothesis_version: 6.140.3
+
+[100, '/', '/many-to-one', '/one-to-many', '/summary/stats', '/{split_group_id}', 'Split Reconciliation', 'accountant', 'admin', 'message', 'success']

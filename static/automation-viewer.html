@@ -3,19 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🤖 Automation Viewer - Análisis Visual</title>
+    <title>Automatización · ContaFlow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/contaflow-theme.css">
+    <script src="/static/components/components.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #f5f7fb;
             min-height: 100vh;
-            padding: 20px;
         }
 
         .container {
@@ -391,6 +387,9 @@
     </style>
 </head>
 <body>
+    <!-- Global Header -->
+    <div data-include="/static/components/global-header.html"></div>
+
     <div class="container">
         <div class="header">
             <h1>🤖 Automation Viewer</h1>
@@ -461,7 +460,7 @@
         // Cargar tickets disponibles
         async function loadTickets() {
             try {
-                const response = await fetch('/invoicing/tickets?limit=50');
+                const response = await fetch('/api/v1/invoicing/tickets?limit=50');
                 const data = await response.json();
 
                 const select = document.getElementById('ticketSelect');
@@ -493,7 +492,7 @@
 
             try {
                 // Obtener datos reales de automatización desde el backend
-                const response = await fetch(`/invoicing/tickets/${ticketId}/automation-data`);
+                const response = await fetch(`/api/v1/invoicing/tickets/${ticketId}/automation-data`);
                 const result = await response.json();
 
                 if (!result.success) {

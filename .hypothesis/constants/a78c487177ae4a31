@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/intelligent_fallback_parser.py
+# hypothesis_version: 6.140.3
+
+[0.0, 0.15, 0.2, 0.3, 0.8, 0.9, 1.0, 20.0, 50.0, 2024, 2025, 'ABR', 'AGO', 'BALANCE', 'BALANCE INICIAL', 'DEPOSITO', 'DIC', 'ENE', 'FEB', 'JUL', 'JUN', 'MAR', 'MAY', 'NOV', 'OCT', 'SALDO ANTERIOR', 'SEP', 'SPEI', '\\d{8,12}', 'adaptive_pattern', 'adaptive_patterns', 'amount', 'balance', 'bank_analysis', 'bank_info', 'best_score', 'brute_force_regex', 'confidence', 'date_formats', 'day', 'density', 'description', 'details', 'detected_bank', 'document_structure', 'error', 'estimated_period', 'has_balance_inicial', 'has_deposits', 'has_spei_transfers', 'inbursa', 'intelligent_fallback', 'match', 'metadata', 'month', 'month_variations', 'pattern', 'patterns_used', 'raw_line', 'reference', 'sample_transactions', 'score', 'standard_patterns', 'strategies_tried', 'strategy', 'total_lines', 'transaction_density', 'transactions', 'universal_patterns']

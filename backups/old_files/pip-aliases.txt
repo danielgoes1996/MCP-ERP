@@ -1,0 +1,24 @@
+# Alias para instalación segura de paquetes Python
+# Agregar a tu ~/.bashrc o ~/.zshrc:
+
+alias safe-pip-install='_safe_pip_install() {
+    if [ $# -eq 0 ]; then
+        echo "❌ Error: Debes especificar un paquete";
+        echo "📖 Uso: safe-pip-install <paquete> [version]";
+        return 1;
+    fi;
+    echo "⏳ Instalando $1 con timeout extendido...";
+    echo "🔧 Comando: pip install --timeout 600 --no-cache-dir -v $1";
+    pip install --timeout 600 --no-cache-dir -v "$1";
+    echo "✅ Instalación de $1 completada";
+    PACKAGE_NAME=$(echo "$1" | sed "s/[<>=!].*//" | sed "s/\[.*\]//");
+    if pip show "$PACKAGE_NAME" >/dev/null 2>&1; then
+        echo "✅ $PACKAGE_NAME verificado";
+        pip show "$PACKAGE_NAME" | head -3;
+    fi;
+}; _safe_pip_install'
+
+# Ejemplos de uso:
+# safe-pip-install aiohttp==3.9.5
+# safe-pip-install Pillow
+# safe-pip-install "fastapi[all]"
