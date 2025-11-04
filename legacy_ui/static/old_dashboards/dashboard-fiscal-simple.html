@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Fiscal - Octubre 2025</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-purple-600 to-blue-600 min-h-screen p-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-xl p-6 mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">📊 Dashboard de Reportes Fiscales</h1>
+            <p class="text-gray-600 mt-2">Resumen fiscal de Octubre 2025</p>
+        </div>
+
+        <!-- Métricas -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="text-gray-500 text-sm">Total Gastos</div>
+                <div class="text-3xl font-bold text-gray-800" id="totalGastos">Cargando...</div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="text-gray-500 text-sm">IVA Acreditable</div>
+                <div class="text-3xl font-bold text-green-600" id="ivaAcreditable">Cargando...</div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="text-gray-500 text-sm">Gastos con CFDI</div>
+                <div class="text-3xl font-bold text-blue-600" id="cfdiStatus">Cargando...</div>
+            </div>
+        </div>
+
+        <!-- Categorías -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-bold mb-4">Top Categorías</h2>
+            <div id="categorias" class="space-y-2"></div>
+        </div>
+
+        <!-- Alertas -->
+        <div id="alertas" class="space-y-2"></div>
+
+        <!-- Status -->
+        <div id="status" class="text-white text-center"></div>
+    </div>
+
+    <script>
+        // Función para formatear moneda
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('es-MX', {
+                style: 'currency',
+                currency: 'MXN'
+            }).format(amount || 0);
+        }
+
+        // Cargar datos
+        async function cargarDatos() {
+            const statusEl = document.getElementById('status');
+            statusEl.innerHTML = '⏳ Cargando datos...';
+
+            try {
+                // URL completa del API
+                const url = 'http://localhost:8001/api/v1/reports/resumen-fiscal?year=2025&month=10';
+                console.log('Llamando a:', url);
+
+                const response = await fetch(url);
+                console.log('Response status:', response.status);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log('Datos recibidos:', data);
+
+                // Actualizar métricas
+                document.getElementById('totalGastos').textContent = formatCurrency(data.totales.gastos_total);
+                document.getElementById('ivaAcreditable').textContent = formatCurrency(data.totales.iva_acreditable);
+                document.getElementById('cfdiStatus').textContent =
+                    `${data.cfdi.con_cfdi}/${data.cfdi.con_cfdi + data.cfdi.sin_cfdi} (${data.cfdi.porcentaje_cfdi.toFixed(0)}%)`;
+
+                // Actualizar categorías
+                const categoriasEl = document.getElementById('categorias');
+                categoriasEl.innerHTML = data.categorias.map(cat => `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+                        <span class="font-medium">${cat.slug || 'Sin categoría'}</span>
+                        <div class="text-right">
+                            <div class="font-bold">${formatCurrency(cat.total)}</div>
+                            <div class="text-sm text-gray-500">${cat.cantidad} gastos</div>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Actualizar alertas
+                const alertasEl = document.getElementById('alertas');
+                if (data.alertas && data.alertas.length > 0) {
+                    alertasEl.innerHTML = data.alertas.map(alerta => `
+                        <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded">
+                            <p class="font-bold">${alerta.mensaje}</p>
+                            ${alerta.recomendacion ? `<p class="text-sm mt-1">${alerta.recomendacion}</p>` : ''}
+                        </div>
+                    `).join('');
+                }
+
+                statusEl.innerHTML = '✅ Datos cargados exitosamente';
+
+            } catch (error) {
+                console.error('Error:', error);
+                statusEl.innerHTML = `❌ Error: ${error.message}`;
+
+                // Mostrar mensaje de ayuda
+                document.getElementById('alertas').innerHTML = `
+                    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
+                        <p class="font-bold">Error al cargar datos</p>
+                        <p class="text-sm mt-1">Asegúrate de que el servidor esté corriendo en el puerto 8001</p>
+                        <p class="text-sm">Revisa la consola del navegador (F12) para más detalles</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Cargar al iniciar
+        cargarDatos();
+
+        // Recargar cada 30 segundos
+        setInterval(cargarDatos, 30000);
+    </script>
+</body>
+</html>

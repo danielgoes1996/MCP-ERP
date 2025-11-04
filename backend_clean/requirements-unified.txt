@@ -1,0 +1,120 @@
+# =============================================================
+# REQUIREMENTS UNIFICADOS - MÓDULO INVOICING AGENT
+# =============================================================
+# Versión consolidada basada en análisis de auditoría
+# Incluye solo dependencias verificadas y necesarias
+
+# =============================================================
+# CORE WEB FRAMEWORK
+# =============================================================
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+python-multipart==0.0.6
+jinja2==3.1.2
+python-dotenv==1.0.0
+
+# =============================================================
+# HTTP y NETWORKING
+# =============================================================
+requests==2.31.0
+httpx==0.25.2
+
+# =============================================================
+# OCR y PROCESAMIENTO DE IMÁGENES (Tier 1 - Esenciales)
+# =============================================================
+# Google Vision API (Principal)
+google-cloud-vision==3.4.4
+
+# Tesseract OCR (Fallback local)
+pytesseract==0.3.10
+Pillow==10.1.0
+
+# =============================================================
+# IA Y LLM (Verificadas como necesarias)
+# =============================================================
+openai==1.3.5
+
+# =============================================================
+# BASE DE DATOS (Necesarias para funcionamiento)
+# =============================================================
+# SQLite para desarrollo y base
+aiosqlite==0.19.0
+
+# =============================================================
+# AUTOMATIZACIÓN WEB (Tier 1)
+# =============================================================
+# Selenium (usado en web_automation.py)
+selenium==4.15.2
+beautifulsoup4==4.12.2
+
+# =============================================================
+# UTILIDADES CORE
+# =============================================================
+# Numpy (usado por múltiples módulos)
+numpy==1.24.3
+
+# Validación de datos
+validators==0.22.0
+
+# =============================================================
+# LOGGING Y MONITOREO (Básico)
+# =============================================================
+structlog==23.2.0
+
+# =============================================================
+# TIER 2 - OPCIONALES (Instalar según necesidad)
+# =============================================================
+
+# AWS Textract (solo si se usa)
+# boto3==1.34.0
+# botocore==1.34.0
+
+# Azure Computer Vision (solo si se usa)
+# azure-cognitiveservices-vision-computervision==0.9.0
+
+# Playwright (alternativa a Selenium)
+# playwright==1.40.0
+
+# PostgreSQL para producción
+# psycopg2-binary==2.9.9
+# asyncpg==0.29.0
+
+# Redis para cache
+# redis==5.0.1
+# aioredis==2.0.1
+
+# SQLAlchemy para ORM avanzado
+# sqlalchemy==2.0.23
+# alembic==1.13.1
+
+# =============================================================
+# TESTING (Solo desarrollo)
+# =============================================================
+# pytest==7.4.3
+# pytest-asyncio==0.21.1
+# pytest-cov==4.1.0
+
+# =============================================================
+# CODE QUALITY (Solo desarrollo)
+# =============================================================
+# black==23.11.0
+# flake8==6.1.0
+# mypy==1.7.1
+# isort==5.12.0
+
+# =============================================================
+# NOTAS DE INSTALACIÓN
+# =============================================================
+#
+# Instalación básica (mínima funcional):
+# pip install -r requirements-unified.txt
+#
+# Para desarrollo:
+# pip install -r requirements-unified.txt pytest pytest-asyncio black flake8
+#
+# Para producción con PostgreSQL:
+# pip install -r requirements-unified.txt psycopg2-binary
+#
+# Comandos post-instalación:
+# (Ninguno requerido para instalación básica)
