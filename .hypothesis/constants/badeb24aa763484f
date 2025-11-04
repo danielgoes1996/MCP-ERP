@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/api/bank_statements_api.py
+# hypothesis_version: 6.140.3
+
+[1024, '.csv', '.pdf', '.xls', '.xlsx', '/', '/bank-statements', '/health/check', '/{statement_id}', '1.0.0', '50MB', 'Bank Statements', 'CSV', 'Excel (.xlsx, .xls)', 'PDF', 'bank_statements', 'credit', 'database_connected', 'date', 'debit', 'error', 'healthy', 'max_file_size', 'message', 'opening_balance', 'parsing_status', 'pending', 'period_end', 'period_start', 'service', 'status', 'supported_formats', 'total_credits', 'total_debits', 'total_transactions', 'unhealthy', 'uploads/statements', 'value', 'version']

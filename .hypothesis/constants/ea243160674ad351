@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/text_cleaner.py
+# hypothesis_version: 6.140.3
+
+[100, '(cid:', '---', '--- PÁGINA', '--- TABLA', '.*BBVA.*', '.*CLAVE DE RASTREO.*', '.*MERCADO.*PAGO.*', '.*MIFEL.*', '.*MULTIVA.*', '.*SANTANDER.*', '.*TRANSFERENCIA.*', '.*USD.*TC.*', '.*\\d{12,}.*', 'ABR.', 'AGO.', 'BANCO', 'DEPOSITO', 'DIC.', 'ENE.', 'FEB.', 'JUL.', 'JUN.', 'MAR.', 'MAY.', 'NOV.', 'OCT.', 'PAGO', 'SEP.', 'SPEI', 'TRANSFERENCIA', '^[A-Z\\s]+[A-Z]$', '^[\\|\\s\\(\\)]+$', '^\\d+\\.?\\d*$', 'cleaned_jul_count', 'cleaned_lines', 'cleaned_transactions', 'jul_lines_removed', 'lines_removed', 'original_jul_count', 'original_lines']

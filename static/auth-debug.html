@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Autenticación - MCP Server</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen py-8">
+    <div class="max-w-4xl mx-auto px-4">
+        <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                <i class="fas fa-bug text-blue-500 mr-3"></i>
+                Debug de Autenticación
+            </h1>
+            <p class="text-gray-600 mb-6">
+                Verifica el estado de tu autenticación y token JWT
+            </p>
+
+            <!-- Estado del Token -->
+            <div class="mb-6">
+                <h2 class="text-xl font-semibold text-gray-700 mb-3 flex items-center">
+                    <i class="fas fa-key text-yellow-500 mr-2"></i>
+                    Estado del Token
+                </h2>
+                <div id="token-status" class="p-4 rounded-lg border">
+                    <div class="flex items-center space-x-2">
+                        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                        <span class="text-gray-600">Verificando...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Datos del Usuario -->
+            <div class="mb-6">
+                <h2 class="text-xl font-semibold text-gray-700 mb-3 flex items-center">
+                    <i class="fas fa-user text-green-500 mr-2"></i>
+                    Datos del Usuario
+                </h2>
+                <div id="user-data" class="p-4 rounded-lg border bg-gray-50">
+                    <div class="text-gray-500">Cargando...</div>
+                </div>
+            </div>
+
+            <!-- Datos del Tenant -->
+            <div class="mb-6">
+                <h2 class="text-xl font-semibold text-gray-700 mb-3 flex items-center">
+                    <i class="fas fa-building text-purple-500 mr-2"></i>
+                    Empresa (Tenant)
+                </h2>
+                <div id="tenant-data" class="p-4 rounded-lg border bg-gray-50">
+                    <div class="text-gray-500">Cargando...</div>
+                </div>
+            </div>
+
+            <!-- Verificación de API -->
+            <div class="mb-6">
+                <h2 class="text-xl font-semibold text-gray-700 mb-3 flex items-center">
+                    <i class="fas fa-server text-red-500 mr-2"></i>
+                    Verificación de API
+                </h2>
+                <div id="api-check" class="p-4 rounded-lg border bg-gray-50">
+                    <div class="text-gray-500">Esperando verificación de token...</div>
+                </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="border-t pt-6">
+                <h2 class="text-xl font-semibold text-gray-700 mb-3 flex items-center">
+                    <i class="fas fa-wrench text-orange-500 mr-2"></i>
+                    Acciones
+                </h2>
+                <div class="flex flex-wrap gap-3">
+                    <button onclick="refreshStatus()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2">
+                        <i class="fas fa-sync-alt"></i>
+                        <span>Refrescar</span>
+                    </button>
+                    <button onclick="clearAuth()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2">
+                        <i class="fas fa-trash"></i>
+                        <span>Limpiar Sesión</span>
+                    </button>
+                    <a href="/auth-login.html" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2">
+                        <i class="fas fa-sign-in-alt"></i>
+                        <span>Ir a Login</span>
+                    </a>
+                    <a href="/voice-expenses" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span>Ir a Voice Expenses</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs -->
+        <div class="bg-gray-900 rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold text-white mb-3 flex items-center">
+                <i class="fas fa-terminal text-green-400 mr-2"></i>
+                Log de Consola
+            </h2>
+            <div id="console-log" class="bg-black rounded p-4 text-green-400 font-mono text-sm max-h-96 overflow-y-auto">
+                <div>Iniciando debug...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let consoleLog = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const emoji = {
+                'info': 'ℹ️',
+                'success': '✅',
+                'error': '❌',
+                'warning': '⚠️'
+            }[type] || 'ℹ️';
+
+            const logMessage = `[${timestamp}] ${emoji} ${message}`;
+            consoleLog.push(logMessage);
+
+            const logContainer = document.getElementById('console-log');
+            logContainer.innerHTML = consoleLog.join('<br>');
+            logContainer.scrollTop = logContainer.scrollHeight;
+
+            console.log(message);
+        }
+
+        async function checkAuth() {
+            log('Iniciando verificación de autenticación...', 'info');
+
+            // 1. Verificar Token
+            const token = localStorage.getItem('access_token');
+            const tokenStatus = document.getElementById('token-status');
+
+            if (!token) {
+                tokenStatus.innerHTML = `
+                    <div class="bg-red-100 border border-red-300 text-red-800 p-4 rounded-lg">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <i class="fas fa-times-circle text-2xl"></i>
+                            <strong class="text-lg">No hay token</strong>
+                        </div>
+                        <p class="text-sm">No se encontró access_token en localStorage.</p>
+                        <p class="text-sm mt-2"><strong>Acción:</strong> Debes iniciar sesión primero.</p>
+                    </div>
+                `;
+                log('No se encontró token en localStorage', 'error');
+            } else {
+                const tokenPreview = token.substring(0, 50) + '...';
+                tokenStatus.innerHTML = `
+                    <div class="bg-green-100 border border-green-300 text-green-800 p-4 rounded-lg">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <i class="fas fa-check-circle text-2xl"></i>
+                            <strong class="text-lg">Token encontrado</strong>
+                        </div>
+                        <p class="text-xs font-mono break-all mt-2">${tokenPreview}</p>
+                    </div>
+                `;
+                log('Token encontrado: ' + tokenPreview, 'success');
+            }
+
+            // 2. Verificar User Data
+            const userData = localStorage.getItem('user_data');
+            const userDataDiv = document.getElementById('user-data');
+
+            if (userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    userDataDiv.innerHTML = `
+                        <div class="bg-white p-3 rounded border">
+                            <pre class="text-sm overflow-x-auto">${JSON.stringify(user, null, 2)}</pre>
+                        </div>
+                    `;
+                    log('Datos de usuario cargados: ' + (user.username || user.email || 'Unknown'), 'success');
+                } catch (error) {
+                    userDataDiv.innerHTML = `<div class="text-red-600">Error parseando user_data</div>`;
+                    log('Error parseando user_data', 'error');
+                }
+            } else {
+                userDataDiv.innerHTML = `<div class="text-gray-500">No hay datos de usuario</div>`;
+                log('No se encontraron datos de usuario', 'warning');
+            }
+
+            // 3. Verificar Tenant Data
+            const tenantData = localStorage.getItem('tenant_data');
+            const tenantDataDiv = document.getElementById('tenant-data');
+
+            if (tenantData) {
+                try {
+                    const tenant = JSON.parse(tenantData);
+                    tenantDataDiv.innerHTML = `
+                        <div class="bg-white p-3 rounded border">
+                            <pre class="text-sm overflow-x-auto">${JSON.stringify(tenant, null, 2)}</pre>
+                        </div>
+                    `;
+                    log('Datos de tenant cargados: ' + (tenant.name || 'Unknown'), 'success');
+                } catch (error) {
+                    tenantDataDiv.innerHTML = `<div class="text-red-600">Error parseando tenant_data</div>`;
+                    log('Error parseando tenant_data', 'error');
+                }
+            } else {
+                tenantDataDiv.innerHTML = `<div class="text-gray-500">No hay datos de tenant</div>`;
+                log('No se encontraron datos de tenant', 'warning');
+            }
+
+            // 4. Verificar API
+            const apiCheckDiv = document.getElementById('api-check');
+
+            if (!token) {
+                apiCheckDiv.innerHTML = `
+                    <div class="text-gray-500">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        No se puede verificar API sin token
+                    </div>
+                `;
+                return;
+            }
+
+            apiCheckDiv.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                    <span class="text-gray-600">Verificando token con API...</span>
+                </div>
+            `;
+            log('Verificando token con API /expenses...', 'info');
+
+            try {
+                const response = await fetch('/expenses?company_id=default', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.status === 401) {
+                    apiCheckDiv.innerHTML = `
+                        <div class="bg-red-100 border border-red-300 text-red-800 p-4 rounded-lg">
+                            <div class="flex items-center space-x-2 mb-2">
+                                <i class="fas fa-exclamation-triangle text-2xl"></i>
+                                <strong class="text-lg">Token Inválido o Expirado</strong>
+                            </div>
+                            <p class="text-sm">El servidor rechazó el token (401 Unauthorized).</p>
+                            <p class="text-sm mt-2"><strong>Acción:</strong> Limpia la sesión e inicia sesión nuevamente.</p>
+                        </div>
+                    `;
+                    log('API retornó 401 - Token inválido o expirado', 'error');
+                } else if (response.ok) {
+                    const data = await response.json();
+                    apiCheckDiv.innerHTML = `
+                        <div class="bg-green-100 border border-green-300 text-green-800 p-4 rounded-lg">
+                            <div class="flex items-center space-x-2 mb-2">
+                                <i class="fas fa-check-circle text-2xl"></i>
+                                <strong class="text-lg">Token Válido</strong>
+                            </div>
+                            <p class="text-sm">El servidor aceptó el token. Autenticación exitosa.</p>
+                            <p class="text-sm mt-2"><strong>Gastos encontrados:</strong> ${data.length || 0}</p>
+                        </div>
+                    `;
+                    log('API retornó 200 - Token válido, ' + (data.length || 0) + ' gastos encontrados', 'success');
+                } else {
+                    apiCheckDiv.innerHTML = `
+                        <div class="bg-yellow-100 border border-yellow-300 text-yellow-800 p-4 rounded-lg">
+                            <div class="flex items-center space-x-2 mb-2">
+                                <i class="fas fa-exclamation-circle text-2xl"></i>
+                                <strong class="text-lg">Respuesta Inesperada</strong>
+                            </div>
+                            <p class="text-sm">Código HTTP: ${response.status}</p>
+                        </div>
+                    `;
+                    log('API retornó ' + response.status, 'warning');
+                }
+            } catch (error) {
+                apiCheckDiv.innerHTML = `
+                    <div class="bg-red-100 border border-red-300 text-red-800 p-4 rounded-lg">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <i class="fas fa-times-circle text-2xl"></i>
+                            <strong class="text-lg">Error de Conexión</strong>
+                        </div>
+                        <p class="text-sm">${error.message}</p>
+                    </div>
+                `;
+                log('Error verificando API: ' + error.message, 'error');
+            }
+        }
+
+        function refreshStatus() {
+            consoleLog = [];
+            document.getElementById('console-log').innerHTML = '';
+            checkAuth();
+        }
+
+        function clearAuth() {
+            if (confirm('¿Estás seguro de que quieres limpiar la sesión?')) {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('user_data');
+                localStorage.removeItem('tenant_data');
+                log('Sesión limpiada', 'success');
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            }
+        }
+
+        // Ejecutar al cargar
+        window.addEventListener('DOMContentLoaded', checkAuth);
+    </script>
+</body>
+</html>

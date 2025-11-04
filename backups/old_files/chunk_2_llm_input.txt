@@ -1,0 +1,363 @@
+CHUNK 2 - TEXTO ENVIADO AL LLM
+================================================================================
+Tamaño: 18,641 caracteres
+Líneas: 356
+Fechas JUL.: 33
+================================================================================
+
+JUL. 30 3523992738 CONEKTA*ENVIOSPERROS MX 225.00 37,539.26
+JUL. 30 3524538306 DEPOSITO SPEI 783.00 38,322.26
+EDSON ERBERTH VELAZQUEZ VILLA
+SANTANDER 014680605915832747
+9848000 TRANSFERENCIA A CARRETA VERDE
+CLAVE DE RASTREO 2025073040014TRAPP000417236610
+JUL. 31 3525403592 OFFICE DEPOT CITADINA MX 4.50 38,317.76
+JUL. 31 3525998179 PYTHAGORA TECHNOLOGIES US 49.0 USD /TC 924.05 37,393.71
+18.86
+JUL. 31 3525998208 OPENAI *CHATGPT SUBSCR US 20.0 USD /TC 377.16 37,016.55
+18.86
+JUL. 31 3526081552 DEPOSITO SPEI 1,417.00 38,433.55
+ALBERTO BAEZA RODRIGUEZ
+Mercado Pago W 722969010874504073
+7736522 R00093
+CLAVE DE RASTREO CPO120534920782
+JUL. 31 3526427359 DEPOSITO SPEI 3,007.00 41,440.55
+CARMORE SA DE CV
+BBVA MEXICO 012680001172046558
+310725 CARRETA 2025 96
+CLAVE DE RASTREO BNET01002507310039779884
+JUL. 31 3526648004 COMISION POR MOVIMIENTOS INBURED 13.50 41,427.05
+COMISION POR MOVIMIENTOS INBURED
+JUL. 31 3526648004 IVA COMISION POR MOVIMIENTOS INBURED 2.16 41,424.89
+Tasa IVA 16.0 %
+JUL. 31 3527594888 INTERESES GANADOS 124.12 41,549.01
+JUL. 31 3527594888 ISR RETENIDO 10.57 41,538.44
+JUL. 31 3527594888 COMISION MANEJO DE CUENTA 200.00 41,338.44
+JUL. 31 3527594888 IVA COMISION MANEJO DE CUENTA 32.00 41,306.44
+Tasa IVA 16.0%
+BANCO INBURSA, S.A. INSTITUCION DE BANCA MULTIPLE, GRUPO FINANCIERO INBURSA
+AVENIDA PASEO DE LAS PALMAS No.750 LOMAS DE CHAPULTEPEC III SECCION, MIGUEL HIDALGO, CIUDAD DE MEXICO, MÉXICO, C.P.11000 C.R. 14091 RFC BII931004P61
+REGIMEN FISCAL: 601 GENERAL DE LEY PERSONAS MORALES
+
+--- TABLA 5.1 ---
+
+FECHA REFERENCIA CONCEPTO CARGOS ABONOS SALDO |  |  |  |  | 
+
+JUL. 28
+JUL. 28
+JUL. 29
+JUL. 29
+JUL. 29
+JUL. 29
+JUL. 29
+JUL. 30
+JUL. 30
+JUL. 31
+JUL. 31
+JUL. 31
+JUL. 31
+JUL. 31
+JUL. 31
+JUL. 31
+JUL. 31
+JUL. 31
+JUL. 31
+JUL. 31 | 3522009058
+3522368669
+3522707256
+3522707270
+3522938680
+3522940292
+3522941373
+3523992738
+3524538306
+3525403592
+3525998179
+3525998208
+3526081552
+3526427359
+3526648004
+3526648004
+3527594888
+3527594888
+3527594888
+3527594888 | DEPOSITO SPEI
+MALINALI MOSQUEIRA AGUILAR
+Mercado Pago W 722969010756038528
+1465904 MERCADO*PAGO
+CLAVE DE RASTREO CPO120181465904
+DEPOSITO EFECTIVO CORRESPONSAL
+Edison 1235 Monterrey NL MX
+CEA QRO APP 2 MX
+CEA QRO APP 2 MX
+DEPOSITO SPEI
+IRMA GEORGINA LOPEZ FERNANDEZ
+HSBC 021680040677152766
+290725 Miel
+CLAVE DE RASTREO HSB1097797
+DEPOSITO SPEI
+IRMA GEORGINA LOPEZ FERNANDEZ
+HSBC 021680040677152766
+2970736 Pago miel
+CLAVE DE RASTREO HSB1098251
+DEPOSITO SPEI
+IRMA GEORGINA LOPEZ FERNANDEZ
+HSBC 021680040677152766
+2907251 Pago credito
+CLAVE DE RASTREO HSB1098675
+CONEKTA*ENVIOSPERROS MX
+DEPOSITO SPEI
+EDSON ERBERTH VELAZQUEZ VILLA
+SANTANDER 014680605915832747
+9848000 TRANSFERENCIA A CARRETA VERDE
+CLAVE DE RASTREO 2025073040014TRAPP000417236610
+OFFICE DEPOT CITADINA MX
+PYTHAGORA TECHNOLOGIES US 49.0 USD /TC
+18.86
+OPENAI *CHATGPT SUBSCR US 20.0 USD /TC
+18.86
+DEPOSITO SPEI
+ALBERTO BAEZA RODRIGUEZ
+Mercado Pago W 722969010874504073
+7736522 R00093
+CLAVE DE RASTREO CPO120534920782
+DEPOSITO SPEI
+CARMORE SA DE CV
+BBVA MEXICO 012680001172046558
+310725 CARRETA 2025 96
+CLAVE DE RASTREO BNET01002507310039779884
+COMISION POR MOVIMIENTOS INBURED
+COMISION POR MOVIMIENTOS INBURED
+IVA COMISION POR MOVIMIENTOS INBURED
+Tasa IVA 16.0 %
+INTERESES GANADOS
+ISR RETENIDO
+COMISION MANEJO DE CUENTA
+IVA COMISION MANEJO DE CUENTA
+Tasa IVA 16.0% | 458.00
+236.00
+225.00
+4.50
+924.05
+377.16
+13.50
+2.16
+10.57
+200.00
+32.00 | 1,082.00
+1,195.00
+1,000.00
+1,000.00
+270.00
+783.00
+1,417.00
+3,007.00
+124.12 | 34,993.26
+36,188.26
+35,730.26
+35,494.26
+36,494.26
+37,494.26
+37,764.26
+37,539.26
+38,322.26
+38,317.76
+37,393.71
+37,016.55
+38,433.55
+41,440.55
+41,427.05
+41,424.89
+41,549.01
+41,538.44
+41,338.44
+41,306.44
+
+
+
+--- PÁGINA 6 ---
+Página: 6 de 8
+Si desea recibir pagos a través de transferencias bancarias electrónicas de fondos interbancarios, deberá hacer del conocimiento de la persona que le
+enviará el o los pagos respectivos, el número de cuenta que a continuación se indica: 036680500606552590 así como el nombre de este Banco.
+El nombre del beneficiario en una transferencia enviada es un dato no verificado por esta Institución.
+Clave de rastreo. Sirve para identificar una orden de transferencia.
+Tipo Comprobante: I Ingreso Versión: 4.0
+Lugar de expedición: Código Postal. 76047
+Expedido en: AV CONSTITUYENTES 102 QUINTAS DEL MARQUES QUERETARO 76047 MEXICO QUERETARO
+Receptor(Denominación o Razón Social sin Régimen de Capital): POLLENBEEMX
+Regimen Fiscal Receptor: 601 General de Ley Personas Morales Domicilio Fiscal Receptor: C.P.76903
+Uso del CFDI: G03 Gastos en general. Serie y Folio: JUL77390 50060655259
+Método de Pago: PUE Pago en una sola exhibición Folio Fiscal(UUID): 689f3713-86bc-49c9-8192-fa756e7f7a45
+Forma de pago: 03 Transferencia electrónica de fondos Fecha de expedición del CFDI: 2025-08-02T20:24:26
+Clave de unidad de medida: E48 Unidad de Servicio Fecha y hora de Certificación: 2025-08-02T22:05:40
+Clave de Productos y Servicios: 84121500 Instituciones Bancarias Número de Serie del Certificado del Emisor: 00001000000711188581
+Exportacion: 01 No aplica Número de Certificado del SAT: 00001000000710611637
+R.F.C. del proveedor de certificación: AUR100128NN3
+Sello digital del emisor
+TU7yMVClK2pMGvchkEIqanUD66Z1rTESZr4tGO7f4hrWdcsorBzCI+LNk/RhcAxDHb1NJQPVrqyjnb3CtWDv485HvbliS7Kld9qrL1XDk
+wxxZln4MvteiCZGPGy+YX4zaziHZ9lEuYON7DdiDpJtlstegVeMS5Gpde5j8CzLqas33VCoP2wU0OMANPb+O/m+ldxvxN2Hj+0bt6FaFy
+tj2RX3Jt1kdAWuZUcMxrqwF0e3kG56mgwztVeWH8+tgmbAtjWq96R/X3CQ9oO4xx4c7jcHvAB0MN+JwcZk8mBj/bZBqg7R6v96khYcd9a
+I9BeTIxdMAGQfHSRcHYYc9fvnWg==
+Sello digital del SAT
+hjfjI/LvqCLM6yaTtSX9XL4vlEZMrdp+0anDOzK6TMZvLxpml4frYjOsWPGJFIrmbiYB+m4G/kD7MOqYjMh/R6EmzOpnuZCcYrrGQbJ/H
+54VyMNqJ5gsCU1DKpHpLkYD6yHJEJzY6PhnLhfx4rIVe4rqRmitAry8GaCRBalIvSrUZAYfm+7sN7K5dxKnmXGQZC8H9RoZx6zpILo181
+50xtSVLDi3Hm2/ZtbT6PGa4Ydn5DZZ4jpFY8bxggLZ0N5ncQ1JizUL1oU9CtlHAQajuaJXomJV9bseRTWpVu3I7Je23ncMPgQzSDctxEe
+8116NMZ+ShTjvIICV5RYxQOb4Fw==
+Cadena original del complemento de certificación digital del SAT
+||1.1|689f3713-86bc-49c9-8192-fa756e7f7a45|2025-08-02T22:05:40|AUR100128NN3|TU7yMVClK2pMGvchkEIqanUD66Z1r
+TESZr4tGO7f4hrWdcsorBzCI+LNk/RhcAxDHb1NJQPVrqyjnb3CtWDv485HvbliS7Kld9qrL1XDkwxxZln4MvteiCZGPGy+YX4zaziHZ9
+lEuYON7DdiDpJtlstegVeMS5Gpde5j8CzLqas33VCoP2wU0OMANPb+O/m+ldxvxN2Hj+0bt6FaFytj2RX3Jt1kdAWuZUcMxrqwF0e3kG5
+6mgwztVeWH8+tgmbAtjWq96R/X3CQ9oO4xx4c7jcHvAB0MN+JwcZk8mBj/bZBqg7R6v96khYcd9aI9BeTIxdMAGQfHSRcHYYc9fvnWg==
+|00001000000710611637||
+Este documento es una representación impresa de un CFDI. Ponemos a su disposición el archivo XML correspondiente a este documento a través
+(cid:256)(cid:194)(cid:222)(cid:222)(cid:222)(cid:194)(cid:256)(cid:129)(cid:234)(cid:143)(cid:218)(cid:147)(cid:160)(cid:203)(cid:160)(cid:159)(cid:186)(cid:241)(cid:252)(cid:247)(cid:136)(cid:167)(cid:152)(cid:141)(cid:200)(cid:189)(cid:166)(cid:197)(cid:216)(cid:223)(cid:236)(cid:207)(cid:178)(cid:135)(cid:178)(cid:159)(cid:222)(cid:223)(cid:152)(cid:243)(cid:200)(cid:227)(cid:240)(cid:177)(cid:138)(cid:129)(cid:256)(cid:194)(cid:222)(cid:222)(cid:222)(cid:194)(cid:256) de www.inbursa.com o solicitarlo a través de nuestro Call Center
+(cid:181)(cid:149)(cid:167)(cid:181)(cid:129)(cid:175)(cid:171)(cid:177)(cid:198)(cid:156)(cid:233)(cid:207)(cid:168)(cid:230)(cid:213)(cid:200)(cid:145)(cid:151)(cid:250)(cid:189)(cid:195)(cid:138)(cid:242)(cid:155)(cid:235)(cid:186)(cid:172)(cid:161)(cid:242)(cid:232)(cid:159)(cid:249)(cid:133)(cid:151)(cid:137)(cid:245)(cid:143)(cid:167)(cid:134)(cid:198)(cid:241)(cid:159)(cid:185)(cid:198)(cid:236)(cid:154)(cid:175)(cid:158)(cid:135)(cid:169)(cid:156)(cid:172)(cid:184) RESUMEN DEL CFDI
+(cid:133)(cid:172)(cid:169)(cid:171)(cid:234)(cid:189)(cid:214)(cid:154)(cid:139)(cid:196)(cid:136)(cid:148)(cid:145)(cid:171)(cid:173)(cid:138)(cid:246)(cid:167)(cid:179)(cid:224)(cid:182)(cid:170)(cid:199)(cid:206)(cid:234)(cid:232)(cid:200)(cid:147)(cid:242)(cid:192)(cid:162)(cid:229)(cid:185)(cid:206)(cid:160)(cid:136)(cid:207)(cid:200)(cid:200)(cid:241)(cid:164)(cid:129)(cid:241)(cid:195)(cid:198)(cid:146)(cid:173)(cid:251)(cid:131)(cid:156)(cid:199)(cid:164)(cid:201) Tipo de comprobante: I Importe Descuentos Base *Objeto Tipo Factor Tasa IVA Total
+Ingresos Impuesto TRASLADO
+(cid:243)(cid:167)(cid:179)(cid:161)(cid:144)(cid:249)(cid:171)(cid:201)(cid:160)(cid:226)(cid:172)(cid:213)(cid:174)(cid:156)(cid:142)(cid:136)(cid:139)(cid:169)(cid:196)(cid:171)(cid:227)(cid:194)(cid:133)(cid:180)(cid:224)(cid:201)(cid:139)(cid:233)(cid:176)(cid:209)(cid:227)(cid:192)(cid:214)(cid:213)(cid:178)(cid:137)(cid:156)(cid:224)(cid:144)(cid:206)(cid:132)(cid:200)(cid:204)(cid:239)(cid:160)(cid:249)(cid:187)(cid:249)(cid:160)(cid:160)(cid:173)(cid:132)(cid:200)
+a) Suma de Ingresos, $213.50 $0.00 $213.50 02 Tasa 16% $34.16 $247.66
+(cid:235)(cid:216)(cid:255)(cid:256)(cid:245)(cid:248)(cid:214)(cid:207)(cid:249)(cid:155)(cid:150)(cid:187)(cid:144)(cid:147)(cid:240)(cid:247)(cid:146)(cid:169)(cid:220)(cid:254)(cid:212)(cid:183)(cid:143)(cid:172)(cid:223)(cid:210)(cid:245)(cid:225)(cid:210)(cid:212)(cid:141)(cid:157)(cid:226)(cid:244)(cid:178)(cid:132)(cid:155)(cid:202)(cid:145)(cid:248)(cid:192)(cid:184)(cid:144)(cid:141)(cid:250)(cid:243)(cid:203)(cid:232)(cid:207)(cid:256)(cid:157)(cid:201)(cid:195) gravados IVA
+(cid:255)(cid:178)(cid:182)(cid:192)(cid:199)(cid:237)(cid:171)(cid:216)(cid:227)(cid:187)(cid:174)(cid:170)(cid:156)(cid:216)(cid:167)(cid:196)(cid:200)(cid:232)(cid:234)(cid:174)(cid:207)(cid:178)(cid:218)(cid:132)(cid:194)(cid:240)(cid:140)(cid:221)(cid:225)(cid:236)(cid:173)(cid:154)(cid:215)(cid:250)(cid:176)(cid:170)(cid:226)(cid:200)(cid:187)(cid:145)(cid:134)(cid:251)(cid:237)(cid:158)(cid:196)(cid:185)(cid:144)(cid:177)(cid:143)(cid:230)(cid:163)(cid:179)(cid:217) b) Suma de Ingresos, $0.00 $0.00 $0.00 02 Tasa 0% $0.00 $0.00
+(cid:200)(cid:229)(cid:166)(cid:214)(cid:198)(cid:197)(cid:216)(cid:129)(cid:239)(cid:185)(cid:181)(cid:145)(cid:158)(cid:253)(cid:163)(cid:190)(cid:145)(cid:223)(cid:212)(cid:171)(cid:238)(cid:197)(cid:158)(cid:173)(cid:192)(cid:178)(cid:182)(cid:242)(cid:224)(cid:209)(cid:141)(cid:200)(cid:143)(cid:232)(cid:248)(cid:140)(cid:238)(cid:201)(cid:225)(cid:240)(cid:185)(cid:225)(cid:141)(cid:190)(cid:192)(cid:242)(cid:182)(cid:242)(cid:256)(cid:138)(cid:182)(cid:175)(cid:138) gravados IVA
+c) Suma de Ingresos, $0.00 $0.00 $0.00 02 Exento $0.00
+(cid:249)(cid:137)(cid:233)(cid:233)(cid:233)(cid:137)(cid:249)(cid:129)(cid:233)(cid:129)(cid:225)(cid:233)(cid:161)(cid:193)(cid:153)(cid:233)(cid:161)(cid:241)(cid:201)(cid:193)(cid:145)(cid:161)(cid:137)(cid:145)(cid:129)(cid:145)(cid:233)(cid:129)(cid:225)(cid:225)(cid:177)(cid:209)(cid:153)(cid:217)(cid:129)(cid:185)(cid:161)(cid:225)(cid:249)(cid:177)(cid:177)(cid:137)(cid:185)(cid:233)(cid:145)(cid:185)(cid:169)(cid:153)(cid:209)(cid:129)(cid:193)(cid:153)(cid:193)
+exentos IVA
+Totales $213.50 $0.00 $213.50 $34.16 $247.66
+*02 si objeto de impuesto
+BANCO INBURSA, S.A. INSTITUCION DE BANCA MULTIPLE, GRUPO FINANCIERO INBURSA
+AVENIDA PASEO DE LAS PALMAS No.750 LOMAS DE CHAPULTEPEC III SECCION, MIGUEL HIDALGO, CIUDAD DE MEXICO, MÉXICO, C.P.11000 C.R. 14091 RFC BII931004P61
+REGIMEN FISCAL: 601 GENERAL DE LEY PERSONAS MORALES
+
+--- TABLA 6.1 ---
+
+Tipo Comprobante: I Ingreso Versión: 4.0
+Lugar de expedición: Código Postal. 76047
+Expedido en: AV CONSTITUYENTES 102 QUINTAS DEL MARQUES QUERETARO 76047 MEXICO QUERETARO
+Receptor(Denominación o Razón Social sin Régimen de Capital): POLLENBEEMX
+Regimen Fiscal Receptor: 601 General de Ley Personas Morales Domicilio Fiscal Receptor: C.P.76903
+Uso del CFDI: G03 Gastos en general. Serie y Folio: JUL77390 50060655259
+Método de Pago: PUE Pago en una sola exhibición Folio Fiscal(UUID): 689f3713-86bc-49c9-8192-fa756e7f7a45
+Forma de pago: 03 Transferencia electrónica de fondos Fecha de expedición del CFDI: 2025-08-02T20:24:26
+Clave de unidad de medida: E48 Unidad de Servicio Fecha y hora de Certificación: 2025-08-02T22:05:40
+Clave de Productos y Servicios: 84121500 Instituciones Bancarias Número de Serie del Certificado del Emisor: 00001000000711188581
+Exportacion: 01 No aplica Número de Certificado del SAT: 00001000000710611637
+R.F.C. del proveedor de certificación: AUR100128NN3
+Sello digital del emisor
+TU7yMVClK2pMGvchkEIqanUD66Z1rTESZr4tGO7f4hrWdcsorBzCI+LNk/RhcAxDHb1NJQPVrqyjnb3CtWDv485HvbliS7Kld9qrL1XDk
+wxxZln4MvteiCZGPGy+YX4zaziHZ9lEuYON7DdiDpJtlstegVeMS5Gpde5j8CzLqas33VCoP2wU0OMANPb+O/m+ldxvxN2Hj+0bt6FaFy
+tj2RX3Jt1kdAWuZUcMxrqwF0e3kG56mgwztVeWH8+tgmbAtjWq96R/X3CQ9oO4xx4c7jcHvAB0MN+JwcZk8mBj/bZBqg7R6v96khYcd9a
+I9BeTIxdMAGQfHSRcHYYc9fvnWg==
+
+Sello digital del SAT
+hjfjI/LvqCLM6yaTtSX9XL4vlEZMrdp+0anDOzK6TMZvLxpml4frYjOsWPGJFIrmbiYB+m4G/kD7MOqYjMh/R6EmzOpnuZCcYrrGQbJ/H
+54VyMNqJ5gsCU1DKpHpLkYD6yHJEJzY6PhnLhfx4rIVe4rqRmitAry8GaCRBalIvSrUZAYfm+7sN7K5dxKnmXGQZC8H9RoZx6zpILo181
+50xtSVLDi3Hm2/ZtbT6PGa4Ydn5DZZ4jpFY8bxggLZ0N5ncQ1JizUL1oU9CtlHAQajuaJXomJV9bseRTWpVu3I7Je23ncMPgQzSDctxEe
+8116NMZ+ShTjvIICV5RYxQOb4Fw==
+Cadena original del complemento de certificación digital del SAT
+||1.1|689f3713-86bc-49c9-8192-fa756e7f7a45|2025-08-02T22:05:40|AUR100128NN3|TU7yMVClK2pMGvchkEIqanUD66Z1r
+TESZr4tGO7f4hrWdcsorBzCI+LNk/RhcAxDHb1NJQPVrqyjnb3CtWDv485HvbliS7Kld9qrL1XDkwxxZln4MvteiCZGPGy+YX4zaziHZ9
+lEuYON7DdiDpJtlstegVeMS5Gpde5j8CzLqas33VCoP2wU0OMANPb+O/m+ldxvxN2Hj+0bt6FaFytj2RX3Jt1kdAWuZUcMxrqwF0e3kG5
+6mgwztVeWH8+tgmbAtjWq96R/X3CQ9oO4xx4c7jcHvAB0MN+JwcZk8mBj/bZBqg7R6v96khYcd9aI9BeTIxdMAGQfHSRcHYYc9fvnWg==
+|00001000000710611637||
+
+
+
+--- TABLA 6.2 ---
+
+RESUMEN DEL CFDI |  |  |  |  |  |  |  | 
+
+Tipo de comprobante: I
+Ingresos | Importe | Descuentos | Base | *Objeto
+Impuesto | Tipo Factor | Tasa | IVA
+TRASLADO | Total
+
+a) Suma de Ingresos,
+gravados IVA | $213.50 | $0.00 | $213.50 | 02 | Tasa | 16% | $34.16 | $247.66
+
+b) Suma de Ingresos,
+gravados IVA | $0.00 | $0.00 | $0.00 | 02 | Tasa | 0% | $0.00 | $0.00
+
+c) Suma de Ingresos,
+exentos IVA | $0.00 | $0.00 | $0.00 | 02 | Exento |  |  | $0.00
+
+Totales | $213.50 | $0.00 | $213.50 |  |  |  | $34.16 | $247.66
+
+
+
+--- PÁGINA 7 ---
+Página: 7 de 8
+ESTADO DE CUENTA
+Cliente Inbursa: 42061564
+POLLENBEEMX SOCIEDAD ANONIMA PROMOTORA DE INVERSIO N
+DE CAPITAL VARIABLE RFC: POL210218264
+BENITO REYNOSO 359
+LOS CANDILES CORREGIDORA
+QUERETARO, MEX
+76903 359393-M
+RESUMEN GRAFICO DE SALDOS Y MOVIMIENTOS DEL PERIODO
+Saldo Inicial 38,587.42
+Saldo Final 41,306.44
+Depósitos 52,472.12
+Comisiones 247.66
+Otros Cargos 49,505.44
+(cid:128)(cid:41)(cid:77)(cid:2)(cid:113)(cid:8)(cid:69)(cid:26)(cid:66)(cid:37)(cid:85)(cid:9)(cid:116)(cid:14)(cid:96)(cid:54)(cid:65)(cid:48)(cid:77)(cid:43)
+(cid:128)(cid:62)(cid:11)(cid:108)(cid:18)(cid:106)(cid:39)(cid:8)(cid:76)(cid:2)(cid:43)(cid:55)(cid:104)(cid:90)(cid:111)(cid:86)(cid:78)(cid:54)(cid:46)(cid:86)
+(cid:127)(cid:123)(cid:67)(cid:75)(cid:127)(cid:83)(cid:39)(cid:43)(cid:123)(cid:43)(cid:27)(cid:91)(cid:119)(cid:11)(cid:99)(cid:7)(cid:43)(cid:27)(cid:119)(cid:43)
+BANCO INBURSA, S.A. INSTITUCION DE BANCA MULTIPLE, GRUPO FINANCIERO INBURSA
+AVENIDA PASEO DE LAS PALMAS No.750 LOMAS DE CHAPULTEPEC III SECCION, MIGUEL HIDALGO, CIUDAD DE MEXICO, MÉXICO, C.P.11000 C.R. 14091 RFC BII931004P61
+REGIMEN FISCAL: 601 GENERAL DE LEY PERSONAS MORALES
+
+--- PÁGINA 8 ---
+Página: 8 de 8
+CONSULTAS Y RECLAMACIONES
+Para cualquier solicitud, aclaración o reclamación derivada de los cargos señalados en el estado de cuenta, podrá, dentro del plazo de 90
+(noventa) días naturales siguientes contados a partir de la fecha de corte, o en su caso, de la realización de la operación o del servicio (art. 23
+Ley de Transparencia y Ordenamiento de los Servicios Financieros), presentar una solicitud de aclaración en cualquier sucursal de Banco Inbursa,
+S.A., Institución de Banca Múltiple, Grupo Financiero Inbursa ("Banco"), o cualquier otro medio con el que el Banco pueda comprobar
+fehacientemente la entrega de la solicitud.
+Para cualquier consulta podrá contactarnos de lunes a domingo de 7:00 a 20:00 hrs en los teléfonos:
+· 55 54 478000 o Del Interior de la República 800 90 90000
+Banco Inbursa, S.A., Institución de Banca Múltiple, Grupo Financiero Inbursa ("Banco") recibe las consultas, reclamaciones o aclaraciones, en su
+Unidad Especializada de Atención a Usuarios, ubicada en:
+· Insurgentes Sur # 3500, Col. Peña Pobre, Municipio Tlalpan, C.P.14060, de lunes a viernes de 8:30 a 17:30 hrs.
+· Correo electrónico: uniesp@inbursa.com,
+· Vía telefónica: 55 52 38 06 49 y 800 849 1000.
+Así como en cualquiera de sus Sucursales u Oficinas.
+En caso de no obtener una respuesta satisfactoria, podrá acudir a la Comisión Nacional para la Protección y Defensa de los Usuarios de Servicios
+Financieros, (CONDUSEF), en:
+· Insurgentes Sur 762, Colonia del Valle, Municipio Benito Juárez, C.P. 03100 México, Ciudad de México.
+ó comunicándose al Tel. 55 53400999 o Del Interior de la República 800 999 80 80
+· Página web www.condusef.gob.mx.
+GLOSARIO DE ABREVIATURAS
+ATM AUTOMATIC TELLER MACHINE IDE IMPUESTO DEPOSITO EFECTIVO
+BCA BANCA IMP IMPUESTOS
+BCOS BANCOS INV INVERSION
+COM COMISION ISR IMPUESTO SOBRE LA RENTA
+CR CENTRO DE REPARTO IVA IMPUESTO AL VALOR AGREGADO
+CTA CUENTA M.N. MONEDA NACIONAL
+CTAS CUENTAS MOV MOVIMIENTO
+DEBIT DEBITO MOVS MOVIMIENTOS
+DLS DOLARES RFC REGISTRO FEDERAL DE CONTRIBUYENTES
+DLLS DOLARES SAT SERVICIO DE ADMINISTRACION TRIBUTARIA
+DOMI DOMICILIACION SBC SALVO BUEN COBRO
+EDO ESTADO SPEI SISTEMA DE PAGOS ELECTRONICOS INTERBANCARIOS
+EDO DE CTA ESTADO DE CUENTA TEF TRANSFERENCIA ELECTRONICA DE FONDOS
+EMP EMPRESARIAL SPM SALDO PROMEDIO MENSUAL
+GAT GANANCIA ANUAL TOTAL UUID UNIVERSALLY UNIQUE IDENTIFIER
+UDI UNIDADES DE INVERSION XML EXTENSIBLE MARKUP LANGUAGE
+CFDI COMPROBANTE FISCAL DIGITAL A TRAVES DE CLABE CLAVE BÁSICA ESTANDARIZADA
+INTERNET
+GN GAT NOMINAL GR GAT REAL
+CP CÓDIGO POSTAL MXN PESO MEXICANO
+PAC PROVEEDOR AUTORIZADO DE CERTIFICACIÓN SA SOCIEDAD ANÓNIMA
+CV CAPITAL VARIABLE
+El producto descrito se encuentra protegido por el Instituto para la Protección al Ahorro Bancario (IPAB) hasta por un monto equivalente de
+400 mil Unidades de Inversión (UDI) por cliente e Institución, lo anterior de conformidad con las disposiciones legales que regula dicho Instituto
+www.ipab.org.mx
+RECOMENDACIONES
+Por su seguridad, para evitar una posible clonación de su tarjeta de débito en cajeros automáticos, le recomendamos cubrir con su mano el teclado mientras
+ingresa su NIP y acudir preferentemente a cajeros de Banco Inbursa.
+Incumplir sus obligaciones le pueden generar comisiones e interéses moratorios.
+BANCO INBURSA, S.A. INSTITUCION DE BANCA MULTIPLE, GRUPO FINANCIERO INBURSA
+AVENIDA PASEO DE LAS PALMAS No.750 LOMAS DE CHAPULTEPEC III SECCION, MIGUEL HIDALGO, CIUDAD DE MEXICO, MÉXICO, C.P.11000 C.R. 14091 RFC BII931004P61
+REGIMEN FISCAL: 601 GENERAL DE LEY PERSONAS MORALES

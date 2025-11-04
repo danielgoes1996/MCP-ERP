@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/api/payment_accounts_api.py
+# hypothesis_version: 6.140.3
+
+[1000, '/', '/health', '/payment-accounts', '/summary/dashboard', '/types/available', '/{account_id}', '1.0.0', 'Cuenta Bancaria', 'Efectivo', 'Payment Accounts', 'Solo cuentas activas', 'Tarjeta de Crédito', 'Tarjeta de Débito', 'Terminal de Pago', '__main__', 'account_id', 'account_name', 'account_types', 'accounts_by_type', 'alerts', 'available_credit', 'banco_nombre', 'count', 'credit_cards_summary', 'credit_limit', 'database_connected', 'description', 'error', 'fecha_corte', 'fecha_pago', 'healthy', 'high', 'label', 'limite_credito', 'low', 'low_balance', 'medium', 'message', 'numero_tarjeta', 'payment_accounts', 'proveedor_terminal', 'required_fields', 'service', 'severity', 'status', 'subtipo', 'subtypes', 'test_accounts_found', 'total_accounts', 'total_balance', 'total_cards', 'total_limit', 'total_used', 'type', 'unhealthy', 'value', 'version']

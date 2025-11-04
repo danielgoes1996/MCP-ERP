@@ -1262,6 +1262,7 @@ def record_internal_expense(
     tax_total: Optional[float] = None,
     tax_metadata: Optional[Dict[str, Any]] = None,
     payment_method: Optional[str] = None,
+    payment_account_id: Optional[int] = None,
     paid_by: str = "company_account",
     will_have_cfdi: bool = True,
     bank_status: str = "pendiente",
@@ -1317,6 +1318,7 @@ def record_internal_expense(
                     tax_total,
                     tax_metadata,
                     payment_method,
+                    payment_account_id,
                     paid_by,
                     will_have_cfdi,
                     bank_status,
@@ -1330,7 +1332,7 @@ def record_internal_expense(
                     total_paid,
                     created_at,
                     updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     external_reference,
@@ -1350,6 +1352,7 @@ def record_internal_expense(
                     tax_total,
                     tax_metadata_json,
                     payment_method,
+                    payment_account_id,
                     paid_by,
                     int(will_have_cfdi),
                     bank_status,

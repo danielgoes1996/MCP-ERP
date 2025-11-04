@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/unified_auth.py
+# hypothesis_version: 6.140.3
+
+[999, '/auth/token', '0123456789abcdef', '30', '7', 'Bearer', 'Demo User', 'HS256', 'Inactive user', 'Invalid token', 'JWT_SECRET_KEY', 'User not found', 'WWW-Authenticate', '__main__', 'access', 'admin', 'admin123', 'admin@tafy.com', 'bearer', 'company_admin', 'company_name', 'demo@example.com', 'demo_token', 'exp', 'refresh', 'role', 'sub', 'tenant_id', 'type', 'user', 'user_id', 'utf-8', 'viewer', '❌ User not found']

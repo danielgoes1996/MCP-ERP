@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/auth_jwt.py
+# hypothesis_version: 6.140.3
+
+[401, 403, 480, '$2a$', '$2b$', '0123456789abcdef', 'Account inactive', 'Bearer', 'HS256', 'JWT_SECRET_KEY', 'Token revoked', 'WWW-Authenticate', '_no_results', 'admin', 'auth/login', 'bearer', 'email', 'employee_advances', 'employee_id', 'exp', 'expenses', 'full_name', 'id', 'is_active', 'jti', 'locked_until', 'own', 'password_hash', 'revoked_at', 'role', 'scope', 'sub', 'superadmin', 'tenant_id', 'user_id', 'username', 'utf-8']

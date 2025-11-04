@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/api/financial_intelligence_api.py
+# hypothesis_version: 6.140.3
+
+[0.1, 0.2, 0.3, 0.4, 100, 500, 1000, '/cash-flow-analysis', '/expense-breakdown', '/financial-insights', 'Excellent', 'Fair', 'Good', 'Poor', 'anomaly_rate', 'anomaly_score', 'breakdown', 'categories_analyzed', 'category', 'category_total', 'classification_score', 'classified', 'critical', 'current_month', 'current_year', 'data', 'factor_scores', 'generated_for_user', 'green', 'health_color', 'health_level', 'info', 'insights', 'last_month', 'orange', 'overall_score', 'period', 'potential_savings', 'recommendations', 'reconciled', 'reconciliation_score', 'red', 'severity_breakdown', 'status', 'success', 'suggestions', 'tenant_id', 'top_categories', 'total', 'total_insights', 'total_suggestions', 'totals', 'warning', 'yellow']

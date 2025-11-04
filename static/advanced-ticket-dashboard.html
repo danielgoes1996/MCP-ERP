@@ -4,12 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard de Facturación Automática | MCP Server</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/contaflow-theme.css">
 
     <!-- Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="/static/components/components.js" defer></script>
 
     <!-- Chart.js para gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -57,33 +60,9 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <!-- Header -->
-    <header class="gradient-bg text-white shadow-lg">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center py-6">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <i class="fas fa-receipt text-3xl mr-3"></i>
-                    </div>
-                    <h1 class="text-2xl font-bold">Facturación Automática</h1>
-                </div>
-
-                <div class="flex items-center space-x-4">
-                    <div class="text-sm">
-                        <span class="opacity-75">Empresa:</span>
-                        <span class="font-semibold" id="current-company">Mi Empresa SA de CV</span>
-                    </div>
-                    <a href="/invoicing/automation-viewer?latest=true" target="_blank" class="bg-purple-600 bg-opacity-90 hover:bg-opacity-100 px-4 py-2 rounded-lg transition-all">
-                        <i class="fas fa-robot mr-2"></i>🤖 Automation Viewer
-                    </a>
-                    <a href="/static/client-settings.html" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg transition-all">
-                        <i class="fas fa-cog mr-2"></i>Configuración
-                    </a>
-                </div>
-            </div>
-        </div>
-    </header>
+<body class="bg-slate-100 min-h-screen">
+    <!-- Global Header -->
+    <div data-include="/static/components/global-header.html"></div>
 
     <!-- Toast Container -->
     <div id="toast-container" class="fixed top-4 right-4 z-50"></div>

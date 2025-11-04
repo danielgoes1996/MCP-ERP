@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/unified_automation_engine.py
+# hypothesis_version: 6.140.3
+
+[0.0, 0.001, 0.0015, 0.01, 999, 1000, '=', 'Test Merchant', '__main__', 'automation', 'automation_summary', 'captcha', 'captcha_encountered', 'captcha_solved', 'classifications', 'claude', 'claude_dom_analysis', 'database_persistence', 'dom_analysis', 'engine_version', 'error', 'error_report', 'fallback', 'fallback_needed', 'features', 'google_vision', 'google_vision_ocr', 'heuristic', 'https://example.com', 'id', 'image_path', 'llm_service', 'manual', 'nombre', 'none', 'ocr', 'portal_url', 'readiness_score', 'recommended_order', 'screenshot_evidence', 'screenshots', 'selenium', 'selenium_automation', 'service', 'service_used', 'services', 'services_attempted', 'stage', 'success', 'texto_extraido', 'twocaptcha', 'unified_engine', 'unified_v1']

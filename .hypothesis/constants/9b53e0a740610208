@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/extraction_audit_logger.py
+# hypothesis_version: 6.140.3
+
+[0.0, 100, '__main__', 'avg_extraction_time', 'details', 'extraction_pattern', 'extraction_timestamp', 'failed_extractions', 'filename', 'id', 'is_complete', 'issues', 'issues_count', 'llm', 'message', 'missing_transactions', 'pdf_filename', 'period_days', 'possible_reasons', 'raw_amount', 'raw_date', 'raw_description', 'raw_transaction', 'recent_failures', 'severity', 'source_line', 'success_rate', 'timestamp', 'total_api_calls', 'total_estimated_cost', 'total_extractions', 'type', '✅ PASSED', '❌ FAILED']

@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/financial_reports_engine.py
+# hypothesis_version: 6.140.3
+
+[0.1, 0.15, 100, '=', '__main__', 'amount', 'balance_summary', 'cash_flow_analysis', 'category', 'category_auto', 'classification', 'cleaned_description', 'compliance', 'compliance_status', 'cost_optimization', 'count', 'critical', 'current_month', 'current_spend', 'description', 'expense_anomaly', 'financial_insights', 'frequency', 'generated_at', 'good', 'info', 'monthly_expenses', 'needs_attention', 'pending_amount', 'pending_count', 'pending_receipts', 'potential_savings', 'previous_month', 'report_id', 'report_type', 'subcategory', 'suggestion', 'summary', 'tax_deductibility', 'total_amount', 'total_deductible', 'total_spent', 'transaction_count', 'transactions', 'trend', 'type', 'unclassified_amount', 'unclassified_count', 'warning', 'weekly_trends']

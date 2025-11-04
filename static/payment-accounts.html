@@ -1,0 +1,3051 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💰 TRANSACCIÓN FALTANTE AGREGADA - 75 Total v12.0 ✅</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="cache-buster" content="20250928-saldos-corregidos">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/contaflow-theme.css">
+    <script src="/static/components/components.js" defer></script>
+
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        .account-card {
+            transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .account-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #11446e 0%, #0b3050 100%);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+    <div data-include="/static/components/global-header.html"></div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <header class="page-header">
+            <div class="page-header__content">
+                <div class="page-header__meta">
+                    <h1 class="page-header__title"><span aria-hidden="true">💼</span> Cuentas de Banco y Efectivo</h1>
+                    <p class="page-header__subtitle">Administra cuentas bancarias, cajas y terminales desde un solo lugar.</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex justify-end mb-6">
+            <button id="add-account-btn" class="btn btn--primary" onclick="openAddAccountModal()">
+                <i class="fas fa-plus" aria-hidden="true"></i>
+                Nueva Cuenta
+            </button>
+        </div>
+
+        <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <article class="stat-card" data-intent="neutral">
+                <div class="stat-card__icon" aria-hidden="true">
+                    <i class="fas fa-piggy-bank"></i>
+                </div>
+                <div class="stat-card__body">
+                    <p class="stat-card__label">Saldo total</p>
+                    <p class="stat-card__value" id="stat-total-balance">-</p>
+                    <p class="stat-card__meta" id="stat-total-meta"></p>
+                </div>
+            </article>
+            <article class="stat-card" data-intent="success">
+                <div class="stat-card__icon" aria-hidden="true">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-card__body">
+                    <p class="stat-card__label">Saldo disponible</p>
+                    <p class="stat-card__value" id="stat-available-balance">-</p>
+                    <p class="stat-card__meta" id="stat-available-meta"></p>
+                </div>
+            </article>
+            <article class="stat-card" data-intent="warning">
+                <div class="stat-card__icon" aria-hidden="true">
+                    <i class="fas fa-triangle-exclamation"></i>
+                </div>
+                <div class="stat-card__body">
+                    <p class="stat-card__label">Crédito utilizado</p>
+                    <p class="stat-card__value" id="stat-credit-used">-</p>
+                    <p class="stat-card__meta" id="stat-credit-meta"></p>
+                </div>
+            </article>
+            <article class="stat-card" data-intent="neutral">
+                <div class="stat-card__icon" aria-hidden="true">
+                    <i class="fas fa-wallet"></i>
+                </div>
+                <div class="stat-card__body">
+                    <p class="stat-card__label">Cuentas activas</p>
+                    <p class="stat-card__value" id="stat-account-count">-</p>
+                    <p class="stat-card__meta" id="stat-account-meta"></p>
+                </div>
+            </article>
+        </section>
+    </div>
+
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Account Types Filter -->
+        <div class="mb-6">
+            <div class="mb-3">
+                <h3 class="heading-2 flex items-center gap-2 text-primary">
+                    <i class="fas fa-filter"></i>
+                    Filtrar cuentas por tipo
+                </h3>
+                <p class="text-sm text-muted mt-1">Haz clic en un tipo para ver solo esas cuentas</p>
+            </div>
+            <div class="segmented" data-component="segmented" role="radiogroup" id="accounts-type-segmented">
+                <button class="segment segment--active" type="button" role="radio" aria-checked="true" data-value="all" data-label="Todas las cuentas">
+                    Todas las cuentas
+                </button>
+                <button class="segment" type="button" role="radio" aria-checked="false" data-value="bancaria" data-label="Bancarias">
+                    Bancarias
+                </button>
+                <button class="segment" type="button" role="radio" aria-checked="false" data-value="efectivo" data-label="Efectivo">
+                    Efectivo
+                </button>
+                <button class="segment" type="button" role="radio" aria-checked="false" data-value="terminal" data-label="Terminales">
+                    Terminales
+                </button>
+            </div>
+        </div>
+
+        <!-- Accounts Grid -->
+        <div id="accounts-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Account cards will be loaded here -->
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-state" class="text-center py-12">
+            <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i>
+            <p class="text-muted">Cargando cuentas...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="text-center py-12 hidden">
+            <i class="fas fa-credit-card text-6xl text-gray-300 mb-4"></i>
+            <h3 class="text-xl font-semibold text-muted mb-2">No tienes cuentas registradas</h3>
+            <p class="text-muted mb-6">Agrega tu primera cuenta para comenzar a gestionar tus gastos</p>
+            <button onclick="openAddAccountModal()"
+                    class="btn-primary text-white px-6 py-3 rounded-lg hover:opacity-90 transition-opacity">
+                <i class="fas fa-plus mr-2"></i>
+                Agregar Primera Cuenta
+            </button>
+        </div>
+    </main>
+
+    <!-- Add/Edit Account Modal -->
+    <div id="account-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                <div class="sticky top-0 bg-white border-b px-6 py-4">
+                    <div class="flex justify-between items-center">
+                        <h2 id="modal-title" class="text-xl font-bold text-gray-900">Nueva Cuenta</h2>
+                        <button onclick="closeAccountModal()" class="text-muted hover:text-primary">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <form id="account-form" class="p-6 space-y-4">
+                    <!-- Hidden field for edit mode -->
+                    <input type="hidden" id="account-id" name="account-id">
+
+                    <!-- Auto-generated name preview -->
+                    <div>
+                        <label class="block text-sm font-medium text-primary mb-2">
+                            <i class="fas fa-tag mr-1"></i> Nombre de la Cuenta (Generado Automáticamente)
+                        </label>
+                        <div id="nombre-preview" class="w-full px-3 py-2 bg-slate-100 border border-gray-300 rounded-lg text-muted">
+                            Selecciona tipo y datos para ver el nombre
+                        </div>
+                        <p class="text-xs text-muted mt-1">El nombre se genera automáticamente basado en el tipo y datos de la cuenta</p>
+                    </div>
+
+                    <!-- Account Type -->
+                    <div>
+                        <label for="tipo" class="block text-sm font-medium text-primary mb-2">
+                            <i class="fas fa-list mr-1"></i> Tipo de Cuenta
+                        </label>
+                        <select id="tipo" name="tipo" required onchange="handleTypeChange()"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">Seleccionar tipo...</option>
+                            <option value="bancaria">🏦 Cuenta Bancaria</option>
+                            <option value="efectivo">💵 Efectivo</option>
+                            <option value="terminal">📱 Terminal de Pago</option>
+                        </select>
+                    </div>
+
+                    <!-- Subtype for Bank Accounts -->
+                    <div id="subtipo-container" class="hidden">
+                        <label for="subtipo" class="block text-sm font-medium text-primary mb-2">
+                            <i class="fas fa-arrows-alt-h mr-1"></i> Subtipo
+                        </label>
+                        <select id="subtipo" name="subtipo" onchange="handleSubtypeChange()"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">Seleccionar subtipo...</option>
+                            <option value="debito">💳 Tarjeta de Débito</option>
+                            <option value="credito">💳 Tarjeta de Crédito</option>
+                        </select>
+                    </div>
+
+                    <!-- Currency -->
+                    <div>
+                        <label for="moneda" class="block text-sm font-medium text-primary mb-2">
+                            <i class="fas fa-coins mr-1"></i> Moneda
+                        </label>
+                        <select id="moneda" name="moneda"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="MXN">MXN - Peso Mexicano</option>
+                            <option value="USD">USD - Dólar Americano</option>
+                            <option value="EUR">EUR - Euro</option>
+                        </select>
+                    </div>
+
+                    <!-- Initial Balance -->
+                    <div>
+                        <label for="saldo_inicial" class="block text-sm font-medium text-primary mb-2">
+                            <i class="fas fa-dollar-sign mr-1"></i> Saldo Inicial
+                        </label>
+                        <input type="number" id="saldo_inicial" name="saldo_inicial" step="0.01" min="0"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="0.00">
+                    </div>
+
+                    <!-- Bank-specific fields -->
+                    <div id="bank-fields" class="space-y-4 hidden">
+                        <div>
+                            <label for="banco_nombre" class="block text-sm font-medium text-primary mb-2">
+                                <i class="fas fa-university mr-1"></i> Nombre del Banco *
+                            </label>
+                            <select id="banco_nombre" name="banco_nombre"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="">Seleccionar banco...</option>
+                                <!-- Options will be loaded dynamically -->
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="numero_cuenta" class="block text-sm font-medium text-primary mb-2">
+                                <i class="fas fa-hashtag mr-1"></i> Número de Cuenta Bancaria
+                            </label>
+                            <input type="text" id="numero_cuenta" name="numero_cuenta" maxlength="24"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="1234 5678 9012 3456">
+                        </div>
+
+                        <div>
+                            <label for="clabe" class="block text-sm font-medium text-primary mb-2">
+                                <i class="fas fa-barcode mr-1"></i> CLABE Interbancaria
+                            </label>
+                            <input type="text" id="clabe" name="clabe" maxlength="22"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="0121 8000 1234 5678 90">
+                            <p class="text-xs text-muted mt-1">Usado para transferencias bancarias</p>
+                        </div>
+
+                        <div>
+                            <label for="numero_tarjeta_debit" class="block text-sm font-medium text-primary mb-2">
+                                <i class="fas fa-credit-card mr-1"></i> Número de tarjeta completo
+                            </label>
+                            <input type="text" id="numero_tarjeta_debit" name="numero_tarjeta_debit" maxlength="23"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="1234 5678 9012 3456">
+                            <p class="text-xs text-muted mt-1">Número completo de la tarjeta (13-19 dígitos)</p>
+                        </div>
+
+                    </div>
+
+                    <!-- Terminal-specific fields -->
+                    <div id="terminal-fields" class="hidden">
+                        <div>
+                            <label for="proveedor_terminal" class="block text-sm font-medium text-primary mb-2">
+                                <i class="fas fa-mobile-alt mr-1"></i> Proveedor del Terminal
+                            </label>
+                            <select id="proveedor_terminal" name="proveedor_terminal" onchange="updateNamePreview()"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="">Seleccionar proveedor...</option>
+                                <option value="Clip">Clip</option>
+                                <option value="MercadoPago">MercadoPago Point</option>
+                                <option value="Zettle">Zettle by PayPal</option>
+                                <option value="iZettle">iZettle</option>
+                                <option value="Otro">Otro</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Credit Card-specific fields -->
+                    <div id="credit-card-fields" class="space-y-4 hidden">
+                        <div>
+                            <label for="limite_credito" class="block text-sm font-medium text-primary mb-2">
+                                <i class="fas fa-chart-line mr-1"></i> Límite de Crédito
+                            </label>
+                            <input type="number" id="limite_credito" name="limite_credito" step="0.01" min="0"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="100000.00">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="fecha_corte" class="block text-sm font-medium text-primary mb-2">
+                                    <i class="fas fa-calendar mr-1"></i> Día de Corte
+                                </label>
+                                <input type="number" id="fecha_corte" name="fecha_corte" min="1" max="31"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                       placeholder="15">
+                            </div>
+                            <div>
+                                <label for="fecha_pago" class="block text-sm font-medium text-primary mb-2">
+                                    <i class="fas fa-calendar-check mr-1"></i> Día de Pago
+                                </label>
+                                <input type="number" id="fecha_pago" name="fecha_pago" min="1" max="31"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                       placeholder="5">
+                            </div>
+                        </div>
+                        <div>
+                            <label for="numero_tarjeta" class="block text-sm font-medium text-primary mb-2">
+                                <i class="fas fa-credit-card mr-1"></i> Número de tarjeta completo
+                            </label>
+                            <input type="text" id="numero_tarjeta" name="numero_tarjeta" maxlength="23"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="1234 5678 9012 3456">
+                            <p class="text-xs text-muted mt-1">Número completo de la tarjeta (13-19 dígitos)</p>
+                        </div>
+                        <div>
+                            <label for="banco_nombre_cc" class="block text-sm font-medium text-primary mb-2">
+                                <i class="fas fa-university mr-1"></i> Banco Emisor
+                            </label>
+                            <select id="banco_nombre_cc" name="banco_nombre_cc"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="">Seleccionar banco...</option>
+                                <!-- Options will be loaded dynamically -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="flex justify-end space-x-3 pt-4 border-t">
+                        <button type="button" onclick="closeAccountModal()"
+                                class="px-4 py-2 text-muted bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                            Cancelar
+                        </button>
+                        <button type="submit" id="submit-btn"
+                                class="btn-primary text-white px-6 py-2 rounded-lg hover:opacity-90 transition-opacity">
+                            <i class="fas fa-save mr-2"></i>
+                            Guardar Cuenta
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+                <div class="text-center">
+                    <i class="fas fa-exclamation-triangle text-5xl text-red-500 mb-4"></i>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2">¿Desactivar cuenta?</h3>
+                    <p class="text-muted mb-6">Esta acción desactivará la cuenta. No se eliminará del historial de gastos.</p>
+                    <div class="flex justify-center space-x-3">
+                        <button onclick="closeDeleteModal()"
+                                class="px-4 py-2 text-muted bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                            Cancelar
+                        </button>
+                        <button onclick="confirmDelete()"
+                                class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                            Desactivar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Statement Modal -->
+    <div id="upload-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-900">📤 Subir Estado de Cuenta</h3>
+                        <p class="text-muted">Cuenta: <span id="upload-account-name" class="font-semibold"></span></p>
+                    </div>
+                    <button onclick="closeUploadModal()"
+                            class="text-gray-400 hover:text-muted p-2">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+
+                <form id="upload-form" enctype="multipart/form-data">
+                    <!-- File Upload Area -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-primary mb-2">
+                            <i class="fas fa-file-upload mr-1"></i> Seleccionar Archivo
+                        </label>
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                            <input type="file" id="statement-file" name="file"
+                                   accept=".pdf,.xlsx,.xls,.csv"
+                                   onchange="handleFileSelect(this)"
+                                   class="hidden">
+                            <label for="statement-file" class="cursor-pointer">
+                                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
+                                <p class="text-muted">Haz clic aquí o arrastra tu archivo</p>
+                                <p class="text-sm text-muted">Formatos: PDF, Excel (.xlsx, .xls), CSV</p>
+                                <p class="text-sm text-muted">Tamaño máximo: 50MB</p>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- File Info -->
+                    <div id="file-info" class="hidden mb-6 p-4 bg-blue-50 rounded-lg">
+                        <div class="flex items-center">
+                            <i class="fas fa-file text-blue-600 mr-3"></i>
+                            <div>
+                                <p id="file-name" class="font-semibold text-blue-900"></p>
+                                <p id="file-size" class="text-sm text-blue-700"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Optional Date Range -->
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label class="block text-sm font-medium text-primary mb-2">
+                                <i class="fas fa-calendar-alt mr-1"></i> Fecha Inicio (Opcional)
+                            </label>
+                            <input type="date" id="period-start" name="period_start"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-primary mb-2">
+                                <i class="fas fa-calendar-alt mr-1"></i> Fecha Fin (Opcional)
+                            </label>
+                            <input type="date" id="period-end" name="period_end"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                    </div>
+
+                    <!-- Preview Container (for future transaction preview) -->
+                    <div id="preview-container" class="hidden mb-6">
+                        <h4 class="font-semibold text-gray-900 mb-3">
+                            <i class="fas fa-eye mr-1"></i> Vista Previa de Transacciones
+                        </h4>
+                        <div id="transactions-preview" class="max-h-64 overflow-y-auto border rounded-lg p-4 bg-slate-100">
+                            <!-- Transaction preview will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="closeUploadModal()"
+                                class="px-6 py-2 text-muted bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                            Cancelar
+                        </button>
+                        <button type="submit" id="upload-btn"
+                                class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                disabled>
+                            <i class="fas fa-upload mr-1"></i> Subir Estado de Cuenta
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transactions Viewer Modal -->
+    <div id="transactions-modal" class="fixed inset-0 z-50 hidden bg-white">
+        <div class="flex h-full w-full flex-col">
+            <!-- Header -->
+            <div class="sticky top-0 z-30 border-b bg-white">
+                <div class="px-4 py-4 md:px-6 md:py-5">
+                    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                        <div class="flex items-start gap-3">
+                            <button onclick="closeTransactionsModal()"
+                                    class="inline-flex items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                                <i class="fas fa-arrow-left"></i>
+                                <span class="hidden sm:inline">Volver</span>
+                            </button>
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold tracking-wide text-blue-700 bg-blue-100 rounded-full">
+                                        Paso 2: Validación de movimientos
+                                    </span>
+                                    <span class="text-xs text-muted">
+                                        Periodo:
+                                        <span id="period-range" class="font-semibold text-primary">-</span>
+                                    </span>
+                                </div>
+                                <h3 class="text-xl font-bold text-gray-900">Revisión de transacciones</h3>
+                                <div class="flex flex-wrap items-center gap-2 text-xs text-muted" id="validation-subtitle">
+                                    <span>
+                                        Cuenta:
+                                        <span id="transactions-account-name" class="font-semibold text-gray-800"></span>
+                                    </span>
+                                    <span id="transactions-bank-name" class="hidden inline-flex items-center px-2 py-0.5 text-xs font-semibold text-blue-700 bg-blue-100 rounded-full"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="closeTransactionsModal()"
+                                class="hidden rounded-full p-2 text-gray-400 hover:text-muted md:inline-flex">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-hidden flex flex-col">
+                <div class="flex-1 overflow-y-auto">
+                    <div class="space-y-6 pb-24">
+
+            <!-- Validation Guidance -->
+            <div id="validation-banner" class="px-4 py-4 border-b bg-blue-50 md:px-6">
+                <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                    <div class="flex items-start gap-3">
+                        <span class="text-2xl leading-none">🛡️</span>
+                            <div>
+                                <p class="font-semibold text-blue-900">Validación antes de guardar</p>
+                                <p class="text-sm text-blue-800">
+                                    Revisa los movimientos sugeridos por la IA. Los que necesiten tu confirmación se resaltan automáticamente.
+                                </p>
+                                <div class="flex flex-wrap gap-2 mt-3 text-xs">
+                                    <span class="inline-flex items-center px-2.5 py-1 bg-white border border-blue-100 text-blue-700 font-semibold rounded-full" id="validation-total">0 transacciones</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 bg-white border border-blue-100 text-blue-700 rounded-full" id="validation-ai-count">0 con IA</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 bg-white border border-emerald-100 text-emerald-700 rounded-full" id="validation-correction-count">0 ajustes automáticos</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 bg-white border border-emerald-200 text-emerald-700 rounded-full" id="validation-reviewed">0 revisadas</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white/80 border border-blue-100 rounded-lg px-4 py-3 shadow-sm w-full md:w-auto">
+                            <p class="text-xs uppercase tracking-wide text-blue-600 font-semibold mb-1">Pendientes visibles</p>
+                            <p class="text-sm font-semibold text-blue-900"><span id="validation-attention-count">0</span> movimientos por revisar</p>
+                            <p class="text-xs text-blue-700 mt-1" id="validation-attention-label">Revisa los resaltados en la tabla.</p>
+                        </div>
+                    </div>
+                </div>
+
+            <!-- Summary Metrics -->
+            <div class="px-4 md:px-6">
+                <div class="rounded-lg border border-gray-200 bg-white/80 p-4">
+                    <div class="max-h-[120px] overflow-y-auto">
+                        <div class="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                            <div class="rounded-lg border border-gray-200 bg-white p-3">
+                                <p class="text-[11px] uppercase tracking-wide text-muted">Total ingresos</p>
+                                <p class="text-base font-semibold text-green-600" id="total-incomes">$0.00</p>
+                            </div>
+                            <div class="rounded-lg border border-gray-200 bg-white p-3">
+                                <p class="text-[11px] uppercase tracking-wide text-muted">Total gastos</p>
+                                <p class="text-base font-semibold text-red-600" id="total-expenses">$0.00</p>
+                            </div>
+                            <div class="rounded-lg border border-gray-200 bg-white p-3">
+                                <p class="text-[11px] uppercase tracking-wide text-muted">Total transferencias</p>
+                                <p class="text-base font-semibold text-purple-600" id="total-transfers">$0.00</p>
+                            </div>
+                            <div class="rounded-lg border border-gray-200 bg-white p-3">
+                                <p class="text-[11px] uppercase tracking-wide text-muted">Balance neto</p>
+                                <p class="text-base font-semibold text-blue-600" id="net-balance">$0.00</p>
+                            </div>
+                            <div class="rounded-lg border border-gray-200 bg-white p-3">
+                                <p class="text-[11px] uppercase tracking-wide text-muted">Transacciones</p>
+                                <p class="text-base font-semibold text-gray-800" id="transaction-count">0</p>
+                            </div>
+                            <div class="rounded-lg border border-gray-200 bg-white p-3">
+                                <p class="text-[11px] uppercase tracking-wide text-muted">% revisadas</p>
+                                <p class="text-base font-semibold text-emerald-600" id="metric-reviewed-percent">0%</p>
+                                <p class="mt-1 text-[11px] text-muted" id="metric-reviewed-detail">0 de 0 revisadas</p>
+                            </div>
+                            <div class="rounded-lg border border-gray-200 bg-white p-3">
+                                <p class="text-[11px] uppercase tracking-wide text-muted">% sugeridas IA</p>
+                                <p class="text-base font-semibold text-indigo-600" id="metric-ai-percent">0%</p>
+                                <p class="mt-1 text-[11px] text-muted" id="metric-ai-detail">0 con IA</p>
+                            </div>
+                            <div class="rounded-lg border border-gray-200 bg-white p-3">
+                                <p class="text-[11px] uppercase tracking-wide text-muted">Correcciones aplicadas</p>
+                                <p class="text-base font-semibold text-emerald-600" id="metric-corrections">0</p>
+                                <p class="mt-1 text-[11px] text-muted">Ajustes locales</p>
+                            </div>
+                            <div class="rounded-lg border border-gray-200 bg-white p-3">
+                                <p class="text-[11px] uppercase tracking-wide text-muted">Sin CFDI</p>
+                                <p class="text-base font-semibold text-amber-600" id="metric-missing-cfdi">0</p>
+                                <p class="mt-1 text-[11px] text-muted">Movimientos sin comprobante</p>
+                            </div>
+                            <div class="rounded-lg border border-gray-200 bg-white p-3">
+                                <p class="text-[11px] uppercase tracking-wide text-muted">Confianza promedio</p>
+                                <p class="text-base font-semibold text-gray-800" id="metric-avg-confidence">-</p>
+                                <p class="mt-1 text-[11px] text-muted">Promedio IA/Claude</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters Toolbar -->
+            <div class="sticky top-0 z-20 px-4 md:px-6">
+                <div class="rounded-lg border border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
+                    <div class="grid grid-cols-1 gap-3 md:grid-cols-4">
+                        <div class="flex flex-col gap-1 text-sm">
+                            <label class="text-xs font-semibold uppercase tracking-wide text-muted">Filtrar por mes</label>
+                            <select id="month-filter" onchange="filterTransactions()" class="rounded-lg border border-gray-300 px-3 py-2">
+                                <option value="">Todos los meses</option>
+                            </select>
+                        </div>
+                        <div class="flex flex-col gap-1 text-sm">
+                            <label class="text-xs font-semibold uppercase tracking-wide text-muted">Tipo de movimiento</label>
+                            <select id="type-filter" onchange="filterTransactions()" class="rounded-lg border border-gray-300 px-3 py-2">
+                                <option value="">Todos los movimientos</option>
+                                <option value="Ingreso">Solo ingresos</option>
+                                <option value="Gasto">Solo gastos</option>
+                                <option value="Transferencia">Solo transferencias</option>
+                                <option value="Balance">Solo balances</option>
+                            </select>
+                        </div>
+                        <div class="flex flex-col gap-1 text-sm">
+                            <label class="text-xs font-semibold uppercase tracking-wide text-muted">Estado de revisión</label>
+                            <select id="status-filter" onchange="filterTransactions()" class="rounded-lg border border-gray-300 px-3 py-2">
+                                <option value="">Todos los estados</option>
+                                <option value="pending">Pendientes</option>
+                                <option value="reviewed">Revisados</option>
+                                <option value="sin_categoria">Sin categoría</option>
+                                <option value="baja_confianza">Baja confianza</option>
+                                <option value="sin_cfdi">Sin CFDI</option>
+                            </select>
+                        </div>
+                        <div class="flex flex-col gap-1 text-sm">
+                            <label class="text-xs font-semibold uppercase tracking-wide text-muted">Buscar descripción</label>
+                            <input type="text" id="search-filter" onkeyup="filterTransactions()" placeholder="Buscar..."
+                                   class="rounded-lg border border-gray-300 px-3 py-2" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transactions List -->
+            <div class="px-4 md:px-6">
+                <div id="transactions-loading" class="py-6 text-center">
+                    <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i>
+                    <p class="text-muted">Cargando transacciones...</p>
+                </div>
+
+                <div id="transactions-empty" class="hidden py-6 text-center">
+                    <i class="fas fa-receipt text-6xl text-gray-300 mb-4"></i>
+                    <h4 class="text-xl font-semibold text-muted mb-2">No hay transacciones</h4>
+                    <p class="text-muted mb-4">No se encontraron transacciones para esta cuenta.</p>
+                    <div class="rounded-lg bg-blue-50 p-4">
+                        <p class="text-sm text-blue-800">
+                            <i class="fas fa-upload mr-1"></i>
+                            Para ver transacciones aquí, sube un estado de cuenta usando el botón 📤 en la cuenta correspondiente.
+                        </p>
+                    </div>
+                </div>
+
+                <div id="transactions-table" class="hidden overflow-y-auto max-h-[60vh] rounded-lg border border-gray-200 bg-white">
+                    <table class="min-w-full">
+                        <thead class="sticky top-0 z-10 bg-gray-100">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted">Fecha</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted">Tipo</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted">Descripción</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted">Monto</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted">Saldo</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-muted">Categoría</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-muted">Revisión</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-muted">Conciliado</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-muted">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactions-tbody" class="divide-y divide-gray-200">
+                            <!-- Transactions will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+            <div class="sticky bottom-0 z-30 border-t bg-white px-4 py-4 md:px-6">
+                <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div class="text-sm text-muted" id="validation-next-step">
+                        Revisa los movimientos resaltados antes de confirmar.
+                    </div>
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <div class="flex flex-col gap-2 sm:items-end">
+                            <span class="text-sm font-semibold text-primary" id="validation-progress">0 de 0 revisadas</span>
+                            <div class="h-2 w-48 rounded-full bg-gray-200">
+                                <div id="validation-progress-bar" class="h-2 rounded-full bg-blue-600" style="width: 0%;"></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="closeTransactionsModal()"
+                                    class="px-5 py-2 border border-gray-300 text-primary rounded-lg transition-colors hover:bg-gray-100">
+                                Cerrar
+                            </button>
+                            <button type="button" id="validation-save-button" disabled
+                                    class="px-5 py-2 rounded-lg bg-blue-600 text-white opacity-70 cursor-not-allowed">
+                                Guardar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reclassification Modal -->
+    <div id="reclass-modal" class="fixed inset-0 z-40 hidden items-center justify-center bg-black bg-opacity-40 px-4">
+        <div class="relative w-full max-w-2xl rounded-xl bg-white p-6 shadow-2xl">
+            <button onclick="closeReclassifyModal()" class="absolute top-3 right-3 text-gray-400 hover:text-muted">
+                <i class="fas fa-times"></i>
+            </button>
+
+            <div class="mb-4 flex items-center gap-3">
+                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                    <i class="fas fa-pen-to-square"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900">Reclasificar movimiento</h3>
+                    <p class="text-sm text-muted">Ajusta manualmente el tipo, categoría y notas para mejorar futuras sugerencias.</p>
+                </div>
+            </div>
+
+            <div class="mb-4 rounded-lg border border-gray-200 bg-slate-100 p-4">
+                <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <p class="text-sm text-muted">Movimiento seleccionado</p>
+                        <h4 id="reclass-description" class="text-lg font-semibold text-gray-900">--</h4>
+                        <p id="reclass-current-details" class="text-sm text-muted">--</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm text-muted">Monto</p>
+                        <p id="reclass-amount" class="text-lg font-semibold text-gray-900">$0.00</p>
+                    </div>
+                </div>
+            </div>
+
+            <form id="reclass-form" class="space-y-4" onsubmit="event.preventDefault(); submitReclassification();">
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                        <label for="reclass-transaction-type" class="mb-1 block text-sm font-medium text-primary">Tipo de transacción</label>
+                        <select id="reclass-transaction-type" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">(Mantener actual)</option>
+                            <option value="credit">Ingreso / Abono</option>
+                            <option value="debit">Gasto / Cargo</option>
+                            <option value="transfer">Transferencia</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="reclass-movement-kind" class="mb-1 block text-sm font-medium text-primary">Tipo contable</label>
+                        <select id="reclass-movement-kind" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">(Mantener actual)</option>
+                            <option value="Ingreso">Ingreso</option>
+                            <option value="Gasto">Gasto</option>
+                            <option value="Transferencia">Transferencia</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                        <label for="reclass-category" class="mb-1 block text-sm font-medium text-primary">Categoría manual</label>
+                        <input id="reclass-category" type="text" placeholder="Ej. Ventas, Transferencias internas" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                        <label for="reclass-confidence" class="mb-1 block text-sm font-medium text-primary">Confianza manual (0-1)</label>
+                        <input id="reclass-confidence" type="number" min="0" max="1" step="0.01" placeholder="1.0" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                </div>
+
+            <div>
+                <label for="reclass-notes" class="mb-1 block text-sm font-medium text-primary">Notas internas</label>
+                <textarea id="reclass-notes" rows="2" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ej. Transferencia entre cuentas propias, pendiente de CFDI..."></textarea>
+            </div>
+
+            <div>
+                <label for="reclass-reason" class="mb-1 block text-sm font-medium text-primary">Motivo para IA (opcional)</label>
+                <textarea id="reclass-reason" rows="2" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Explica por qué se reclasifica para mejorar futuras sugerencias"></textarea>
+            </div>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" onclick="closeReclassifyModal()" class="rounded-lg bg-gray-100 px-4 py-2 text-sm text-muted hover:bg-gray-200">
+                    Cancelar
+                </button>
+                <button id="reclass-submit" type="submit" class="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">
+                    <i class="fas fa-save mr-2"></i>Guardar cambios
+                </button>
+            </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let accounts = [];
+        let currentFilter = 'all';
+        let editingAccountId = null;
+        let deleteAccountId = null;
+        let uploadAccountId = null;
+        let viewingAccountId = null;
+        let allTransactions = [];
+        let filteredTransactions = [];
+        let currentReclassifyId = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadBankingInstitutions();
+            loadAccounts();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            // Add account button (legacy hook)
+            const addBtn = document.getElementById('add-account-btn');
+            if (addBtn) {
+                addBtn.addEventListener('click', openAddAccountModal);
+            }
+
+            const segmented = document.getElementById('accounts-type-segmented');
+            if (segmented) {
+                segmented.addEventListener('segment-change', (event) => {
+                    setActiveFilter(event.detail.value);
+                });
+            }
+
+            // Account form
+            document.getElementById('account-form').addEventListener('submit', handleFormSubmit);
+
+            // Format card numbers as user types
+            setupCardNumberFormatting();
+        }
+
+        function setupCardNumberFormatting() {
+            // Format numero_cuenta, clabe, numero_tarjeta, and numero_tarjeta_debit
+            const cardNumberFields = ['numero_cuenta', 'clabe', 'numero_tarjeta', 'numero_tarjeta_debit'];
+
+            cardNumberFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.addEventListener('input', function(e) {
+                        const cursorPosition = e.target.selectionStart;
+                        const oldValue = e.target.value;
+                        const newValue = formatCardNumber(oldValue);
+
+                        // Only update if the formatted value is different
+                        if (newValue !== oldValue) {
+                            e.target.value = newValue;
+
+                            // Restore cursor position accounting for added spaces
+                            const spacesAdded = newValue.length - oldValue.length;
+                            e.target.setSelectionRange(cursorPosition + spacesAdded, cursorPosition + spacesAdded);
+                        }
+                    });
+                }
+            });
+        }
+
+        // Load banking institutions for dropdowns
+        async function loadBankingInstitutions() {
+            try {
+                console.log('Loading banking institutions...');
+                const response = await fetch('/public/banking-institutions');
+
+                console.log('Response status:', response.status);
+
+                if (response.status === 401) {
+                    handleSessionExpired();
+                    return;
+                }
+
+                if (!response.ok) {
+                    console.error('Response not ok:', response.status, response.statusText);
+                    throw new Error('Error al cargar instituciones bancarias');
+                }
+
+                const institutions = await response.json();
+                console.log('Institutions received:', institutions);
+
+                // Populate both bank dropdowns
+                const bankSelect = document.getElementById('banco_nombre');
+                const bankCCSelect = document.getElementById('banco_nombre_cc');
+
+                console.log('Bank selects found:', !!bankSelect, !!bankCCSelect);
+
+                // Clear existing options (except the first placeholder)
+                bankSelect.innerHTML = '<option value="">Seleccionar banco...</option>';
+                bankCCSelect.innerHTML = '<option value="">Seleccionar banco...</option>';
+
+                // Add institution options
+                institutions.forEach(institution => {
+                    console.log('Adding institution:', institution.name);
+                    const option = new Option(institution.name, institution.name);
+                    const optionCC = new Option(institution.name, institution.name);
+
+                    bankSelect.appendChild(option);
+                    bankCCSelect.appendChild(optionCC);
+                });
+
+                console.log(`✅ Loaded ${institutions.length} banking institutions`);
+                console.log('Final bankSelect options count:', bankSelect.options.length);
+
+            } catch (error) {
+                console.error('❌ Error loading banking institutions:', error);
+                showError('Error al cargar instituciones bancarias');
+            }
+        }
+
+        async function loadAccounts() {
+            try {
+                showLoading();
+                const response = await fetch('/payment-accounts/', {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    accounts = await response.json();
+                    renderAccounts();
+                    renderSummary();
+                    updateFilterCounts();
+                } else if (response.status === 401) {
+                    handleSessionExpired();
+                } else {
+                    console.error('Error loading accounts:', response.status);
+                    if (!accounts.length) {
+                        showError('Error al cargar las cuentas');
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading accounts:', error);
+                if (!accounts.length) {
+                    showError('Error de conexión al cargar las cuentas');
+                }
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function renderAccounts() {
+            const container = document.getElementById('accounts-container');
+            const filteredAccounts = currentFilter === 'all'
+                ? accounts
+                : accounts.filter(account => account.tipo === currentFilter);
+
+            if (filteredAccounts.length === 0) {
+                if (accounts.length === 0) {
+                    showEmptyState();
+                } else {
+                    container.innerHTML = '<div class="col-span-full text-center py-8 text-muted">No hay cuentas de este tipo</div>';
+                }
+                return;
+            }
+
+            hideEmptyState();
+            container.innerHTML = filteredAccounts.map(account => createAccountCard(account)).join('');
+        }
+
+        function createAccountCard(account) {
+            const typeIcon = getTypeIcon(account);
+            const statusBadge = getStatusBadge(account);
+            const balanceColor = getBalanceColor(account);
+
+            return `
+                <div class="card-highlight p-6">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 ${typeIcon.bg} rounded-lg flex items-center justify-center mr-3 relative">
+                                <i class="${typeIcon.icon} text-white text-xl"></i>
+                                ${typeIcon.isInstitution ?
+                                    `<div class="absolute -bottom-1 -right-1 bg-white rounded-full px-1 py-0.5 text-xs font-bold text-primary border border-gray-300 shadow-sm">
+                                        ${typeIcon.name}
+                                    </div>`
+                                    : ''
+                                }
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">${account.nombre}</h3>
+                                <p class="text-sm text-muted">${getTypeLabel(account.tipo, account.subtipo)}</p>
+                            </div>
+                        </div>
+                        <div class="flex space-x-1">
+                            ${isAccountIncomplete(account) ? `
+                                <button onclick="completeAccount(${account.id})"
+                                        class="text-orange-400 hover:text-orange-600 p-1 animate-pulse"
+                                        title="Completar datos faltantes">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </button>
+                            ` : ''}
+                            <button onclick="viewTransactions(${account.id})"
+                                    class="text-green-400 hover:text-green-600 p-1"
+                                    title="👁️ Ver transacciones">
+                                👁️
+                            </button>
+                            <button onclick="uploadStatement(${account.id})"
+                                    class="text-blue-400 hover:text-blue-600 p-1"
+                                    title="📤 Subir estado de cuenta">
+                                📤
+                            </button>
+                            ${account.tipo === 'bancaria' && account.subtipo === 'debito' ? `
+                                <button onclick="copyAccountInfo(${account.id})"
+                                        class="text-gray-400 hover:text-green-600 p-1"
+                                        title="Copiar información de cuenta">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            ` : ''}
+                            <button onclick="editAccount(${account.id})"
+                                    class="text-gray-400 hover:text-blue-600 p-1"
+                                    title="Editar cuenta">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="deleteAccount(${account.id})"
+                                    class="text-gray-400 hover:text-red-600 p-1"
+                                    title="Eliminar cuenta">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-muted">Saldo actual:</span>
+                            <span class="font-semibold ${balanceColor}">
+                                ${formatCurrency(account.saldo_actual)} ${account.moneda}
+                            </span>
+                        </div>
+
+                        ${account.tipo === 'tarjeta_credito' ? `
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-muted">Límite:</span>
+                                <span class="text-sm text-gray-900">
+                                    ${formatCurrency(account.limite_credito)} ${account.moneda}
+                                </span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-muted">Disponible:</span>
+                                <span class="text-sm text-green-600">
+                                    ${formatCurrency(account.credito_disponible)} ${account.moneda}
+                                </span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                <div class="bg-blue-600 h-2 rounded-full"
+                                     style="width: ${(account.saldo_actual / account.limite_credito * 100)}%"></div>
+                            </div>
+                        ` : ''}
+
+                        ${account.banco_nombre ? `
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-muted">Banco:</span>
+                                <span class="text-sm text-gray-900">${account.banco_nombre}</span>
+                            </div>
+                        ` : ''}
+
+                        ${account.clabe ? `
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-muted">CLABE:</span>
+                                <span class="text-sm text-gray-900 font-mono">${formatCardNumber(account.clabe)}</span>
+                            </div>
+                        ` : ''}
+
+                        ${account.numero_cuenta ? `
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-muted">Número de cuenta:</span>
+                                <span class="text-sm text-gray-900 font-mono">${formatCardNumber(account.numero_cuenta)}</span>
+                            </div>
+                        ` : ''}
+
+                        ${account.numero_tarjeta ? `
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-muted">Número de tarjeta:</span>
+                                <span class="text-sm text-gray-900 font-mono">${formatCardNumber(account.numero_tarjeta)}</span>
+                            </div>
+                        ` : ''}
+
+                        ${account.proveedor_terminal ? `
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-muted">Proveedor:</span>
+                                <span class="text-sm text-gray-900">${account.proveedor_terminal}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    ${statusBadge}
+                </div>
+            `;
+        }
+
+        function renderSummary() {
+            const summary = calculateSummary();
+
+            const totalEl = document.getElementById('stat-total-balance');
+            const totalMetaEl = document.getElementById('stat-total-meta');
+            if (totalEl) totalEl.textContent = formatCurrency(summary.totalBalance);
+            if (totalMetaEl) totalMetaEl.textContent = 'Efectivo • Débito • Terminales';
+
+            const availableEl = document.getElementById('stat-available-balance');
+            const availableMetaEl = document.getElementById('stat-available-meta');
+            if (availableEl) availableEl.textContent = formatCurrency(summary.credit.available);
+            if (availableMetaEl) availableMetaEl.textContent = `Límite total: ${formatCurrency(summary.credit.totalLimit)}`;
+
+            const creditUsedEl = document.getElementById('stat-credit-used');
+            const creditMetaEl = document.getElementById('stat-credit-meta');
+            if (creditUsedEl) creditUsedEl.textContent = formatCurrency(summary.credit.totalUsed);
+            if (creditMetaEl) creditMetaEl.textContent = `MSI: ${formatCurrency(summary.credit.msi)} · Financiamientos: ${formatCurrency(summary.credit.financing)}`;
+
+            const countEl = document.getElementById('stat-account-count');
+            const countMetaEl = document.getElementById('stat-account-meta');
+            if (countEl) countEl.textContent = summary.totalAccounts;
+            if (countMetaEl) countMetaEl.textContent = `Operativas de ${accounts.length} totales`;
+        }
+
+        function calculateSummary() {
+            const totalAccounts = accounts.filter(acc => acc.activo).length;
+
+            // Saldo Total: Solo para cuentas que NO son de crédito
+            // (bancarias débito, efectivo, terminales)
+            const totalBalance = accounts
+                .filter(acc => acc.activo && !(acc.tipo === 'bancaria' && acc.subtipo === 'credito'))
+                .reduce((sum, acc) => sum + acc.saldo_actual, 0);
+
+            // Análisis de tarjetas de crédito
+            const creditCards = accounts.filter(acc => acc.activo && acc.tipo === 'bancaria' && acc.subtipo === 'credito');
+
+            const creditSummary = {
+                totalLimit: creditCards.reduce((sum, acc) => sum + (acc.limite_credito || 0), 0),
+                totalUsed: creditCards.reduce((sum, acc) => sum + (acc.saldo_actual || 0), 0),
+                available: creditCards.reduce((sum, acc) => sum + (acc.credito_disponible || 0), 0),
+                // Por ahora, simulamos el desglose - luego podrías agregar campos específicos en la BD
+                msi: creditCards.reduce((sum, acc) => sum + (acc.saldo_msi || 0), 0),
+                financing: creditCards.reduce((sum, acc) => sum + (acc.saldo_financiamiento || 0), 0),
+                regular: 0
+            };
+
+            // Calculamos compras normales como el resto del saldo usado
+            creditSummary.regular = creditSummary.totalUsed - creditSummary.msi - creditSummary.financing;
+
+            return {
+                totalAccounts,
+                totalBalance,
+                credit: creditSummary
+            };
+        }
+
+        // Check if account has missing required fields
+        function getIncompleteFields(account) {
+            const missing = [];
+
+            // Debug para la cuenta que está dando problemas
+            if (account.nombre && account.nombre.includes('1818')) {
+                console.log('🔍 DEBUG CUENTA 1818:');
+                console.log('Account object:', account);
+                console.log('numero_cuenta:', account.numero_cuenta, 'type:', typeof account.numero_cuenta);
+                console.log('clabe:', account.clabe, 'type:', typeof account.clabe);
+                console.log('numero_tarjeta:', account.numero_tarjeta, 'type:', typeof account.numero_tarjeta);
+                console.log('subtipo:', account.subtipo);
+            }
+
+            if (account.tipo === 'bancaria') {
+                // Solo marcar banco_nombre como faltante si no está seleccionado del dropdown
+                // o si no coincide con ningún banco de la lista
+                if (!account.banco_nombre?.trim()) {
+                    missing.push('banco_nombre');
+                }
+
+                // Campos comunes para todas las cuentas bancarias
+                if (!account.numero_tarjeta?.trim()) missing.push('numero_tarjeta');
+
+                if (account.subtipo === 'debito') {
+                    // Para débito también queremos numero_cuenta y clabe
+                    if (!account.numero_cuenta?.trim()) {
+                        if (account.nombre && account.nombre.includes('1818')) {
+                            console.log('❌ DEBUG 1818: numero_cuenta missing:', account.numero_cuenta);
+                        }
+                        missing.push('numero_cuenta');
+                    }
+                    if (!account.clabe?.trim()) {
+                        if (account.nombre && account.nombre.includes('1818')) {
+                            console.log('❌ DEBUG 1818: clabe missing:', account.clabe);
+                        }
+                        missing.push('clabe');
+                    }
+                }
+
+                if (account.subtipo === 'credito') {
+                    // Para crédito también queremos numero_cuenta y clabe
+                    if (!account.numero_cuenta?.trim()) missing.push('numero_cuenta');
+                    if (!account.clabe?.trim()) missing.push('clabe');
+
+                    // Y los campos específicos de crédito
+                    if (!account.limite_credito || account.limite_credito <= 0) missing.push('limite_credito');
+                    if (!account.fecha_corte || account.fecha_corte <= 0) missing.push('fecha_corte');
+                    if (!account.fecha_pago || account.fecha_pago <= 0) missing.push('fecha_pago');
+                }
+            }
+
+            if (account.tipo === 'terminal') {
+                if (!account.proveedor_terminal?.trim()) missing.push('proveedor_terminal');
+            }
+
+            // Efectivo no requiere campos adicionales
+            return missing;
+        }
+
+        function isAccountIncomplete(account) {
+            return getIncompleteFields(account).length > 0;
+        }
+
+        // Modal functions
+        async function openAddAccountModal() {
+            editingAccountId = null;
+            document.getElementById('modal-title').textContent = 'Nueva Cuenta';
+            document.getElementById('account-form').reset();
+            document.getElementById('account-id').value = '';
+            showTypeFields('');
+
+            // Reset name preview
+            const preview = document.getElementById('nombre-preview');
+            preview.textContent = 'Selecciona tipo y datos para ver el nombre';
+            preview.className = 'w-full px-3 py-2 bg-slate-100 border border-gray-300 rounded-lg text-muted';
+
+            document.getElementById('account-modal').classList.remove('hidden');
+
+            // Reload banking institutions when modal opens
+            await loadBankingInstitutions();
+        }
+
+        async function editAccount(accountId) {
+            const account = accounts.find(acc => acc.id === accountId);
+            if (!account) return;
+
+            editingAccountId = accountId;
+            document.getElementById('modal-title').textContent = 'Editar Cuenta';
+
+            // Reload banking institutions when modal opens
+            await loadBankingInstitutions();
+
+            // Fill form with account data
+            document.getElementById('account-id').value = account.id;
+            document.getElementById('tipo').value = account.tipo;
+
+            document.getElementById('moneda').value = account.moneda;
+            document.getElementById('saldo_inicial').value = account.saldo_inicial;
+
+            // Fill type-specific fields
+            if (account.banco_nombre) {
+                document.getElementById('banco_nombre').value = account.banco_nombre;
+                document.getElementById('banco_nombre_cc').value = account.banco_nombre;
+            }
+            if (account.numero_cuenta) {
+                document.getElementById('numero_cuenta').value = formatCardNumber(account.numero_cuenta);
+            }
+            if (account.clabe) {
+                document.getElementById('clabe').value = formatCardNumber(account.clabe);
+            }
+            if (account.numero_tarjeta) {
+                document.getElementById('numero_tarjeta').value = formatCardNumber(account.numero_tarjeta);
+                document.getElementById('numero_tarjeta_debit').value = formatCardNumber(account.numero_tarjeta);
+            }
+            if (account.proveedor_terminal) {
+                document.getElementById('proveedor_terminal').value = account.proveedor_terminal;
+            }
+            if (account.limite_credito) {
+                document.getElementById('limite_credito').value = account.limite_credito;
+            }
+            if (account.fecha_corte) {
+                document.getElementById('fecha_corte').value = account.fecha_corte;
+            }
+            if (account.fecha_pago) {
+                document.getElementById('fecha_pago').value = account.fecha_pago;
+            }
+
+            // Trigger the type change handler to show/hide fields properly
+            handleTypeChange();
+
+            // Set subtipo AFTER handleTypeChange to prevent it from being reset
+            const subtipoField = document.getElementById('subtipo');
+            if (account.subtipo && subtipoField) {
+                subtipoField.value = account.subtipo;
+                // If account has subtipo, also trigger subtype change
+                handleSubtypeChange();
+            } else if (subtipoField) {
+                subtipoField.value = '';
+            }
+
+            // Update the name preview to show current name with a small delay
+            // to ensure all fields are populated
+            setTimeout(() => {
+                updateNamePreview();
+            }, 100);
+
+            document.getElementById('account-modal').classList.remove('hidden');
+        }
+
+        function closeAccountModal() {
+            document.getElementById('account-modal').classList.add('hidden');
+        }
+
+        function deleteAccount(accountId) {
+            deleteAccountId = accountId;
+            document.getElementById('delete-modal').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('delete-modal').classList.add('hidden');
+            deleteAccountId = null;
+        }
+
+        async function confirmDelete() {
+            try {
+                const response = await fetch(`/payment-accounts/${deleteAccountId}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    await loadAccounts();
+                    showSuccess('Cuenta desactivada exitosamente');
+                } else if (response.status === 401) {
+                    handleSessionExpired();
+                } else {
+                    showError('Error al desactivar la cuenta');
+                }
+            } catch (error) {
+                console.error('Error deleting account:', error);
+                showError('Error de conexión al desactivar la cuenta');
+            } finally {
+                closeDeleteModal();
+            }
+        }
+
+        function uploadStatement(accountId) {
+            const account = accounts.find(acc => acc.id === accountId);
+            if (!account) return;
+
+            // Set current account for upload
+            uploadAccountId = accountId;
+
+            // Update modal title
+            document.getElementById('upload-account-name').textContent = account.nombre;
+
+            // Reset form
+            document.getElementById('upload-form').reset();
+            document.getElementById('preview-container').classList.add('hidden');
+            document.getElementById('file-info').classList.add('hidden');
+
+            // Show modal
+            document.getElementById('upload-modal').classList.remove('hidden');
+        }
+
+        function closeUploadModal() {
+            document.getElementById('upload-modal').classList.add('hidden');
+            uploadAccountId = null;
+        }
+
+        // Transaction viewer functions
+        async function viewTransactions(accountId) {
+            const account = accounts.find(acc => acc.id === accountId);
+            if (!account) return;
+
+            // Set current account for viewing
+            viewingAccountId = accountId;
+
+            // Update modal title
+            document.getElementById('transactions-account-name').textContent = account.nombre;
+            const bankBadge = document.getElementById('transactions-bank-name');
+            if (bankBadge) {
+                if (account.banco_nombre) {
+                    bankBadge.textContent = account.banco_nombre;
+                    bankBadge.classList.remove('hidden');
+                } else {
+                    bankBadge.classList.add('hidden');
+                }
+            }
+
+            // Reset filters
+            document.getElementById('month-filter').value = '';
+            document.getElementById('type-filter').value = '';
+            document.getElementById('search-filter').value = '';
+            const statusFilterEl = document.getElementById('status-filter');
+            if (statusFilterEl) {
+                statusFilterEl.value = '';
+            }
+
+            // Show modal and loading state
+            document.getElementById('transactions-modal').classList.remove('hidden');
+            showTransactionsLoading();
+
+            try {
+                // Load transactions for this account
+                await loadAccountTransactions(accountId);
+            } catch (error) {
+                console.error('Error loading transactions:', error);
+                showError('Error al cargar las transacciones');
+                closeTransactionsModal();
+            }
+        }
+
+        function closeTransactionsModal() {
+            document.getElementById('transactions-modal').classList.add('hidden');
+            viewingAccountId = null;
+            allTransactions = [];
+            filteredTransactions = [];
+            updateValidationBanner();
+        }
+
+        async function loadAccountTransactions(accountId) {
+            try {
+                const response = await fetch(`/bank-movements/account/${accountId}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const transactions = await response.json();
+
+                    transactions.forEach(txn => {
+                        txn.review_status = (txn.review_status || 'pending').toLowerCase();
+                        if (!txn.reviewed_by_email && typeof txn.reviewed_by === 'string') {
+                            txn.reviewed_by_email = txn.reviewed_by;
+                        }
+                    });
+
+                    // DEBUG: Ver qué tipos recibimos
+                    console.log('=== DEBUG: TRANSACCIONES RECIBIDAS ===');
+                    console.log(`Total recibidas: ${transactions.length}`);
+
+                    const tiposCounts = {};
+                    transactions.forEach(txn => {
+                        const tipo = txn.movement_kind || 'Sin tipo';
+                        tiposCounts[tipo] = (tiposCounts[tipo] || 0) + 1;
+                    });
+
+                    console.log('Tipos recibidos:', tiposCounts);
+
+                    // DEBUG: Verificar que tengamos saldos
+                    const conSaldos = transactions.filter(t => t.balance_after !== null).length;
+                    console.log(`🏦 SALDOS ACTUALIZADOS v4.0: ${conSaldos}/${transactions.length} transacciones con saldo`);
+                    console.log('🔍 DEBUG COMPLETO - PRIMERAS 3 TRANSACCIONES:');
+                    for (let i = 0; i < Math.min(3, transactions.length); i++) {
+                        const txn = transactions[i];
+                        console.log(`  ${i+1}. ${txn.date} | ${txn.description} | ${txn.amount} | movement_kind: ${txn.movement_kind} | getMovementKind: ${getMovementKind(txn)}`);
+                    }
+                    if (transactions.length > 0) {
+                        console.log('📊 Primera transacción:', {
+                            fecha: transactions[0].date,
+                            descripcion: transactions[0].description,
+                            monto: transactions[0].amount,
+                            saldo: transactions[0].balance_after,
+                            saldoFormateado: transactions[0].formatted_balance
+                        });
+                    }
+
+                    // Mostrar debug info de la API
+                    if (transactions.length > 0 && transactions[0]._debug) {
+                        console.log('=== DEBUG INFO FROM API ===');
+                        console.log('Query params:', transactions[0]._debug.query_params);
+                        console.log('Raw SQL count:', transactions[0]._debug.raw_count);
+                        console.log('Final result count:', transactions[0]._debug.final_count);
+                    }
+
+                    // Mostrar algunos ejemplos
+                    console.log('Primeras 5 transacciones:');
+                    transactions.slice(0, 5).forEach((txn, i) => {
+                        console.log(`${i+1}. ${txn.description?.substring(0, 30)}... | ${txn.amount} | ${txn.movement_kind}`);
+                    });
+
+                    allTransactions = transactions;
+
+                    filteredTransactions = [...allTransactions];
+                    updateValidationBanner();
+
+                    if (allTransactions.length === 0) {
+                        showTransactionsEmpty();
+                    } else {
+                        const latestMonth = populateMonthFilter();
+                        // NO aplicar filtro automático - mostrar todas las transacciones por defecto
+                        // if (latestMonth) {
+                        //     document.getElementById('month-filter').value = latestMonth;
+                        // }
+                        filterTransactions();
+                    }
+                } else if (response.status === 401) {
+                    handleSessionExpired();
+                } else {
+                    throw new Error('Error al cargar transacciones');
+                }
+            } catch (error) {
+                console.error('Error loading account transactions:', error);
+                throw error;
+            }
+        }
+
+        function populateMonthFilter() {
+            const monthFilter = document.getElementById('month-filter');
+            const months = new Set();
+
+            allTransactions.forEach(transaction => {
+                if (transaction.date) {
+                    const [year, month, day] = transaction.date.split('-');
+                    const date = new Date(year, month - 1, day);
+                    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                    const monthLabel = date.toLocaleDateString('es-MX', { year: 'numeric', month: 'long' });
+                    months.add(`${monthKey}|${monthLabel}`);
+                }
+            });
+
+            // Clear existing options except first
+            monthFilter.innerHTML = '<option value="">Todos los meses</option>';
+
+            // Sort months in descending order (newest first)
+            const sortedMonths = Array.from(months).sort((a, b) => b.split('|')[0].localeCompare(a.split('|')[0]));
+
+            sortedMonths.forEach(monthData => {
+                const [monthKey, monthLabel] = monthData.split('|');
+                const option = new Option(monthLabel, monthKey);
+                monthFilter.appendChild(option);
+            });
+
+            return sortedMonths.length ? sortedMonths[0].split('|')[0] : '';
+        }
+
+        function computeValidationStats(dataset) {
+            const stats = {
+                total: dataset.length,
+                aiSuggested: 0,
+                corrections: 0,
+                lowConfidence: 0,
+                missingCategory: 0,
+                reviewed: 0,
+                pending: 0,
+                withoutCfdi: 0,
+                confidenceSum: 0,
+                confidenceCount: 0,
+                averageConfidence: null,
+                reviewedPercentage: 0,
+                aiPercentage: 0
+            };
+
+            dataset.forEach(txn => {
+                const model = (txn.ai_model || '').toLowerCase();
+                if (model) {
+                    stats.aiSuggested += 1;
+                }
+                if (model.includes('local-correction')) {
+                    stats.corrections += 1;
+                }
+
+                const confidence = getConfidenceValue(txn);
+                if (confidence !== null) {
+                    const bounded = Math.max(0, Math.min(1, confidence));
+                    stats.confidenceSum += bounded;
+                    stats.confidenceCount += 1;
+                }
+                if (confidence !== null && confidence < 0.7) {
+                    stats.lowConfidence += 1;
+                }
+
+                const category = (txn.category || '').toLowerCase();
+                if (!category || category === 'sin categoría') {
+                    stats.missingCategory += 1;
+                }
+
+                const status = (txn.review_status || 'pending').toLowerCase();
+                if (status === 'reviewed') {
+                    stats.reviewed += 1;
+                } else {
+                    stats.pending += 1;
+                }
+
+                const hasCfdi = Boolean(txn.matched_cfdi_uuid && String(txn.matched_cfdi_uuid).trim());
+                if (!hasCfdi) {
+                    stats.withoutCfdi += 1;
+                }
+            });
+
+            if (stats.confidenceCount > 0) {
+                stats.averageConfidence = stats.confidenceSum / stats.confidenceCount;
+            }
+            if (stats.total > 0) {
+                stats.reviewedPercentage = (stats.reviewed / stats.total) * 100;
+                stats.aiPercentage = (stats.aiSuggested / stats.total) * 100;
+            }
+
+            return stats;
+        }
+
+        function updateValidationBanner() {
+            const totalEl = document.getElementById('validation-total');
+            if (!totalEl) return;
+
+            const bannerEl = document.getElementById('validation-banner');
+            const aiEl = document.getElementById('validation-ai-count');
+            const correctionsEl = document.getElementById('validation-correction-count');
+            const reviewedEl = document.getElementById('validation-reviewed');
+            const attentionCountEl = document.getElementById('validation-attention-count');
+            const attentionLabelEl = document.getElementById('validation-attention-label');
+            const nextStepEl = document.getElementById('validation-next-step');
+            const progressEl = document.getElementById('validation-progress');
+            const progressBarEl = document.getElementById('validation-progress-bar');
+
+            const overall = computeValidationStats(allTransactions);
+            const visible = computeValidationStats(filteredTransactions);
+
+            totalEl.textContent = `${overall.total} transacciones`;
+            if (aiEl) {
+                aiEl.textContent = `${overall.aiSuggested} con IA`;
+            }
+            if (correctionsEl) {
+                correctionsEl.textContent = `${overall.corrections} ajustes automáticos`;
+            }
+            if (reviewedEl) {
+                reviewedEl.textContent = `${overall.reviewed} revisadas`;
+            }
+            if (attentionCountEl) {
+                attentionCountEl.textContent = visible.pending;
+            }
+            if (attentionLabelEl) {
+                attentionLabelEl.textContent = visible.pending > 0
+                    ? 'Revisa los movimientos pendientes o ajusta sus categorías.'
+                    : 'No hay pendientes en la vista actual.';
+            }
+            if (nextStepEl) {
+                nextStepEl.textContent = visible.pending > 0
+                    ? `Quedan ${visible.pending} movimientos por validar en esta vista. Revisa los resaltados antes de cerrar.`
+                    : 'Todo listo. Puedes confirmar y continuar con la conciliación bancaria.';
+            }
+            if (progressEl) {
+                progressEl.textContent = `${overall.reviewed} de ${overall.total || 0} revisadas`;
+            }
+            if (progressBarEl) {
+                const ratio = overall.total ? overall.reviewed / overall.total : 0;
+                const clamped = Math.max(0, Math.min(1, ratio));
+                progressBarEl.style.width = `${Math.round(clamped * 100)}%`;
+            }
+
+            if (bannerEl) {
+                if (visible.pending > 0) {
+                    bannerEl.classList.add('border-amber-300', 'bg-amber-50');
+                    bannerEl.classList.remove('bg-blue-50');
+                } else {
+                    bannerEl.classList.remove('border-amber-300', 'bg-amber-50');
+                    bannerEl.classList.add('bg-blue-50');
+                }
+            }
+        }
+
+        function filterTransactions() {
+            const monthFilter = document.getElementById('month-filter').value;
+            const kindFilter = document.getElementById('type-filter').value;
+            const statusFilter = document.getElementById('status-filter') ? document.getElementById('status-filter').value : '';
+            const searchFilter = document.getElementById('search-filter').value.toLowerCase();
+
+            console.log('=== DEBUG: FILTRADO ===');
+            console.log(`Filtros aplicados - Mes: "${monthFilter}", Tipo: "${kindFilter}", Búsqueda: "${searchFilter}"`);
+            console.log(`Transacciones a filtrar: ${allTransactions.length}`);
+
+            filteredTransactions = allTransactions.filter(transaction => {
+                const descriptor = (transaction.display_name || transaction.description || '').toLowerCase();
+                // Month filter
+                if (monthFilter) {
+                    const [year, month, day] = transaction.date.split('-');
+                    const transactionDate = new Date(year, month - 1, day);
+                    const transactionMonth = `${transactionDate.getFullYear()}-${String(transactionDate.getMonth() + 1).padStart(2, '0')}`;
+                    if (transactionMonth !== monthFilter) return false;
+                }
+
+                // Type filter
+                const movementKind = getMovementKind(transaction);
+                if (kindFilter && movementKind !== kindFilter) {
+                    return false;
+                }
+
+                const reviewStatus = (transaction.review_status || 'pending').toLowerCase();
+                const confidence = getConfidenceValue(transaction);
+                const hasCfdi = Boolean(transaction.matched_cfdi_uuid && String(transaction.matched_cfdi_uuid).trim());
+                const categoryLower = (transaction.category || '').toLowerCase();
+
+                if (statusFilter === 'pending' && reviewStatus === 'reviewed') {
+                    return false;
+                }
+                if (statusFilter === 'reviewed' && reviewStatus !== 'reviewed') {
+                    return false;
+                }
+                if (statusFilter === 'sin_categoria' && categoryLower !== 'sin categoría') {
+                    return false;
+                }
+                if (statusFilter === 'baja_confianza') {
+                    if (!(confidence !== null && confidence < 0.7)) {
+                        return false;
+                    }
+                }
+                if (statusFilter === 'sin_cfdi' && hasCfdi) {
+                    return false;
+                }
+
+                // Search filter
+                if (searchFilter && !descriptor.includes(searchFilter)) {
+                    return false;
+                }
+
+                return true;
+            });
+
+            console.log(`Transacciones después del filtro: ${filteredTransactions.length}`);
+            const tiposEnFiltrados = {};
+            filteredTransactions.forEach(txn => {
+                const tipo = getMovementKind(txn);
+                tiposEnFiltrados[tipo] = (tiposEnFiltrados[tipo] || 0) + 1;
+            });
+            console.log('Tipos después del filtro:', tiposEnFiltrados);
+
+            renderTransactions();
+            updateTransactionsSummary();
+            updateValidationBanner();
+
+            if (filteredTransactions.length === 0) {
+                showTransactionsEmpty();
+            } else {
+                showTransactionsTable();
+            }
+        }
+
+        function renderTransactions() {
+            const tbody = document.getElementById('transactions-tbody');
+
+            if (filteredTransactions.length === 0) {
+                tbody.innerHTML = '';
+                return;
+            }
+
+            // Sort by date ascending (oldest first - chronological order)
+            const sortedTransactions = [...filteredTransactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            tbody.innerHTML = sortedTransactions.map(transaction => createTransactionRow(transaction)).join('');
+        }
+
+        function getMovementKind(transaction) {
+            // Siempre priorizar movement_kind del backend
+            if (transaction.movement_kind) {
+                // Normalizar a formato título para la UI
+                const normalized = transaction.movement_kind.toLowerCase();
+                switch(normalized) {
+                    case 'ingreso': return 'Ingreso';
+                    case 'gasto': return 'Gasto';
+                    case 'transferencia': return 'Transferencia';
+                    case 'balance': return 'Balance';
+                    default: return transaction.movement_kind;
+                }
+            }
+
+            // Fallback solo si no hay movement_kind
+            if (transaction.transaction_type) {
+                return transaction.transaction_type.toLowerCase() === 'credit'
+                    ? 'Ingreso'
+                    : 'Gasto';
+            }
+
+            return 'Gasto';
+        }
+
+        function getCategoryClass(category) {
+            const categoryColors = {
+                'Ingreso': 'bg-green-100 text-green-800',
+                'Gasto': 'bg-red-100 text-red-800',
+                'Transferencia': 'bg-blue-100 text-blue-800',
+                'Bancario': 'bg-gray-100 text-gray-800',
+                'Reembolso': 'bg-purple-100 text-purple-800',
+                'Sin categoría': 'bg-gray-100 text-muted'
+            };
+            return categoryColors[category] || 'bg-gray-100 text-muted';
+        }
+
+        function createTransactionRow(transaction) {
+            // Evitar problemas de zona horaria - parsear fecha directamente
+            const dateStr = transaction.date;
+            const [year, month, day] = dateStr.split('-');
+            const date = new Date(year, month - 1, day).toLocaleDateString('es-MX');
+            const movementKind = getMovementKind(transaction);
+            const displayName = (transaction.display_name || transaction.description || '').trim();
+            const rawDescription = transaction.description || '';
+
+            let typeClass = 'bg-red-100 text-red-800';
+            let amountClass = 'text-red-600';
+            let amountPrefix = '-';
+            let typeIcon = '💸';
+
+            if (movementKind === 'Ingreso') {
+                typeClass = 'bg-green-100 text-green-800';
+                amountClass = 'text-green-600';
+                amountPrefix = '+';
+                typeIcon = '💰';
+            } else if (movementKind === 'Transferencia') {
+                typeClass = 'bg-blue-100 text-blue-800';
+                amountClass = 'text-blue-600';
+                amountPrefix = '';
+                typeIcon = '🔁';
+            } else if (movementKind === 'Balance') {
+                typeClass = 'bg-gray-100 text-gray-800';
+                amountClass = 'text-muted';
+                amountPrefix = '';
+                typeIcon = '⚖️';
+            }
+
+            const baseAmount = Math.abs(transaction.amount || 0);
+            const formattedAmount = transaction.formatted_amount
+                || (amountPrefix ? `${amountPrefix}${formatCurrency(baseAmount)}` : formatCurrency(baseAmount));
+            const categoryLabel = transaction.category || 'Sin categoría';
+
+            // Format balance with proper styling
+            const balanceDisplay = transaction.formatted_balance ||
+                (transaction.balance_after !== null ? formatCurrency(transaction.balance_after) : '-');
+            const balanceClass = transaction.balance_after < 0 ? 'text-red-600' : 'text-green-600';
+
+            const aiModel = (transaction.ai_model || '').toLowerCase();
+            const isClaudeSuggestion = aiModel.includes('claude');
+            const confidence = getConfidenceValue(transaction);
+            const annotations = [];
+
+            if (isClaudeSuggestion) {
+                annotations.push('<span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full bg-indigo-100 text-indigo-700">Claude</span>');
+            } else if (aiModel) {
+                annotations.push('<span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full bg-slate-100 text-slate-700">IA</span>');
+            }
+
+            if (aiModel.includes('local-correction')) {
+                annotations.push('<span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full bg-emerald-100 text-emerald-700">Corrección local</span>');
+            }
+
+            const hasConfidence = Number.isFinite(confidence) && confidence > 0;
+            if (!hasConfidence) {
+                annotations.push('<span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full bg-blue-100 text-blue-700" title="Sin sugerencia IA. Revisión manual requerida.">🤖 Sin IA</span>');
+            } else {
+                const normalizedConfidence = Math.max(0, Math.min(1, confidence));
+                const confidencePercent = Math.round(normalizedConfidence * 100);
+                if (normalizedConfidence >= 0.7) {
+                    const highLabel = isClaudeSuggestion ? '✔️ Alta confianza IA (Claude)' : '✔️ Alta confianza IA';
+                    const highTooltip = isClaudeSuggestion ? 'Alta confianza generada por Claude.' : 'Alta confianza IA.';
+                    annotations.push(`<span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full bg-emerald-100 text-emerald-700" title="${highTooltip}">${highLabel} (${confidencePercent}%)</span>`);
+                } else if (normalizedConfidence >= 0.4) {
+                    annotations.push(`<span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full bg-indigo-100 text-indigo-700" title="Sugerencia IA con confianza media. Valida antes de confirmar.">🤖 IA ${confidencePercent}%</span>`);
+                } else {
+                    annotations.push(`<span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full bg-amber-100 text-amber-700" title="Confianza baja. Revisión manual recomendada.">⚠️ IA ${confidencePercent}%</span>`);
+                }
+            }
+
+            if (!transaction.category || categoryLabel.toLowerCase() === 'sin categoría') {
+                annotations.push('<span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full bg-rose-100 text-rose-700">Sin categoría</span>');
+            }
+
+            const reviewStatus = (transaction.review_status || 'pending').toLowerCase();
+            const isReviewed = reviewStatus === 'reviewed';
+            const rowHighlightClass = isReviewed ? '' : 'bg-amber-50';
+
+            const reviewedAt = transaction.reviewed_at ? new Date(transaction.reviewed_at) : null;
+            const reviewedDisplay = reviewedAt && !Number.isNaN(reviewedAt.valueOf())
+                ? reviewedAt.toLocaleString('es-MX')
+                : '';
+            const reviewerEmail = transaction.reviewed_by_email || '';
+            const reviewTooltipParts = [];
+            if (reviewedDisplay) {
+                reviewTooltipParts.push(reviewedDisplay);
+            }
+            if (reviewerEmail) {
+                reviewTooltipParts.push(reviewerEmail);
+            }
+            const reviewTooltip = reviewTooltipParts.join(' · ') || 'Revisado';
+
+            const reviewBadge = `
+                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700" title="${escapeHtmlAttr(reviewTooltip)}">
+                    ✅ Revisado
+                </span>
+                ${reviewedDisplay ? `<div class="text-[11px] text-emerald-600 mt-1">${reviewedDisplay}</div>` : ''}
+            `;
+
+            const reviewButton = `
+                <button id="review-btn-${transaction.id}" onclick="markAsReviewed(${transaction.id})"
+                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-1 transition">
+                    <span class="mr-1">✅</span> Marcar como revisado
+                </button>
+            `;
+
+            const reviewCellContent = isReviewed ? reviewBadge : reviewButton;
+
+            return `
+                <tr class="transition-colors hover:bg-slate-100 ${rowHighlightClass}">
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">${date}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <span class="px-2 py-1 text-xs font-semibold rounded-full ${typeClass}">
+                            ${typeIcon} ${movementKind}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-900">
+                        <div class="max-w-xs truncate" title="${escapeHtmlAttr(rawDescription)}">
+                            ${displayName || rawDescription}
+                        </div>
+                        ${annotations.length ? `<div class="flex flex-wrap gap-1 mt-2">${annotations.join('')}</div>` : ''}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium ${amountClass} text-right">
+                        ${formattedAmount}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium ${balanceClass} text-right">
+                        ${balanceDisplay}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full ${getCategoryClass(categoryLabel)}">
+                            ${categoryLabel}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        ${reviewCellContent}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="text-sm ${transaction.is_reconciled ? 'text-green-600' : 'text-red-600'}">
+                            ${transaction.is_reconciled ? '✅ Sí' : '❌ No'}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <button onclick="openReclassifyModal(${transaction.id})"
+                                class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-blue-200 bg-white text-blue-600 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 transition">
+                            <i class="fas fa-pen-to-square"></i>
+                            Reclasificar
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function updateTransactionsSummary() {
+            const incomes = filteredTransactions.filter(t => getMovementKind(t) === 'Ingreso');
+            const expenses = filteredTransactions.filter(t => getMovementKind(t) === 'Gasto');
+            const transfers = filteredTransactions.filter(t => getMovementKind(t) === 'Transferencia');
+
+            const totalIncomes = incomes.reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+            const totalExpenses = expenses.reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+            const totalTransfers = transfers.reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+            const netBalance = totalIncomes - totalExpenses;
+
+            document.getElementById('total-incomes').textContent = formatCurrency(totalIncomes);
+            document.getElementById('total-expenses').textContent = formatCurrency(totalExpenses);
+            document.getElementById('total-transfers').textContent = formatCurrency(totalTransfers);
+            document.getElementById('net-balance').textContent = formatCurrency(netBalance);
+            document.getElementById('transaction-count').textContent = `${filteredTransactions.length}`;
+
+            // Mostrar transferencias en tooltip del balance para contexto
+            document.getElementById('net-balance').setAttribute('title', `Transferencias: ${formatCurrency(totalTransfers)}`);
+
+            const overallStats = computeValidationStats(allTransactions);
+            const visibleStats = computeValidationStats(filteredTransactions);
+
+            const reviewedPercentEl = document.getElementById('metric-reviewed-percent');
+            const reviewedDetailEl = document.getElementById('metric-reviewed-detail');
+            const aiPercentEl = document.getElementById('metric-ai-percent');
+            const aiDetailEl = document.getElementById('metric-ai-detail');
+            const correctionsEl = document.getElementById('metric-corrections');
+            const cfdiEl = document.getElementById('metric-missing-cfdi');
+            const avgConfidenceEl = document.getElementById('metric-avg-confidence');
+
+            if (reviewedPercentEl) {
+                reviewedPercentEl.textContent = formatPercentage(overallStats.reviewedPercentage);
+            }
+            if (reviewedDetailEl) {
+                reviewedDetailEl.textContent = `${overallStats.reviewed} de ${overallStats.total || 0} revisadas`;
+            }
+            if (aiPercentEl) {
+                aiPercentEl.textContent = formatPercentage(overallStats.aiPercentage);
+            }
+            if (aiDetailEl) {
+                aiDetailEl.textContent = `${overallStats.aiSuggested} con IA (${visibleStats.aiSuggested} en vista)`;
+            }
+            if (correctionsEl) {
+                correctionsEl.textContent = `${overallStats.corrections}`;
+            }
+            if (cfdiEl) {
+                cfdiEl.textContent = `${overallStats.withoutCfdi}`;
+            }
+            if (avgConfidenceEl) {
+                avgConfidenceEl.textContent = overallStats.averageConfidence !== null
+                    ? `${Math.round(overallStats.averageConfidence * 100)}%`
+                    : '-';
+            }
+
+            const progressEl = document.getElementById('validation-progress');
+            const progressBarEl = document.getElementById('validation-progress-bar');
+            if (progressEl) {
+                progressEl.textContent = `${overallStats.reviewed} de ${overallStats.total || 0} revisadas`;
+            }
+            if (progressBarEl) {
+                const ratio = overallStats.total ? overallStats.reviewed / overallStats.total : 0;
+                const clamped = Math.max(0, Math.min(1, ratio));
+                progressBarEl.style.width = `${Math.round(clamped * 100)}%`;
+            }
+
+            // Period range
+            if (filteredTransactions.length > 0) {
+                const dates = filteredTransactions.map(t => {
+                    const [year, month, day] = t.date.split('-');
+                    return new Date(year, month - 1, day);
+                }).sort((a, b) => a - b);
+                const startDate = dates[0].toLocaleDateString('es-MX');
+                const endDate = dates[dates.length - 1].toLocaleDateString('es-MX');
+                document.getElementById('period-range').textContent = startDate === endDate ? startDate : `${startDate} - ${endDate}`;
+            } else {
+                document.getElementById('period-range').textContent = '-';
+            }
+        }
+
+        function showTransactionsLoading() {
+            document.getElementById('transactions-loading').classList.remove('hidden');
+            document.getElementById('transactions-empty').classList.add('hidden');
+            document.getElementById('transactions-table').classList.add('hidden');
+        }
+
+        async function markAsReviewed(transactionId) {
+            const button = document.getElementById(`review-btn-${transactionId}`);
+            const headers = getAuthHeaders();
+            const fetchHeaders = {
+                'Content-Type': 'application/json',
+                ...headers,
+            };
+
+            if (!headers.Authorization) {
+                showError('Necesitas iniciar sesión para marcar transacciones como revisadas.');
+                return;
+            }
+
+            if (button) {
+                button.disabled = true;
+                button.innerHTML = '<span class="mr-1">⌛</span>Guardando...';
+            }
+
+            try {
+                const response = await fetch(`/api/v1/transactions/${transactionId}/mark_reviewed`, {
+                    method: 'POST',
+                    headers: fetchHeaders,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`status_${response.status}`);
+                }
+
+                const data = await response.json();
+
+                const applyUpdate = (txn) => {
+                    if (txn.id === transactionId) {
+                        txn.review_status = 'reviewed';
+                        txn.reviewed_at = data.reviewed_at;
+                        txn.reviewed_by = data.reviewed_by_id;
+                        txn.reviewed_by_email = data.reviewed_by;
+                    }
+                };
+
+                allTransactions.forEach(applyUpdate);
+                filteredTransactions.forEach(applyUpdate);
+
+                filterTransactions();
+                showToast('Transacción marcada como revisada', 'success');
+            } catch (error) {
+                console.error('Error marking transaction as reviewed:', error);
+                if (button) {
+                    button.disabled = false;
+                    button.innerHTML = '<span class="mr-1">✅</span> Marcar como revisado';
+                }
+                showError('No se pudo marcar la transacción como revisada.');
+            }
+        }
+
+        function openReclassifyModal(movementId) {
+            console.log('UI: openReclassifyModal', movementId);
+            const modal = document.getElementById('reclass-modal');
+            const descriptionEl = document.getElementById('reclass-description');
+            const amountEl = document.getElementById('reclass-amount');
+            const detailsEl = document.getElementById('reclass-current-details');
+            const typeSelect = document.getElementById('reclass-transaction-type');
+            const kindSelect = document.getElementById('reclass-movement-kind');
+            const categoryInput = document.getElementById('reclass-category');
+            const notesInput = document.getElementById('reclass-notes');
+            const reasonInput = document.getElementById('reclass-reason');
+            const confidenceInput = document.getElementById('reclass-confidence');
+            const submitBtn = document.getElementById('reclass-submit');
+
+            const idNumber = Number(movementId);
+            const transaction = allTransactions.find(txn => Number(txn.id) === idNumber);
+            if (!transaction) {
+                showError('No se encontró el movimiento seleccionado.');
+                return;
+            }
+
+            currentReclassifyId = idNumber;
+
+            descriptionEl.textContent = transaction.display_name || transaction.description || 'Sin descripción';
+            amountEl.textContent = formatCurrency(transaction.amount || 0);
+            detailsEl.textContent = `${(transaction.transaction_type || '¿?')} · ${(transaction.movement_kind || '¿?')} · ${(transaction.category_manual || transaction.category || 'Sin categoría')}`;
+
+            typeSelect.value = transaction.transaction_type ? String(transaction.transaction_type).toLowerCase() : '';
+            const normalizedKind = transaction.movement_kind ? String(transaction.movement_kind).toLowerCase() : '';
+            if (normalizedKind === 'ingreso') kindSelect.value = 'Ingreso';
+            else if (normalizedKind === 'gasto') kindSelect.value = 'Gasto';
+            else if (normalizedKind === 'transferencia') kindSelect.value = 'Transferencia';
+            else kindSelect.value = '';
+
+            categoryInput.value = transaction.category_manual || transaction.category || '';
+            notesInput.value = transaction.reconciliation_notes || '';
+            reasonInput.value = '';
+            confidenceInput.value = transaction.confidence ?? transaction.confidence_score ?? '';
+
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Guardar cambios';
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeReclassifyModal() {
+            console.log('UI: closeReclassifyModal');
+            const modal = document.getElementById('reclass-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            currentReclassifyId = null;
+        }
+
+        async function submitReclassification() {
+            if (!currentReclassifyId) {
+                showError('No hay movimiento seleccionado para reclasificar.');
+                return;
+            }
+
+            const payload = {};
+            const typeValue = document.getElementById('reclass-transaction-type').value;
+            const kindValue = document.getElementById('reclass-movement-kind').value;
+            const categoryValue = document.getElementById('reclass-category').value.trim();
+            const notesValue = document.getElementById('reclass-notes').value.trim();
+            const reasonValue = document.getElementById('reclass-reason').value.trim();
+            const confidenceValue = document.getElementById('reclass-confidence').value.trim();
+
+            if (typeValue) payload.transaction_type = typeValue;
+            if (kindValue) payload.movement_kind = kindValue;
+            if (categoryValue) payload.category = categoryValue;
+            if (notesValue) payload.notes = notesValue;
+            if (reasonValue) payload.reason = reasonValue;
+            if (confidenceValue) {
+                const parsedConfidence = parseFloat(confidenceValue);
+                if (!Number.isNaN(parsedConfidence)) {
+                    payload.confidence = parsedConfidence;
+                }
+            }
+
+            if (Object.keys(payload).length === 0) {
+                showError('Selecciona al menos un campo para actualizar.');
+                return;
+            }
+
+            const submitBtn = document.getElementById('reclass-submit');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Guardando...';
+
+            const headers = {
+                ...getAuthHeaders(),
+                'Content-Type': 'application/json',
+            };
+
+            try {
+                const response = await fetch(`/bank-movements/${currentReclassifyId}/reclassify`, {
+                    method: 'PATCH',
+                    headers,
+                    body: JSON.stringify(payload),
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        handleSessionExpired();
+                        return;
+                    }
+                    throw new Error(`status_${response.status}`);
+                }
+
+                await response.json().catch(() => null);
+
+                showSuccess('Movimiento actualizado correctamente');
+                closeReclassifyModal();
+
+                if (viewingAccountId) {
+                    await loadAccountTransactions(viewingAccountId);
+                } else {
+                    await loadAccounts();
+                }
+            } catch (error) {
+                console.error('Error reclassifying movement:', error);
+                showError('No se pudo actualizar el movimiento.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Guardar cambios';
+            }
+        }
+
+        // Expose helper functions to global scope for inline handlers
+        window.openReclassifyModal = openReclassifyModal;
+        window.closeReclassifyModal = closeReclassifyModal;
+        window.submitReclassification = submitReclassification;
+
+        function showTransactionsEmpty() {
+            document.getElementById('transactions-loading').classList.add('hidden');
+            document.getElementById('transactions-empty').classList.remove('hidden');
+            document.getElementById('transactions-table').classList.add('hidden');
+        }
+
+        function showTransactionsTable() {
+            document.getElementById('transactions-loading').classList.add('hidden');
+            document.getElementById('transactions-empty').classList.add('hidden');
+            document.getElementById('transactions-table').classList.remove('hidden');
+        }
+
+        async function completeAccount(accountId) {
+            const account = accounts.find(acc => acc.id === accountId);
+            if (!account) return;
+
+            const missingFields = getIncompleteFields(account);
+
+            if (missingFields.length === 0) {
+                showToast('✅ Esta cuenta ya está completa');
+                return;
+            }
+
+            // Open edit modal first
+            await editAccount(accountId);
+
+            // Show completion notice
+            const fieldLabels = {
+                'banco_nombre': 'Nombre del Banco',
+                'numero_tarjeta': 'Número de Tarjeta',
+                'numero_cuenta': 'Número de Cuenta',
+                'clabe': 'CLABE Interbancaria',
+                'limite_credito': 'Límite de Crédito',
+                'fecha_corte': 'Fecha de Corte',
+                'fecha_pago': 'Fecha de Pago',
+                'proveedor_terminal': 'Proveedor del Terminal'
+            };
+
+            const missingLabels = missingFields.map(field => fieldLabels[field]).join(', ');
+
+            showToast(`⚠️ Campos faltantes: ${missingLabels}`, 'warning');
+
+            // Highlight missing fields with red border and animation
+            setTimeout(() => {
+                missingFields.forEach(fieldName => {
+                    const field = document.getElementById(fieldName) ||
+                                 document.getElementById(fieldName + '_cc');
+                    if (field) {
+                        field.classList.add('border-red-500', 'border-2', 'animate-pulse');
+                        field.focus();
+
+                        // Remove highlight after user interacts
+                        field.addEventListener('input', function removeHighlight() {
+                            field.classList.remove('border-red-500', 'border-2', 'animate-pulse');
+                            field.removeEventListener('input', removeHighlight);
+                        }, { once: true });
+                    }
+                });
+            }, 500);
+        }
+
+        // Función para copiar información de cuenta bancaria al portapapeles
+        async function copyAccountInfo(accountId) {
+            try {
+                const account = accounts.find(acc => acc.id === accountId);
+                if (!account || account.tipo !== 'bancaria' || account.subtipo !== 'debito') {
+                    showError('Solo se puede copiar información de cuentas de débito');
+                    return;
+                }
+
+                // Construir el texto con la información de la cuenta
+                const accountInfo = `💳 DATOS BANCARIOS
+
+📋 Nombre de la cuenta: ${account.nombre}
+🏦 Banco: ${account.banco_nombre || 'No especificado'}
+🔢 Número de cuenta: ${account.numero_cuenta ? formatCardNumber(account.numero_cuenta) : 'No disponible'}
+🏧 CLABE: ${account.clabe ? formatCardNumber(account.clabe) : 'No disponible'}
+💳 Número de tarjeta: ${account.numero_tarjeta ? formatCardNumber(account.numero_tarjeta) : 'No disponible'}
+💰 Moneda: ${account.moneda}
+
+ℹ️ Información generada desde ContaFlow`;
+
+                // Copiar al portapapeles
+                await navigator.clipboard.writeText(accountInfo);
+
+                // Mostrar feedback visual
+                showSuccess('✅ Información de cuenta copiada al portapapeles');
+
+                // Cambiar temporalmente el ícono del botón
+                const button = event.target.closest('button');
+                const icon = button.querySelector('i');
+                const originalClass = icon.className;
+
+                icon.className = 'fas fa-check';
+                button.classList.remove('hover:text-green-600');
+                button.classList.add('text-green-600');
+
+                setTimeout(() => {
+                    icon.className = originalClass;
+                    button.classList.remove('text-green-600');
+                    button.classList.add('hover:text-green-600');
+                }, 2000);
+
+            } catch (error) {
+                console.error('Error copying account info:', error);
+
+                // Fallback para navegadores que no soporten la API de portapapeles
+                try {
+                    const account = accounts.find(acc => acc.id === accountId);
+                    const accountInfo = `💳 DATOS BANCARIOS
+
+📋 Nombre: ${account.nombre}
+🏦 Banco: ${account.banco_nombre || 'No especificado'}
+🔢 Número de cuenta: ${account.numero_cuenta ? formatCardNumber(account.numero_cuenta) : 'No disponible'}
+🏧 CLABE: ${account.clabe ? formatCardNumber(account.clabe) : 'No disponible'}
+💳 Tarjeta: ${account.numero_tarjeta ? formatCardNumber(account.numero_tarjeta) : 'No disponible'}
+💰 Moneda: ${account.moneda}`;
+
+                    // Crear un elemento temporal para copiar
+                    const textArea = document.createElement('textarea');
+                    textArea.value = accountInfo;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+
+                    showSuccess('✅ Información copiada (método alternativo)');
+                } catch (fallbackError) {
+                    showError('❌ No se pudo copiar la información');
+                }
+            }
+        }
+
+        function handleTypeChange() {
+            const tipo = document.getElementById('tipo').value;
+            const subtipoContainer = document.getElementById('subtipo-container');
+            const subtipoSelect = document.getElementById('subtipo');
+
+            // Reset subtipo
+            subtipoSelect.value = '';
+
+            // Show/hide subtipo dropdown
+            if (tipo === 'bancaria') {
+                subtipoContainer.classList.remove('hidden');
+                subtipoSelect.required = true;
+            } else {
+                subtipoContainer.classList.add('hidden');
+                subtipoSelect.required = false;
+            }
+
+            showTypeFields(tipo, '');
+            updateNamePreview();
+        }
+
+        function handleSubtypeChange() {
+            const tipo = document.getElementById('tipo').value;
+            const subtipo = document.getElementById('subtipo').value;
+            showTypeFields(tipo, subtipo);
+            updateNamePreview();
+        }
+
+        function updateNamePreview() {
+            const tipo = document.getElementById('tipo').value;
+            const subtipoElement = document.getElementById('subtipo');
+            const subtipo = subtipoElement?.value || '';
+            const bancoNombre = document.getElementById('banco_nombre')?.value || '';
+            const proveedorTerminal = document.getElementById('proveedor_terminal')?.value || '';
+            const numeroTarjeta = document.getElementById('numero_tarjeta')?.value ||
+                                document.getElementById('numero_tarjeta_debit')?.value || '';
+
+            const preview = document.getElementById('nombre-preview');
+
+            // Debug: verificar que el subtipo esté disponible
+            console.log('UpdateNamePreview - tipo:', tipo, 'subtipo:', subtipo, 'banco:', bancoNombre, 'tarjeta:', numeroTarjeta);
+
+            if (!tipo) {
+                preview.textContent = 'Selecciona tipo y datos para ver el nombre';
+                preview.className = 'w-full px-3 py-2 bg-slate-100 border border-gray-300 rounded-lg text-muted';
+                return;
+            }
+
+            // Para cuentas bancarias, verificar que tengan subtipo y banco
+            if (tipo === 'bancaria') {
+                if (!subtipo || !bancoNombre) {
+                    preview.textContent = 'Selecciona subtipo y banco para ver el nombre';
+                    preview.className = 'w-full px-3 py-2 bg-slate-100 border border-gray-300 rounded-lg text-muted';
+                    return;
+                }
+            }
+
+            // Para terminales, verificar que tengan proveedor
+            if (tipo === 'terminal' && !proveedorTerminal) {
+                preview.textContent = 'Selecciona proveedor para ver el nombre';
+                preview.className = 'w-full px-3 py-2 bg-slate-100 border border-gray-300 rounded-lg text-muted';
+                return;
+            }
+
+            const generatedName = generateAccountName(tipo, subtipo, bancoNombre, proveedorTerminal, numeroTarjeta);
+            preview.textContent = generatedName;
+            preview.className = 'w-full px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg text-blue-800 font-medium';
+        }
+
+        function showTypeFields(tipo, subtipo = '') {
+            // Hide all type-specific fields
+            document.getElementById('bank-fields').classList.add('hidden');
+            document.getElementById('terminal-fields').classList.add('hidden');
+            document.getElementById('credit-card-fields').classList.add('hidden');
+
+            // Show relevant fields based on type and subtype
+            if (tipo === 'bancaria') {
+                document.getElementById('bank-fields').classList.remove('hidden');
+
+                if (subtipo === 'credito') {
+                    document.getElementById('credit-card-fields').classList.remove('hidden');
+                }
+            } else if (tipo === 'terminal') {
+                document.getElementById('terminal-fields').classList.remove('hidden');
+            }
+        }
+
+        // Function to clear all validation errors
+        function clearValidationErrors() {
+            const inputs = document.querySelectorAll('input, select');
+            inputs.forEach(input => {
+                input.classList.remove('border-red-500', 'ring-red-500');
+                input.classList.add('border-gray-300');
+            });
+
+            // Clear error messages
+            const errorMessages = document.querySelectorAll('.error-message');
+            errorMessages.forEach(msg => msg.remove());
+        }
+
+        // Function to highlight missing required fields
+        function highlightMissingFields(missingFields) {
+            clearValidationErrors();
+
+            missingFields.forEach(fieldName => {
+                const field = document.querySelector(`[name="${fieldName}"]`);
+                if (field) {
+                    field.classList.remove('border-gray-300');
+                    field.classList.add('border-red-500', 'ring-2', 'ring-red-500');
+
+                    // Add error message
+                    const errorMsg = document.createElement('div');
+                    errorMsg.className = 'error-message text-red-500 text-sm mt-1';
+                    errorMsg.textContent = 'Este campo es obligatorio';
+                    field.parentNode.appendChild(errorMsg);
+                }
+            });
+        }
+
+        // Function to validate required fields based on account type
+        function validateRequiredFields(accountData) {
+            const missingFields = [];
+
+            // Debug: log the account data
+            console.log('Validating accountData:', accountData);
+
+            // Basic required fields (nombre is auto-generated, no need to validate)
+            if (!accountData.tipo) {
+                console.log('Missing tipo');
+                missingFields.push('tipo');
+            }
+
+            // Type-specific validations
+            if (accountData.tipo === 'bancaria') {
+                console.log('Validating bancaria account');
+
+                if (!accountData.subtipo) {
+                    console.log('Missing subtipo:', accountData.subtipo);
+                    missingFields.push('subtipo');
+                }
+
+                if (!accountData.banco_nombre?.trim()) {
+                    console.log('Missing banco_nombre:', accountData.banco_nombre);
+                    missingFields.push('banco_nombre');
+                }
+
+                if (accountData.subtipo === 'credito') {
+                    console.log('Validating credito fields');
+                    if (!accountData.limite_credito || accountData.limite_credito <= 0) {
+                        console.log('Missing limite_credito:', accountData.limite_credito);
+                        missingFields.push('limite_credito');
+                    }
+                    if (!accountData.fecha_corte || accountData.fecha_corte < 1 || accountData.fecha_corte > 31) {
+                        console.log('Missing fecha_corte:', accountData.fecha_corte);
+                        missingFields.push('fecha_corte');
+                    }
+                    if (!accountData.fecha_pago || accountData.fecha_pago < 1 || accountData.fecha_pago > 31) {
+                        console.log('Missing fecha_pago:', accountData.fecha_pago);
+                        missingFields.push('fecha_pago');
+                    }
+                    if (!accountData.numero_tarjeta?.trim()) {
+                        console.log('Missing numero_tarjeta for credito:', accountData.numero_tarjeta);
+                        missingFields.push('numero_tarjeta');
+                    }
+                } else if (accountData.subtipo === 'debito') {
+                    console.log('Validating debito fields');
+                    if (!accountData.numero_tarjeta?.trim()) {
+                        console.log('Missing numero_tarjeta for debito:', accountData.numero_tarjeta);
+                        missingFields.push('numero_tarjeta');
+                    }
+                }
+            } else if (accountData.tipo === 'terminal') {
+                if (!accountData.proveedor_terminal?.trim()) missingFields.push('proveedor_terminal');
+            }
+
+            console.log('Missing fields:', missingFields);
+
+            return missingFields;
+        }
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            clearValidationErrors();
+
+            const formData = new FormData(e.target);
+
+            // Debug: log all form data
+            console.log('=== FORM DATA DEBUG ===');
+            for (let [key, value] of formData.entries()) {
+                console.log(`${key}: "${value}"`);
+            }
+
+            const accountData = {
+                tipo: formData.get('tipo'),
+                moneda: formData.get('moneda'),
+                saldo_inicial: parseFloat(formData.get('saldo_inicial')) || 0
+            };
+
+            // Only add subtipo for bancaria accounts
+            if (accountData.tipo === 'bancaria') {
+                const subtipoFromForm = formData.get('subtipo');
+                const subtipoFromDOM = document.getElementById('subtipo')?.value;
+                accountData.subtipo = subtipoFromForm || subtipoFromDOM || '';
+
+                console.log('Raw subtipo from form:', subtipoFromForm);
+                console.log('Raw subtipo from DOM:', subtipoFromDOM);
+                console.log('Final subtipo:', accountData.subtipo);
+            }
+
+            // Add type-specific fields
+            if (accountData.tipo === 'bancaria') {
+                // For bancaria accounts, read values directly from DOM if FormData is empty
+                const bancoFromForm = formData.get('banco_nombre');
+                const bancoFromDOM = document.getElementById('banco_nombre')?.value;
+                accountData.banco_nombre = bancoFromForm || bancoFromDOM || '';
+
+                console.log('Raw banco_nombre from form:', bancoFromForm);
+                console.log('Raw banco_nombre from DOM:', bancoFromDOM);
+                console.log('Final banco_nombre:', accountData.banco_nombre);
+
+                if (accountData.subtipo === 'debito') {
+                    accountData.numero_cuenta = cleanCardNumber(formData.get('numero_cuenta'));
+                    accountData.clabe = cleanCardNumber(formData.get('clabe'));
+                    accountData.numero_tarjeta = cleanCardNumber(formData.get('numero_tarjeta_debit'));
+                } else if (accountData.subtipo === 'credito') {
+                    accountData.limite_credito = parseFloat(formData.get('limite_credito'));
+                    accountData.fecha_corte = parseInt(formData.get('fecha_corte'));
+                    accountData.fecha_pago = parseInt(formData.get('fecha_pago'));
+                    accountData.numero_tarjeta = cleanCardNumber(formData.get('numero_tarjeta'));
+                }
+            } else if (accountData.tipo === 'terminal') {
+                accountData.proveedor_terminal = formData.get('proveedor_terminal');
+            }
+
+            // Generate automatic name based on account data
+            accountData.nombre = generateAccountName(
+                accountData.tipo,
+                accountData.subtipo,
+                accountData.banco_nombre,
+                accountData.proveedor_terminal,
+                accountData.numero_tarjeta
+            );
+
+            // Validate required fields before sending
+            const missingFields = validateRequiredFields(accountData);
+            if (missingFields.length > 0) {
+                highlightMissingFields(missingFields);
+                showError(`Por favor completa todos los campos obligatorios marcados en rojo`);
+                return;
+            }
+
+            try {
+                const url = editingAccountId
+                    ? `/payment-accounts/${editingAccountId}`
+                    : '/payment-accounts/';
+                const method = editingAccountId ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeaders()
+                    },
+                    body: JSON.stringify(accountData)
+                });
+
+                if (response.ok) {
+                    await loadAccounts();
+                    closeAccountModal();
+                    showSuccess(editingAccountId ? 'Cuenta actualizada exitosamente' : 'Cuenta creada exitosamente');
+                } else if (response.status === 401) {
+                    handleSessionExpired();
+                    return;
+                } else {
+                    try {
+                        const error = await response.json();
+                        let errorMessage = 'Error al guardar la cuenta';
+
+                        if (typeof error === 'string') {
+                            errorMessage = error;
+                        } else if (error.detail) {
+                            if (typeof error.detail === 'string') {
+                                errorMessage = error.detail;
+                            } else if (error.detail.message) {
+                                errorMessage = error.detail.message;
+                            } else if (Array.isArray(error.detail)) {
+                                errorMessage = error.detail.map(e => e.msg || e.message || e).join(', ');
+                            } else {
+                                errorMessage = JSON.stringify(error.detail);
+                            }
+                        } else if (error.message) {
+                            errorMessage = error.message;
+                        }
+
+                        showError(errorMessage);
+                    } catch (parseError) {
+                        console.error('Error parsing response:', parseError);
+                        showError(`Error del servidor (${response.status})`);
+                    }
+                }
+            } catch (error) {
+                console.error('Error saving account:', error);
+                showError('Error de conexión al guardar la cuenta');
+            }
+        }
+
+        function setActiveFilter(type) {
+            currentFilter = type;
+
+            const segmented = document.getElementById('accounts-type-segmented');
+            if (segmented) {
+                segmented.querySelectorAll('.segment').forEach(segment => {
+                    const isActive = segment.dataset.value === type;
+                    segment.classList.toggle('segment--active', isActive);
+                    segment.setAttribute('aria-checked', String(isActive));
+                });
+            }
+
+            renderAccounts();
+        }
+
+        function updateFilterCounts() {
+            const counts = {
+                all: accounts.length,
+                bancaria: accounts.filter(acc => acc.tipo === 'bancaria').length,
+                efectivo: accounts.filter(acc => acc.tipo === 'efectivo').length,
+                terminal: accounts.filter(acc => acc.tipo === 'terminal').length
+            };
+
+            const segmented = document.getElementById('accounts-type-segmented');
+            if (segmented) {
+                segmented.querySelectorAll('.segment').forEach(segment => {
+                    const value = segment.dataset.value || 'all';
+                    const label = segment.dataset.label || segment.textContent?.trim() || '';
+                    const count = counts[value] ?? accounts.length;
+                    segment.setAttribute('data-count', count);
+                    segment.title = `${count} cuentas`;
+                    segment.innerHTML = `${label} <span class="text-xs text-muted">(${count})</span>`;
+                });
+            }
+        }
+
+        // Utility functions
+        function getAuthToken() {
+            return localStorage.getItem('access_token') || '';
+        }
+
+        function getAuthHeaders() {
+            const token = localStorage.getItem('access_token');
+            return token ? { 'Authorization': `Bearer ${token}` } : {};
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('es-MX', {
+                style: 'currency',
+                currency: 'MXN',
+                minimumFractionDigits: 2
+            }).format(amount || 0).replace('MX$', '$');
+        }
+
+        function escapeHtmlAttr(value) {
+            if (!value) return '';
+            return value.replace(/&/g, '&amp;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
+        }
+
+        function formatPercentage(value) {
+            if (value === null || value === undefined || Number.isNaN(value)) {
+                return '0%';
+            }
+            return `${Math.round(value)}%`;
+        }
+
+        function getConfidenceValue(transaction) {
+            if (typeof transaction.confidence === 'number') {
+                return transaction.confidence;
+            }
+            if (typeof transaction.confidence_score === 'number') {
+                return transaction.confidence_score;
+            }
+            return null;
+        }
+
+        function formatCardNumber(number) {
+            if (!number) return '';
+            // Remover espacios y caracteres no numéricos, luego separar cada 4 dígitos
+            const cleanNumber = number.toString().replace(/\D/g, '');
+            return cleanNumber.replace(/(.{4})/g, '$1 ').trim();
+        }
+
+        function cleanCardNumber(number) {
+            if (!number) return '';
+            // Remover espacios y caracteres no numéricos para el envío al servidor
+            return number.toString().replace(/\D/g, '');
+        }
+
+        function getInstitutionIcon(bancoNombre, proveedorTerminal) {
+            // Mapeo de instituciones a íconos Font Awesome específicos y colores
+            const iconMap = {
+                // Bancos principales con colores representativos
+                'BBVA México': { icon: 'fas fa-building-columns', bg: 'bg-blue-600', name: 'BBVA' },
+                'BBVA': { icon: 'fas fa-building-columns', bg: 'bg-blue-600', name: 'BBVA' },
+                'Banco Santander': { icon: 'fas fa-landmark', bg: 'bg-red-600', name: 'Santander' },
+                'Santander': { icon: 'fas fa-landmark', bg: 'bg-red-600', name: 'Santander' },
+                'Banamex': { icon: 'fas fa-university', bg: 'bg-blue-800', name: 'Banamex' },
+                'AMEX': { icon: 'fas fa-university', bg: 'bg-blue-800', name: 'Banamex' },
+                'Banorte': { icon: 'fas fa-building-columns', bg: 'bg-orange-600', name: 'Banorte' },
+                'HSBC México': { icon: 'fas fa-landmark', bg: 'bg-red-700', name: 'HSBC' },
+                'HSBC': { icon: 'fas fa-landmark', bg: 'bg-red-700', name: 'HSBC' },
+                'Scotiabank': { icon: 'fas fa-building-columns', bg: 'bg-red-800', name: 'Scotia' },
+                'Scotia': { icon: 'fas fa-building-columns', bg: 'bg-red-800', name: 'Scotia' },
+
+                // Bancos digitales con colores únicos
+                'Nu México': { icon: 'fas fa-mobile-alt', bg: 'bg-purple-600', name: 'Nu' },
+                'Nu': { icon: 'fas fa-mobile-alt', bg: 'bg-purple-600', name: 'Nu' },
+                'Hey Banco': { icon: 'fas fa-mobile-screen-button', bg: 'bg-green-500', name: 'Hey' },
+                'Hey': { icon: 'fas fa-mobile-screen-button', bg: 'bg-green-500', name: 'Hey' },
+
+                // Terminales de pago
+                'Clip': { icon: 'fas fa-credit-card-alt', bg: 'bg-indigo-600', name: 'Clip' },
+                'MercadoPago': { icon: 'fas fa-shopping-cart', bg: 'bg-yellow-500', name: 'MP' },
+                'Mercado Pago': { icon: 'fas fa-shopping-cart', bg: 'bg-yellow-500', name: 'MP' }
+            };
+
+            // Buscar por nombre de banco primero
+            if (bancoNombre && iconMap[bancoNombre]) {
+                return iconMap[bancoNombre];
+            }
+
+            // Buscar por proveedor de terminal
+            if (proveedorTerminal && iconMap[proveedorTerminal]) {
+                return iconMap[proveedorTerminal];
+            }
+
+            // Buscar por nombre parcial
+            if (bancoNombre) {
+                for (const [key, value] of Object.entries(iconMap)) {
+                    if (key.toLowerCase().includes(bancoNombre.toLowerCase()) ||
+                        bancoNombre.toLowerCase().includes(key.toLowerCase())) {
+                        return value;
+                    }
+                }
+            }
+
+            return null; // No se encontró ícono específico
+        }
+
+        function getTypeIcon(account) {
+            // Obtener ícono específico de institución si está disponible
+            const institutionIcon = getInstitutionIcon(account.banco_nombre, account.proveedor_terminal);
+
+            // Si tenemos ícono específico de la institución, usarlo
+            if (institutionIcon) {
+                return {
+                    icon: institutionIcon.icon,
+                    bg: institutionIcon.bg,
+                    name: institutionIcon.name,
+                    isInstitution: true
+                };
+            }
+
+            // Íconos por defecto por tipo
+            const icons = {
+                'bancaria': { icon: 'fas fa-university', bg: 'bg-blue-500' },
+                'efectivo': { icon: 'fas fa-money-bills', bg: 'bg-green-500' },
+                'terminal': { icon: 'fas fa-mobile-alt', bg: 'bg-purple-500' }
+            };
+
+            return icons[account.tipo] || { icon: 'fas fa-wallet', bg: 'bg-slate-1000' };
+        }
+
+        function getTypeLabel(tipo, subtipo = null) {
+            if (tipo === 'bancaria') {
+                if (subtipo === 'debito') {
+                    return 'Bancaria - Tarjeta de Débito';
+                } else if (subtipo === 'credito') {
+                    return 'Bancaria - Tarjeta de Crédito';
+                } else {
+                    return 'Cuenta Bancaria';
+                }
+            }
+
+            const labels = {
+                'efectivo': 'Efectivo',
+                'terminal': 'Terminal de Pago',
+                // Legacy types for backward compatibility
+                'banco': 'Cuenta Bancaria',
+                'tarjeta_credito': 'Tarjeta de Crédito',
+                'tarjeta_debito': 'Tarjeta de Débito'
+            };
+            return labels[tipo] || tipo;
+        }
+
+        function generateAccountName(tipo, subtipo, bancoNombre, proveedorTerminal, numeroTarjeta) {
+            // Convención de nombres estandarizados
+            if (tipo === 'bancaria') {
+                const banco = bancoNombre || 'Banco';
+                const bancoShort = banco.replace('Banco ', '').replace(' México', '').replace(' de México', '');
+
+                if (subtipo === 'debito') {
+                    const tarjetaEnd = numeroTarjeta ? ` *${numeroTarjeta.slice(-4)}` : '';
+                    return `${bancoShort} Débito${tarjetaEnd}`;
+                } else if (subtipo === 'credito') {
+                    const tarjetaEnd = numeroTarjeta ? ` *${numeroTarjeta.slice(-4)}` : '';
+                    return `${bancoShort} Crédito${tarjetaEnd}`;
+                } else {
+                    return `${bancoShort} Bancaria`;
+                }
+            } else if (tipo === 'terminal') {
+                const proveedor = proveedorTerminal || 'Terminal';
+                return `Terminal ${proveedor}`;
+            } else if (tipo === 'efectivo') {
+                return 'Efectivo';
+            }
+
+            return 'Cuenta';
+        }
+
+        function getStatusBadge(account) {
+            if (!account.activo) {
+                return '<span class="inline-block px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full mt-2">Inactiva</span>';
+            }
+
+            if (account.tipo === 'tarjeta_credito') {
+                const usage = (account.saldo_actual / account.limite_credito) * 100;
+                if (usage > 80) {
+                    return '<span class="inline-block px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full mt-2">Límite alto</span>';
+                } else if (usage > 50) {
+                    return '<span class="inline-block px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full mt-2">Uso moderado</span>';
+                }
+            }
+
+            return '<span class="inline-block px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full mt-2">Activa</span>';
+        }
+
+        function getBalanceColor(account) {
+            if (account.tipo === 'tarjeta_credito') {
+                return 'text-red-600'; // Credit card balances are debt
+            }
+            return account.saldo_actual > 0 ? 'text-green-600' : 'text-muted';
+        }
+
+        function showLoading() {
+            document.getElementById('loading-state').classList.remove('hidden');
+            document.getElementById('accounts-container').classList.add('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('accounts-container').classList.remove('hidden');
+        }
+
+        function showEmptyState() {
+            document.getElementById('empty-state').classList.remove('hidden');
+            document.getElementById('accounts-container').classList.add('hidden');
+        }
+
+        function hideEmptyState() {
+            document.getElementById('empty-state').classList.add('hidden');
+        }
+
+        function showSuccess(message) {
+            showToast(message, 'success');
+        }
+
+        function showToast(message, type = 'success') {
+            if (window.Toast && typeof window.Toast.show === 'function') {
+                const intentMap = { success: 'success', warning: 'warning', error: 'danger', info: 'info' };
+                const intent = intentMap[type] || 'info';
+                window.Toast.show({ message, intent });
+            } else {
+                console.log(`[toast:${type}]`, message);
+            }
+        }
+
+        function showError(message) {
+            showToast(message, 'error');
+        }
+
+        function handleSessionExpired() {
+            // Clear token from localStorage
+            localStorage.removeItem('access_token');
+
+            showToast('Tu sesión ha expirado. Te redirigiremos al login.', 'warning');
+
+            // Redirect to login page after a short delay
+            setTimeout(() => {
+                window.location.href = '/static/auth-login.html';
+            }, 1000);
+        }
+
+        // Upload statement functions
+        function handleFileSelect(input) {
+            const file = input.files[0];
+            if (!file) {
+                hideFileInfo();
+                return;
+            }
+
+            // Validate file size (50MB)
+            const maxSize = 50 * 1024 * 1024;
+            if (file.size > maxSize) {
+                showError('El archivo es demasiado grande. Máximo 50MB permitido.');
+                input.value = '';
+                hideFileInfo();
+                return;
+            }
+
+            // Validate file type
+            const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv'];
+            if (!validTypes.includes(file.type)) {
+                showError('Tipo de archivo no válido. Solo PDF, Excel y CSV son permitidos.');
+                input.value = '';
+                hideFileInfo();
+                return;
+            }
+
+            // Show file info
+            showFileInfo(file);
+
+            // Enable upload button
+            document.getElementById('upload-btn').disabled = false;
+        }
+
+        function showFileInfo(file) {
+            document.getElementById('file-name').textContent = file.name;
+            document.getElementById('file-size').textContent = formatFileSize(file.size);
+            document.getElementById('file-info').classList.remove('hidden');
+        }
+
+        function hideFileInfo() {
+            document.getElementById('file-info').classList.add('hidden');
+            document.getElementById('upload-btn').disabled = true;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Handle form submission
+        document.getElementById('upload-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const fileInput = document.getElementById('statement-file');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showError('Por favor selecciona un archivo');
+                return;
+            }
+
+            if (!uploadAccountId) {
+                showError('Error: No se ha seleccionado cuenta');
+                return;
+            }
+
+            const uploadBtn = document.getElementById('upload-btn');
+            const originalText = uploadBtn.innerHTML;
+
+            try {
+                // Disable button and show loading
+                uploadBtn.disabled = true;
+                uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Subiendo...';
+
+                // Create FormData
+                const formData = new FormData();
+                formData.append('file', file);
+
+                // Add optional date range
+                const periodStart = document.getElementById('period-start').value;
+                const periodEnd = document.getElementById('period-end').value;
+                if (periodStart) formData.append('period_start', periodStart);
+                if (periodEnd) formData.append('period_end', periodEnd);
+
+                // Upload file
+                const response = await fetch(`/bank-statements/accounts/${uploadAccountId}/upload`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showSuccess(`Estado de cuenta subido exitosamente. El parsing se ejecutará en segundo plano.`);
+                    closeUploadModal();
+
+                    // Show additional info about parsing
+                    setTimeout(() => {
+                        showToast(`📊 El archivo se está procesando. Las transacciones aparecerán cuando termine el análisis.`);
+                    }, 2000);
+
+                } else if (response.status === 401) {
+                    handleSessionExpired();
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    showError(errorData.detail || 'Error al subir el estado de cuenta');
+                }
+
+            } catch (error) {
+                console.error('Error uploading statement:', error);
+                showError('Error de conexión al subir el archivo');
+            } finally {
+                // Restore button
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = originalText;
+            }
+        });
+
+    </script>
+    <script src="/static/js/mcp-header.js?v=1760735637000" defer></script>
+</body>
+</html>

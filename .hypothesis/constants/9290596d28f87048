@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/api/auth_jwt_api.py
+# hypothesis_version: 6.140.3
+
+['/auth', '/login', '/logout', '/me', '/tenants', 'Authentication', 'Bearer', 'Logout successful', 'WWW-Authenticate', 'bearer', 'description', 'id', 'message', 'name', 'success']

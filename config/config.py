@@ -28,6 +28,11 @@ class Config:
     # Internal persistence configuration
     DATA_DIR = Path(os.getenv("INTERNAL_DATA_DIR", BASE_DIR / "data"))
     INTERNAL_DB_PATH = Path(os.getenv("INTERNAL_DB_PATH", DATA_DIR / "mcp_internal.db"))
+    UNIFIED_DB_PATH = Path(os.getenv("UNIFIED_DB_PATH", BASE_DIR / "unified_mcp_system.db"))
+    DB_PATH = Path(os.getenv("DB_PATH", BASE_DIR / "unified_mcp_system.db"))  # Alias for UNIFIED_DB_PATH
+    USE_UNIFIED_DB = os.getenv("USE_UNIFIED_DB", "true").lower() == "true"
+    USE_POSTGRESQL = os.getenv("USE_POSTGRESQL", "false").lower() == "true"
+    POSTGRES_DSN = os.getenv("POSTGRES_DSN", "")
 
     # External system credentials (placeholders for now)
     # Odoo Configuration

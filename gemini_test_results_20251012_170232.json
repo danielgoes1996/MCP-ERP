@@ -1,0 +1,34 @@
+{
+  "summary": {
+    "bank_name": null,
+    "account_number": null,
+    "period_start": null,
+    "period_end": null,
+    "opening_balance": 0.0,
+    "closing_balance": 0.0,
+    "total_credits": 0,
+    "total_debits": 0,
+    "transaction_count": 0,
+    "parser_used": "gemini-native-pdf",
+    "total_incomes": 0,
+    "total_expenses": 0,
+    "total_transfers": 0,
+    "metadata": {
+      "parser": "gemini-native-pdf",
+      "model": "gemini-2.0-flash",
+      "file_size_mb": 0.14,
+      "method": "direct",
+      "processing_time": 39.12,
+      "timestamp": "2025-10-12T23:02:32.720117",
+      "tokens": {
+        "prompt": 2783,
+        "output": 8052,
+        "total": 10835
+      }
+    }
+  },
+  "transaction_count": 0,
+  "processing_time": 39.122353,
+  "file_processed": "uploads/statements/11_20250930_105250_inbursa_2025-07.pdf",
+  "sample_transactions": []
+}

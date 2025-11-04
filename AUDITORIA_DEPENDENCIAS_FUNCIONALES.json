@@ -1,0 +1,550 @@
+{
+  "audit_metadata": {
+    "timestamp": "2025-09-26T00:00:00Z",
+    "audit_type": "post_migration_functional_dependency_analysis",
+    "system_version": "unified_mcp_system_v2.0",
+    "auditor": "claude_code_agent",
+    "scope": "comprehensive_system_analysis"
+  },
+  "executive_summary": {
+    "total_functionalities": 23,
+    "global_coherence": 73,
+    "spofs_critical": 2,
+    "missing_fields_bd": 18,
+    "total_tables": 37,
+    "total_python_files": 205,
+    "total_api_endpoints": 67,
+    "architecture_health": "medium_risk"
+  },
+  "database_analysis": {
+    "total_tables": 37,
+    "tables_with_foreign_keys": 20,
+    "referential_integrity_score": 85,
+    "core_tables": [
+      "tenants",
+      "users",
+      "expense_records",
+      "bank_movements",
+      "expense_invoices",
+      "automation_jobs",
+      "tickets"
+    ],
+    "foreign_key_relationships": {
+      "tenants": {
+        "referenced_by": [
+          "users",
+          "expense_records",
+          "bank_movements",
+          "expense_invoices",
+          "tickets",
+          "automation_jobs"
+        ],
+        "criticality": "maximum"
+      },
+      "users": {
+        "referenced_by": [
+          "expense_records",
+          "tickets",
+          "user_sessions",
+          "refresh_tokens"
+        ],
+        "criticality": "high"
+      },
+      "expense_records": {
+        "referenced_by": [
+          "bank_movements",
+          "expense_invoices",
+          "expense_attachments",
+          "duplicate_detections"
+        ],
+        "criticality": "high"
+      }
+    },
+    "missing_critical_constraints": [
+      "ON DELETE CASCADE for orphaned records",
+      "CHECK constraints for data validation",
+      "UNIQUE constraints for business rules"
+    ]
+  },
+  "dependency_map": {
+    "core_dependencies": {
+      "database_layer": {
+        "sqlite3": ["unified_mcp_system.db"],
+        "orm_abstraction": ["core/database.py", "core/unified_db_adapter.py"],
+        "migration_system": ["migrations/", "schema_migrations table"]
+      },
+      "authentication_layer": {
+        "auth_system": ["core/unified_auth.py", "core/auth_system.py"],
+        "token_management": ["refresh_tokens table", "user_sessions table"],
+        "tenancy": ["core/tenancy_middleware.py", "tenants table"]
+      },
+      "api_layer": {
+        "fastapi": ["main.py", "FastAPI framework"],
+        "routers": ["modules/invoicing_agent/api.py", "api/*.py"],
+        "middleware": ["core/security_middleware.py", "core/tenancy_middleware.py"]
+      }
+    },
+    "business_logic_dependencies": {
+      "expense_management": {
+        "core_models": ["expense_records", "expense_invoices", "expense_attachments"],
+        "processing": ["core/invoice_parser.py", "core/expense_enhancer.py"],
+        "validation": ["core/expense_validator.py", "core/expense_security_validator.py"]
+      },
+      "automation_engine": {
+        "job_management": ["automation_jobs", "automation_logs", "automation_screenshots"],
+        "web_automation": ["modules/invoicing_agent/web_automation.py"],
+        "playwright_engines": ["modules/invoicing_agent/playwright_*.py"]
+      },
+      "ai_intelligence": {
+        "ocr_services": ["core/advanced_ocr_service.py", "core/google_vision_ocr.py"],
+        "ml_features": ["core/ml_feature_extractor.py", "expense_ml_features table"],
+        "category_prediction": ["core/category_predictor.py", "category_prediction_* tables"]
+      }
+    },
+    "circular_dependencies": [
+      "core/database.py ↔ core/tenancy_middleware.py",
+      "modules/invoicing_agent/api.py ↔ core/auth_system.py",
+      "core/expense_enhancer.py ↔ core/category_predictor.py"
+    ]
+  },
+  "architecture_layers": {
+    "presentation_layer": {
+      "files_count": 15,
+      "coherence": 78,
+      "main_files": [
+        "main.py",
+        "static/advanced-ticket-dashboard.html",
+        "dashboard-react/",
+        "modules/invoicing_agent/api.py"
+      ],
+      "endpoints_count": 67,
+      "documented_endpoints": 52
+    },
+    "business_layer": {
+      "files_count": 89,
+      "coherence": 69,
+      "main_modules": [
+        "core/expense_*",
+        "core/category_*",
+        "core/duplicate_*",
+        "modules/invoicing_agent/"
+      ],
+      "spofs_identified": 2
+    },
+    "data_layer": {
+      "files_count": 27,
+      "coherence": 82,
+      "main_components": [
+        "core/database.py",
+        "core/unified_db_adapter.py",
+        "migrations/",
+        "unified_mcp_system.db"
+      ],
+      "integrity_score": 85
+    }
+  },
+  "coherence_by_functionality": [
+    {
+      "id": 1,
+      "name": "Sistema MCP (Model Context Protocol)",
+      "category": "core",
+      "coherence_bd_api_ui": 88,
+      "criticality": "maximum",
+      "implementation_status": "complete",
+      "missing_fields": 0,
+      "spof_risk": false,
+      "dependencies": ["FastAPI", "SQLite", "Pydantic"]
+    },
+    {
+      "id": 2,
+      "name": "Autenticación y Autorización Multi-tenant",
+      "category": "core",
+      "coherence_bd_api_ui": 85,
+      "criticality": "maximum",
+      "implementation_status": "complete",
+      "missing_fields": 2,
+      "spof_risk": false,
+      "dependencies": ["JWT", "OAuth2", "tenants table", "users table"]
+    },
+    {
+      "id": 3,
+      "name": "Base de Datos Unificada",
+      "category": "core",
+      "coherence_bd_api_ui": 92,
+      "criticality": "maximum",
+      "implementation_status": "complete",
+      "missing_fields": 0,
+      "spof_risk": true,
+      "dependencies": ["SQLite", "37 tables", "Foreign Keys"]
+    },
+    {
+      "id": 4,
+      "name": "Sistema de Migración de Esquemas",
+      "category": "core",
+      "coherence_bd_api_ui": 76,
+      "criticality": "high",
+      "implementation_status": "complete",
+      "missing_fields": 3,
+      "spof_risk": false,
+      "dependencies": ["schema_migrations table", "migrations/"]
+    },
+    {
+      "id": 5,
+      "name": "Gestión de Gastos Básica",
+      "category": "business",
+      "coherence_bd_api_ui": 79,
+      "criticality": "maximum",
+      "implementation_status": "complete",
+      "missing_fields": 1,
+      "spof_risk": false,
+      "dependencies": ["expense_records", "expense_invoices", "expense_attachments"]
+    },
+    {
+      "id": 6,
+      "name": "Parser de Facturas y CFDI",
+      "category": "business",
+      "coherence_bd_api_ui": 82,
+      "criticality": "high",
+      "implementation_status": "complete",
+      "missing_fields": 0,
+      "spof_risk": false,
+      "dependencies": ["XML parsing", "PDF processing", "OCR services"]
+    },
+    {
+      "id": 7,
+      "name": "Detección de Duplicados",
+      "category": "intelligence",
+      "coherence_bd_api_ui": 71,
+      "criticality": "medium",
+      "implementation_status": "complete",
+      "missing_fields": 2,
+      "spof_risk": false,
+      "dependencies": ["duplicate_detections", "ML algorithms", "similarity_score"]
+    },
+    {
+      "id": 8,
+      "name": "Predictor de Categorías ML",
+      "category": "intelligence",
+      "coherence_bd_api_ui": 68,
+      "criticality": "medium",
+      "implementation_status": "complete",
+      "missing_fields": 4,
+      "spof_risk": false,
+      "dependencies": ["category_prediction_*", "ML models", "OpenAI API"]
+    },
+    {
+      "id": 9,
+      "name": "Conciliación Bancaria",
+      "category": "business",
+      "coherence_bd_api_ui": 74,
+      "criticality": "high",
+      "implementation_status": "complete",
+      "missing_fields": 2,
+      "spof_risk": false,
+      "dependencies": ["bank_movements", "bank_matching_rules", "ML matching"]
+    },
+    {
+      "id": 10,
+      "name": "Sistema de Tickets",
+      "category": "business",
+      "coherence_bd_api_ui": 81,
+      "criticality": "high",
+      "implementation_status": "complete",
+      "missing_fields": 1,
+      "spof_risk": false,
+      "dependencies": ["tickets table", "OCR processing", "automation_jobs"]
+    },
+    {
+      "id": 11,
+      "name": "Automatización Web (Selenium/Playwright)",
+      "category": "intelligence",
+      "coherence_bd_api_ui": 65,
+      "criticality": "high",
+      "implementation_status": "complete",
+      "missing_fields": 3,
+      "spof_risk": true,
+      "dependencies": ["Playwright", "automation_jobs", "automation_screenshots"]
+    },
+    {
+      "id": 12,
+      "name": "Sistema de No Conciliación",
+      "category": "business",
+      "coherence_bd_api_ui": 58,
+      "criticality": "medium",
+      "implementation_status": "partial",
+      "missing_fields": 5,
+      "spof_risk": false,
+      "dependencies": ["bank_reconciliation_feedback", "non_reconciliation_api"]
+    },
+    {
+      "id": 13,
+      "name": "Procesamiento Masivo de Facturas",
+      "category": "business",
+      "coherence_bd_api_ui": 61,
+      "criticality": "medium",
+      "implementation_status": "partial",
+      "missing_fields": 4,
+      "spof_risk": false,
+      "dependencies": ["bulk_invoice_api", "batch processing", "queue system"]
+    },
+    {
+      "id": 14,
+      "name": "Sistema de Completado de Gastos",
+      "category": "business",
+      "coherence_bd_api_ui": 64,
+      "criticality": "medium",
+      "implementation_status": "partial",
+      "missing_fields": 3,
+      "spof_risk": false,
+      "dependencies": ["expense_completion_api", "field_completeness", "validation_errors"]
+    },
+    {
+      "id": 15,
+      "name": "Asistente Conversacional",
+      "category": "intelligence",
+      "coherence_bd_api_ui": 59,
+      "criticality": "low",
+      "implementation_status": "partial",
+      "missing_fields": 6,
+      "spof_risk": false,
+      "dependencies": ["conversational_assistant_api", "OpenAI API", "intent_analyzer"]
+    },
+    {
+      "id": 16,
+      "name": "Motor de Automatización RPA",
+      "category": "intelligence",
+      "coherence_bd_api_ui": 62,
+      "criticality": "medium",
+      "implementation_status": "partial",
+      "missing_fields": 4,
+      "spof_risk": false,
+      "dependencies": ["rpa_automation_engine_api", "AI planning", "checkpoint_data"]
+    },
+    {
+      "id": 17,
+      "name": "Motor de Automatización Web",
+      "category": "intelligence",
+      "coherence_bd_api_ui": 67,
+      "criticality": "medium",
+      "implementation_status": "partial",
+      "missing_fields": 3,
+      "spof_risk": false,
+      "dependencies": ["web_automation_engine_api", "DOM analysis", "Claude integration"]
+    },
+    {
+      "id": 18,
+      "name": "Procesador Híbrido",
+      "category": "intelligence",
+      "coherence_bd_api_ui": 69,
+      "criticality": "medium",
+      "implementation_status": "partial",
+      "missing_fields": 2,
+      "spof_risk": false,
+      "dependencies": ["hybrid_processor_api", "multiple engines", "fallback system"]
+    },
+    {
+      "id": 19,
+      "name": "Motor de Automatización Robusto",
+      "category": "intelligence",
+      "coherence_bd_api_ui": 72,
+      "criticality": "medium",
+      "implementation_status": "partial",
+      "missing_fields": 2,
+      "spof_risk": false,
+      "dependencies": ["robust_automation_engine_api", "error recovery", "health monitoring"]
+    },
+    {
+      "id": 20,
+      "name": "Motor Universal de Facturas",
+      "category": "intelligence",
+      "coherence_bd_api_ui": 71,
+      "criticality": "medium",
+      "implementation_status": "partial",
+      "missing_fields": 2,
+      "spof_risk": false,
+      "dependencies": ["universal_invoice_engine_api", "portal templates", "universal processing"]
+    },
+    {
+      "id": 21,
+      "name": "Sistema de OCR Avanzado",
+      "category": "intelligence",
+      "coherence_bd_api_ui": 78,
+      "criticality": "high",
+      "implementation_status": "complete",
+      "missing_fields": 1,
+      "spof_risk": false,
+      "dependencies": ["Google Vision API", "OpenAI API", "ocr_confidence", "quality_score"]
+    },
+    {
+      "id": 22,
+      "name": "Sistema de Análisis de Riesgos",
+      "category": "intelligence",
+      "coherence_bd_api_ui": 65,
+      "criticality": "medium",
+      "implementation_status": "partial",
+      "missing_fields": 4,
+      "spof_risk": false,
+      "dependencies": ["risk_level", "audit_trail", "security validation"]
+    },
+    {
+      "id": 23,
+      "name": "Dashboard Analítico",
+      "category": "presentation",
+      "coherence_bd_api_ui": 75,
+      "criticality": "low",
+      "implementation_status": "partial",
+      "missing_fields": 2,
+      "spof_risk": false,
+      "dependencies": ["analytics_cache", "dashboard-react/", "stats endpoints"]
+    }
+  ],
+  "spofs_analysis": {
+    "critical_spofs": [
+      {
+        "component": "unified_mcp_system.db",
+        "type": "database_single_point",
+        "impact": "complete_system_failure",
+        "mitigation_status": "none",
+        "recommendation": "implement_database_replication"
+      },
+      {
+        "component": "automation_engine_coordinator",
+        "type": "service_orchestration",
+        "impact": "automation_failure",
+        "mitigation_status": "partial",
+        "recommendation": "implement_robust_fallback_system"
+      }
+    ],
+    "medium_risk_spofs": [
+      {
+        "component": "openai_api_dependency",
+        "type": "external_service",
+        "impact": "intelligence_degradation",
+        "mitigation_status": "partial",
+        "recommendation": "implement_alternative_ai_providers"
+      },
+      {
+        "component": "tenancy_middleware",
+        "type": "authentication_layer",
+        "impact": "multi_tenant_isolation_failure",
+        "mitigation_status": "good",
+        "recommendation": "add_redundant_validation"
+      }
+    ]
+  },
+  "api_endpoint_analysis": {
+    "total_endpoints": 67,
+    "documented_endpoints": 52,
+    "undocumented_endpoints": 15,
+    "endpoint_categories": {
+      "authentication": 7,
+      "expense_management": 18,
+      "automation": 23,
+      "analytics": 6,
+      "system_health": 5,
+      "file_upload": 8
+    },
+    "api_consistency_score": 78,
+    "missing_api_features": [
+      "bulk_operations_consistency",
+      "standardized_error_responses",
+      "api_versioning_enforcement",
+      "rate_limiting_implementation"
+    ]
+  },
+  "migration_phase1_evaluation": {
+    "fields_added_success": 47,
+    "fields_migration_pending": 18,
+    "coherence_improvement": "+12%",
+    "spofs_resolved": 1,
+    "new_spofs_introduced": 0,
+    "phase1_success_rate": 72,
+    "critical_issues_remaining": [
+      "database_backup_strategy",
+      "automation_engine_reliability",
+      "api_endpoint_documentation",
+      "missing_field_implementations"
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": "critical",
+      "category": "database",
+      "title": "Implement Database Backup and Replication Strategy",
+      "description": "Add automated backups, implement read replicas, and create disaster recovery procedures for unified_mcp_system.db",
+      "estimated_effort": "high",
+      "timeline": "immediate"
+    },
+    {
+      "priority": "critical",
+      "category": "missing_fields",
+      "title": "Complete Phase 2: Implement Missing Database Fields",
+      "description": "Add the 18 missing database fields identified in the audit to achieve full BD↔API↔UI coherence",
+      "estimated_effort": "medium",
+      "timeline": "2-3 weeks"
+    },
+    {
+      "priority": "high",
+      "category": "automation",
+      "title": "Strengthen Automation Engine Reliability",
+      "description": "Implement robust fallback mechanisms, improve error recovery, and add comprehensive health monitoring",
+      "estimated_effort": "high",
+      "timeline": "3-4 weeks"
+    },
+    {
+      "priority": "high",
+      "category": "api",
+      "title": "Standardize API Documentation and Versioning",
+      "description": "Complete documentation for 15 undocumented endpoints and implement consistent API versioning strategy",
+      "estimated_effort": "medium",
+      "timeline": "2 weeks"
+    },
+    {
+      "priority": "medium",
+      "category": "architecture",
+      "title": "Resolve Circular Dependencies",
+      "description": "Refactor identified circular dependencies between core modules to improve maintainability",
+      "estimated_effort": "medium",
+      "timeline": "2-3 weeks"
+    },
+    {
+      "priority": "medium",
+      "category": "intelligence",
+      "title": "Implement Alternative AI Provider Support",
+      "description": "Add support for multiple AI providers to reduce dependency on OpenAI API",
+      "estimated_effort": "high",
+      "timeline": "4-5 weeks"
+    },
+    {
+      "priority": "low",
+      "category": "monitoring",
+      "title": "Enhance System Observability",
+      "description": "Implement comprehensive logging, metrics collection, and performance monitoring across all components",
+      "estimated_effort": "medium",
+      "timeline": "3 weeks"
+    }
+  ],
+  "phase_2_roadmap": {
+    "immediate_actions": [
+      "Database backup implementation",
+      "Critical missing fields implementation",
+      "Automation engine reliability improvements"
+    ],
+    "short_term": [
+      "API documentation completion",
+      "Circular dependency resolution",
+      "Enhanced error handling"
+    ],
+    "medium_term": [
+      "Alternative AI provider integration",
+      "Performance optimization",
+      "Security enhancements"
+    ],
+    "success_metrics": {
+      "target_global_coherence": 91,
+      "target_spofs_critical": 0,
+      "target_missing_fields": 0,
+      "target_api_documentation": 100
+    }
+  }
+}

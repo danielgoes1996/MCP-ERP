@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/pdf_extraction_validator.py
+# hypothesis_version: 6.140.3
+
+[0.01, '#', '*', ',', '.', '/', '=', '@', 'BALANCE', 'Monto muy pequeño', '__main__', 'alt1', 'amount', 'balance_mismatch', 'balance_validation', 'calculated', 'calculated_final', 'critical', 'date', 'description', 'details', 'difference', 'expected', 'extraction_pattern', 'final_balance_check', 'inbursa', 'is_complete', 'is_valid', 'issues', 'main', 'message', 'missing_transactions', 'possible_reasons', 'raw_amount', 'raw_date', 'raw_description', 'raw_transaction', 'recommendations', 'severity', 'simple', 'source_line', 'spei', 'timestamp', 'type', 'unknown', 'unmatched_amounts', 'warning', '✅', '✅ COMPLETA', '❌', '❌ INCOMPLETA']

@@ -226,7 +226,7 @@ def create_access_token(user: User) -> str:
     expires = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
     to_encode = {
-        "sub": user.id,
+        "sub": str(user.id),  # ← JWT spec requires sub to be a string
         "username": user.username,
         "role": user.role,
         "tenant_id": user.tenant_id,  # ← Include tenant_id in JWT
@@ -278,6 +278,9 @@ def is_token_revoked(jti: str) -> bool:
 
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     """Get current user from JWT token"""
+    import logging
+    logger = logging.getLogger(__name__)
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -285,23 +288,33 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     )
 
     try:
+        logger.info(f"🔐 Validating JWT token (first 20 chars): {token[:20]}...")
+        logger.info(f"🔑 Using SECRET_KEY: {SECRET_KEY[:10]}... / Algorithm: {ALGORITHM}")
+
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: int = payload.get("sub")
         jti: str = payload.get("jti")
 
+        logger.info(f"✅ JWT decoded successfully - user_id: {user_id}, jti: {jti}")
+
         if user_id is None or jti is None:
+            logger.warning(f"❌ Missing user_id or jti in payload")
             raise credentials_exception
 
         if is_token_revoked(jti):
+            logger.warning(f"❌ Token {jti} is revoked")
             raise HTTPException(401, "Token revoked")
 
-    except JWTError:
+    except JWTError as e:
+        logger.error(f"❌ JWT decode error: {e}")
         raise credentials_exception
 
     user = get_user_by_id(user_id)
     if user is None:
+        logger.warning(f"❌ User {user_id} not found in database")
         raise credentials_exception
 
+    logger.info(f"✅ User authenticated: {user.username} (tenant: {user.tenant_id})")
     return user
 
 

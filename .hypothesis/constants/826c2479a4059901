@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/intelligent_field_validator.py
+# hypothesis_version: 6.140.3
+
+[0.0, 0.5, 0.6, 0.75, 0.85, 100, '.', '0', 'Forzado por usuario', 'Razón desconocida', '__main__', '_gpt_usage_stats', 'average_confidence', 'candidates_found', 'confidence', 'confidence_after', 'confidence_before', 'cost_justified', 'cost_reason', 'cost_saved', 'error', 'error_message', 'fallback_used', 'field_details', 'fields_with_errors', 'folio', 'gpt_analysis', 'gpt_reasoning', 'gpt_vision', 'gpt_vision_avoided', 'gpt_vision_expensive', 'gpt_vision_used', 'heuristic', 'merchant_type', 'method', 'method_distribution', 'monto_total', 'ocr_backend', 'ocr_basic_fallback', 'ocr_confidence', 'ocr_failed', 'ocr_single_confident', 'rfc_emisor', 'selection_method', 'success', 'ticket', 'ticket_id', 'total_fields', 'unknown', 'value']

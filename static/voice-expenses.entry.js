@@ -14,6 +14,6 @@ try {
   console.warn('No se pudo procesar company_id desde la URL:', error);
 }
 
-import('/static/voice-expenses.bundle.js').catch((error) => {
+import('/static/voice-expenses.bundle.js?v=1762229719619').catch((error) => {
   console.error('⚠️ No se pudo cargar la interfaz de voz', error);
 });

@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/bank_reconciliation.py
+# hypothesis_version: 6.140.3
+
+[0.0, 0.01, 0.015, 0.03, 0.05, 0.06, 0.08, 0.15, 0.25, 0.3, 0.4, 0.5, 0.55, 0.6, 0.7, 0.75, 0.8, 0.9, 0.95, 1.0, 10.0, 20.0, 100, 200, '%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M:%S.%f', '%Y/%m/%d', '%d-%m-%Y', '%d/%m/%Y', '+', 'MXN', 'Mismo día', 'Monto exacto', 'Monto muy cercano', 'amount', 'banco', 'bank', 'combination', 'combined_amount', 'company_account', 'company_id', 'confidence', 'corporativa', 'currency', 'date', 'default', 'descripcion', 'description', 'fecha', 'fecha_gasto', 'group_id', 'id', 'linked_match', 'metadata', 'monto', 'monto_total', 'movement', 'movement_date', 'movement_id', 'movement_ids', 'movements', 'own_account', 'paid_by', 'payment', 'proveedor', 'proveedor.nombre', 'provider_name', 'reasons', 'reembolso', 'score_breakdown', 'single', 'split_payment', 'suggest_bank_matches', 'tags', 'tarjeta_empresa', 'text', 'type']

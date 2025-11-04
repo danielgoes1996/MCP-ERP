@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/split_reconciliation_service.py
+# hypothesis_version: 6.140.3
+
+[100, ' AND is_complete = ?', ' AND split_type = ?', ' AND tenant_id = ?', ' ORDER BY id', ' WHERE tenant_id = ?', 'allocated_amount', 'bank_status', 'complete', 'count', 'created_at', 'created_by', 'expense', 'expense_id', 'id', 'incomplete', 'is_complete', 'is_reconciled', 'movement', 'movement_id', 'notes', 'percentage', 'reconciled', 'reconciliation_type', 'simple', 'split_group_id', 'split_type', 'total', 'verified_at']

@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/jose/jws.py
+# hypothesis_version: 6.140.3
+
+[b'.', ',', ':', 'JWT', 'Not enough segments', 'alg', 'keys', 'kty', 'typ', 'utf-8']

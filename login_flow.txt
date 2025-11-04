@@ -1,0 +1,73 @@
+api/web_automation_engine_api.py:408:                page_url="https://example.com/login",
+api/auth_jwt_api.py:55:    Get list of available tenants for login selection
+api/auth_jwt_api.py:100:@router.post("/login", response_model=Token)
+api/auth_jwt_api.py:101:async def login(request: LoginRequestJSON) -> Token:
+api/auth_jwt_api.py:135:            logger.warning(f"Failed login attempt for: {username}")
+api/auth_jwt_api.py:199:            detail="An error occurred during login"
+api/rpa_automation_engine_api.py:330:            login_selectors=request.login_selectors,
+api/rpa_automation_engine_api.py:363:                login_selectors={"username": "#userInput", "password": "#passwordInput"},
+api/rpa_automation_engine_api.py:378:                login_selectors={"usuario": "#usuario", "password": "#password"},
+api/rpa_automation_engine_api.py:393:                login_selectors={"rfc": "#rfc", "password": "#password"},
+api/rpa_automation_engine_api.py:505:                "log_message": "Elemento encontrado con selector #login-button",
+api/rpa_automation_engine_api.py:506:                "browser_context": {"selector_used": "#login-button", "element_visible": True}
+api/client_management_api.py:285:            "last_login": credentials.last_login.isoformat() if credentials.last_login else None,
+api/auth_api.py:3:Proporciona endpoints de login, registro, refresh token y logout
+api/auth_api.py:57:@router.post("/login", response_model=AuthResponse)
+api/auth_api.py:58:async def login(request: LoginRequest):
+api/auth_api.py:84:        response = auth_service.login_user(request)
+api/auth_api.py:139:        login_request = LoginRequest(
+api/auth_api.py:145:        response = auth_service.login_user(login_request)
+api/auth_api.py:434:            "login": "POST /auth/login",
+core/ai_rpa_planner.py:472:   - Hacer login si es necesario
+core/client_credential_manager.py:50:    last_login: Optional[datetime] = None
+core/client_credential_manager.py:171:                "last_login": credentials.last_login.isoformat() if credentials.last_login else None,
+core/client_credential_manager.py:212:                last_login=datetime.fromisoformat(creds_dict["last_login"]) if creds_dict.get("last_login") else None,
+core/client_credential_manager.py:285:                    "last_login": credentials.last_login.isoformat() if credentials.last_login else None
+core/client_credential_manager.py:405:                    "last_login": credentials.last_login.isoformat() if credentials.last_login else None,
+core/auth.py:221:# Create login endpoint function
+core/compliance_audit_trail.py:24:    USER_LOGIN = "user_login"
+core/auth_system.py:74:    """Request de login"""
+core/auth_system.py:184:                logger.warning(f"Inactive user attempted login: {email}")
+core/auth_system.py:300:    def login_user(self, request: LoginRequest) -> AuthResponse:
+core/auth_system.py:479:    # Test login
+core/auth_system.py:481:        response = auth.login_user(LoginRequest(
+core/non_reconciliation_system.py:766:        ORDER BY last_login DESC
+core/unified_auth.py:62:    last_login: Optional[datetime] = None
+core/unified_auth.py:63:    failed_login_attempts: int = 0
+core/unified_auth.py:196:                       is_active, is_superuser, last_login, failed_login_attempts,
+core/unified_auth.py:213:                    last_login=row[8],
+core/unified_auth.py:214:                    failed_login_attempts=row[9] or 0,
+core/unified_auth.py:238:            last_login=datetime.now(),
+core/unified_auth.py:239:            failed_login_attempts=0,
+core/unified_auth.py:250:                       is_active, is_superuser, last_login, failed_login_attempts,
+core/unified_auth.py:267:                    last_login=row[8],
+core/unified_auth.py:268:                    failed_login_attempts=row[9] or 0,
+core/unified_auth.py:302:    # Login exitoso - resetear intentos y actualizar último login
+core/unified_auth.py:303:    update_successful_login(user.id)
+core/unified_auth.py:308:    """Incrementar intentos fallidos de login"""
+core/unified_auth.py:317:                SET failed_login_attempts = failed_login_attempts + 1
+core/unified_auth.py:325:                WHERE id = ? AND failed_login_attempts >= 5
+core/unified_auth.py:333:def update_successful_login(user_id: int):
+core/unified_auth.py:334:    """Actualizar último login exitoso"""
+core/unified_auth.py:341:                SET last_login = CURRENT_TIMESTAMP,
+core/unified_auth.py:342:                    failed_login_attempts = 0,
+core/unified_auth.py:349:        logger.error(f"Error updating successful login: {e}")
+core/auth_jwt.py:24:oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+core/auth_jwt.py:150:                   is_active, password_hash, failed_login_attempts, locked_until
+core/auth_jwt.py:173:            failed_attempts = (user_data.get('failed_login_attempts') or 0) + 1
+core/auth_jwt.py:179:                    SET failed_login_attempts = ?, locked_until = ?
+core/auth_jwt.py:186:                    detail="Account locked due to failed login attempts"
+core/auth_jwt.py:190:                    UPDATE users SET failed_login_attempts = ? WHERE id = ?
+core/auth_jwt.py:203:            SET failed_login_attempts = 0, locked_until = NULL, last_login = CURRENT_TIMESTAMP
+core/api_models.py:1217:    last_login: Optional[datetime] = None
+core/api_models.py:1809:    login_selectors: Dict[str, str] = Field(..., description="Selectores de login")
+core/api_models.py:1820:    login_selectors: Dict[str, str] = Field(..., description="Selectores de login")
+core/expense_notification_system.py:529:                            server.login(smtp_config["smtp_username"], smtp_config["smtp_password"])
+core/email_integration.py:81:            mail.login(self.email_address, self.email_password)
+core/email_integration.py:435:            server.login(self.email_address, self.email_password)
+core/security_vault.py:30:    credential_type: str  # 'web_login', 'api_key', 'email', 'certificate'
+core/security_vault.py:495:            credential_type=credential_type or "web_login",
+core/security_vault.py:727:        credential_type="web_login",
+core/security_vault.py:752:        credential_type="web_login"
+core/security_vault.py:776:                credential_type="web_login",
+core/security_vault.py:790:                credential_type="web_login"

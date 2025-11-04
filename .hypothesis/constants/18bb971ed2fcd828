@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/modules/invoicing_agent/__init__.py
+# hypothesis_version: 6.140.3
+
+['BulkTicketUpload', 'InvoicingJobCreate', 'InvoicingJobResponse', 'MerchantCreate', 'MerchantResponse', 'TicketCreate', 'TicketResponse', 'WhatsAppMessage', 'create_invoicing_job', 'create_merchant', 'create_ticket', 'get_invoicing_job', 'get_merchant', 'get_ticket', 'link_expense_invoice', 'list_merchants', 'list_pending_jobs', 'list_tickets', 'update_invoicing_job', 'update_ticket']

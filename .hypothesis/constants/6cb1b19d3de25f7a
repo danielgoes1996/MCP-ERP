@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/service_stack_config.py
+# hypothesis_version: 6.140.3
+
+[0.0, 0.001, 0.0015, 0.01, 0.1, 0.2, 0.3, 0.4, 0.8, 0.9, '2Captcha', '=', 'ANTHROPIC_API_KEY', 'Claude (Anthropic)', 'Google Cloud Vision', 'Selenium WebDriver', 'TWOCAPTCHA_API_KEY', '__main__', 'architecture', 'available', 'available_services', 'claude', 'cost_per_request', 'description', 'env_var', 'errors', 'google_vision', 'has_fallback', 'name', 'optimized_stack_v1', 'overall_status', 'readiness_score', 'recommendations', 'selenium', 'service', 'services', 'setup_instruction', 'status', 'total_services', 'twocaptcha', 'valid', 'warnings', '✅ Disponible', '✅ Operacional', '❌ No configurado']

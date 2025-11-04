@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/api/employee_advances_api.py
+# hypothesis_version: 6.140.3
+
+[100, 1000, '/', '/employee_advances', '/pending/all', '/reimburse', '/summary/all', '/{advance_id}', 'Employee Advances', 'accountant', 'admin', 'employee']

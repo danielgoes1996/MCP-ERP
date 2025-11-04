@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Catálogo SAT · ContaFlow</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/contaflow-theme.css">
+    <script src="/static/components/components.js"></script>
+</head>
+<body class="bg-slate-100">
+    <!-- Global Header -->
+    <div data-include="/static/components/global-header.html"></div>
+
+    <div class="max-w-6xl mx-auto p-6">
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">Catálogo SAT</h1>
+            <p class="text-gray-600">Explora el catálogo agregador para asignar categorías contables con IA o correcciones manuales.</p>
+        </header>
+
+        <section class="bg-white rounded-2xl shadow-lg p-6">
+        <form id="search-form" class="flex gap-3 flex-wrap mb-4">
+            <input type="text" id="search-input" placeholder="Buscar por código, nombre o descripción…" autocomplete="off" class="flex-1 min-w-[320px] px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <button type="submit" class="btn-primary px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all">Buscar</button>
+            <button type="button" id="reset-btn" class="px-6 py-3 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 transition-all">Limpiar</button>
+        </form>
+        <div id="status" class="text-sm text-gray-600 mt-3">Cargando catálogo…</div>
+        <div class="overflow-x-auto mt-4">
+            <table id="catalog-table" hidden class="w-full">
+                <thead>
+                    <tr class="bg-slate-100">
+                        <th class="text-left px-4 py-3 text-sm font-semibold text-gray-700 uppercase tracking-wider">Código</th>
+                        <th class="text-left px-4 py-3 text-sm font-semibold text-gray-700 uppercase tracking-wider">Nombre</th>
+                        <th class="text-left px-4 py-3 text-sm font-semibold text-gray-700 uppercase tracking-wider">Descripción</th>
+                        <th class="text-left px-4 py-3 text-sm font-semibold text-gray-700 uppercase tracking-wider">Tipo</th>
+                        <th class="text-left px-4 py-3 text-sm font-semibold text-gray-700 uppercase tracking-wider">Actualizado</th>
+                    </tr>
+                </thead>
+                <tbody id="catalog-body"></tbody>
+            </table>
+        </div>
+    </section>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const tableEl = document.getElementById('catalog-table');
+        const bodyEl = document.getElementById('catalog-body');
+        const formEl = document.getElementById('search-form');
+        const inputEl = document.getElementById('search-input');
+        const resetBtn = document.getElementById('reset-btn');
+
+        async function loadCatalog(query = '') {
+            tableEl.hidden = true;
+            bodyEl.innerHTML = '';
+            statusEl.textContent = 'Buscando cuentas…';
+
+            const params = new URLSearchParams({ limit: '200' });
+            if (query.trim()) params.set('search', query.trim());
+
+            try {
+                const response = await fetch(`/api/sat-accounts?${params.toString()}`);
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
+                }
+                const data = await response.json();
+                if (!Array.isArray(data) || data.length === 0) {
+                    statusEl.textContent = 'Sin resultados para tu búsqueda.';
+                    return;
+                }
+
+                bodyEl.innerHTML = data.map((item) => `
+                    <tr class="border-b border-gray-200 hover:bg-slate-100 transition-colors">
+                        <td class="px-4 py-3">
+                            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-semibold text-xs">${item.code}</span>
+                        </td>
+                        <td class="px-4 py-3 text-gray-900">${item.name || '—'}</td>
+                        <td class="px-4 py-3 text-gray-600">${item.description || '—'}</td>
+                        <td class="px-4 py-3 text-gray-700">${item.type || '—'}</td>
+                        <td class="px-4 py-3 text-gray-500">${item.updated_at ? new Date(item.updated_at).toLocaleDateString('es-MX') : '—'}</td>
+                    </tr>
+                `).join('');
+
+                statusEl.textContent = `${data.length} cuentas encontradas`;
+                tableEl.hidden = false;
+            } catch (err) {
+                console.error(err);
+                statusEl.textContent = 'No se pudo cargar el catálogo. Revisa la consola.';
+            }
+        }
+
+        formEl.addEventListener('submit', (evt) => {
+            evt.preventDefault();
+            loadCatalog(inputEl.value);
+        });
+
+        resetBtn.addEventListener('click', () => {
+            inputEl.value = '';
+            loadCatalog();
+        });
+
+        // Carga inicial
+        loadCatalog();
+    </script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/error_handler.py
+# hypothesis_version: 6.140.3
+
+[400, 403, 404, 422, 500, 503, 'Access denied', 'Ha ocurrido un error', 'Resource not found', 'authentication', 'authorization', 'business_logic', 'by_category', 'by_severity', 'category', 'database', 'details', 'duration_ms', 'endpoint', 'error', 'error_id', 'external_api', 'generated_at', 'host', 'medium', 'message', 'original_error', 'period_days', 'severity', 'system', 'tenant_id', 'timestamp', 'top_error_endpoints', 'total_errors', 'unknown', 'user-agent', 'user_id', 'validation']

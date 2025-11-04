@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/db_optimizer.py
+# hypothesis_version: 6.140.3
+
+[', ', '.db', 'ANALYZE', 'User account lookups', '__main__', 'amount', 'bank_movements', 'cache_size', 'company_id', 'created_at', 'estado', 'expense_date', 'expense_id', 'expense_invoices', 'expense_records', 'identifier', 'identifier_type', 'indexes', 'invoice_status', 'journal_mode', 'mmap_size', 'movement_date', 'pragma_settings', 'provider_name', 'provider_rfc', 'synchronous', 'tables', 'temp_store', 'tickets', 'total_indexes', 'user_accounts']

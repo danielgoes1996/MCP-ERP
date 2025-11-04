@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/api/category_learning_api.py
+# hypothesis_version: 6.140.3
+
+[0.0, 404, 500, '/feedback', '/metrics', '/predict', '/stats', 'Expense not found', 'Sin categoría', 'accuracy_rate', 'actual_category', 'alternatives', 'amount', 'avg_accuracy', 'avg_confidence', 'categorization', 'category', 'category_name', 'confidence', 'correct_predictions', 'corrected_category', 'created_at', 'description', 'expense_id', 'feedback_date', 'feedback_rate', 'feedback_type', 'history', 'id', 'learned_categories', 'merchant_name', 'message', 'ml', 'ml_model_version', 'most_common_keywords', 'notes', 'predicted_category', 'prediction_method', 'reasoning', 'success', 'tenant_id', 'total_predictions', 'user_feedback', 'user_id']

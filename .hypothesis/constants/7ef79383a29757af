@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/main_enhanced.py
+# hypothesis_version: 6.140.3
+
+[100, 400, 404, 500, 503, 8000, '/', '/bank-movements', '/docs', '/expenses', '/health', '/mcp', '/parse-invoice', '/reconcile', '/redoc', '/register-user', '/static', '/static/index.html', '/voice', '1.1.0-enhanced', '127.0.0.1', 'Additional context', 'Company name', 'Expense amount', 'Expense category', 'Expense concept', 'Expense not found', 'Expense tags', 'HOST', 'PORT', 'Project code', 'Transaction amount', 'Transaction date', 'User email', 'User name', '__main__', 'automation_system', 'data', 'enhanced_automation', 'error', 'es-MX', 'expense', 'expense_id', 'expenses', 'features', 'healthy', 'info', 'main_enhanced:app', 'matches', 'movements', 'snapshot', 'static', 'status', 'success', 'user_id', 'version', 'voice_processing']

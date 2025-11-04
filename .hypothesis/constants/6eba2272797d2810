@@ -1,0 +1,4 @@
+# file: /Users/danielgoes96/Desktop/mcp-server/core/cost_analytics.py
+# hypothesis_version: 6.140.3
+
+[0.0, 1e-05, 0.1, 0.3, 0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 5.0, 10.0, 100, 150, 200, 1000, ':memory:', 'Forzado por usuario', '__main__', 'ambiguous_candidates', 'cost', 'costco', 'count', 'critical_field', 'folio', 'monto_total', 'oxxo', 'pemex', 'portal_error', 'rfc_emisor', 'success', 'unknown', 'user_forced', 'walmart', 'web_id']
