@@ -1,0 +1,129 @@
+# ============================================
+# Python
+# ============================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ============================================
+# Virtual Environments
+# ============================================
+venv/
+.venv/
+env/
+ENV/
+venv_*/
+gemini_env/
+
+# ============================================
+# IDEs
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ============================================
+# Testing
+# ============================================
+.pytest_cache/
+.hypothesis/
+.coverage
+htmlcov/
+*.log
+pytest.log
+
+# ============================================
+# Database Files
+# ============================================
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+data/*.db
+
+# ============================================
+# Environment & Secrets
+# ============================================
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+.rpa_encryption_key
+
+# ============================================
+# Logs & Temp Files
+# ============================================
+logs/
+*.log
+server.log
+automation_logs/
+automation_screenshots/
+screenshots/
+
+# ============================================
+# Uploads & Generated Files
+# ============================================
+uploads/
+automation_downloads/
+backups/
+
+# ============================================
+# Git
+# ============================================
+.git/
+.gitignore
+.github/
+
+# ============================================
+# Docker
+# ============================================
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# ============================================
+# Documentation
+# ============================================
+*.md
+!README.md
+docs/
+examples/
+
+# ============================================
+# Legacy & Archive
+# ============================================
+legacy_ui/
+backend_clean/
+archive/
+static/automation_screenshots/
+dashboard*/
+t/
+
+# ============================================
+# Node.js (if any)
+# ============================================
+node_modules/
+package-lock.json
+npm-debug.log
+
+# ============================================
+# Misc
+# ============================================
+.claude/
+wheels/
+vendor/
+psutil_pkg/
+psycopg2/
+pytest_pkg/
+*.tar.gz
