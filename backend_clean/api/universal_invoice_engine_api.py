@@ -3,7 +3,7 @@ Universal Invoice Engine API - Endpoints para procesamiento universal de factura
 Punto 21 de Auditoría: APIs para template_match y validation_rules
 """
 
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, UploadFile, File
+from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File
 from typing import Dict, List, Optional, Any
 import logging
 import os
@@ -12,12 +12,9 @@ from datetime import datetime
 
 from core.universal_invoice_engine_system import (
     universal_invoice_engine_system,
-    InvoiceFormat,
-    ParserType,
-    ValidationCategory,
     ExtractionStatus
 )
-from core.error_handler import handle_error, log_endpoint_entry, log_endpoint_success, log_endpoint_error
+from core.error_handler import log_endpoint_entry, log_endpoint_success, log_endpoint_error
 from core.api_models import (
     UniversalInvoiceSessionCreateRequest,
     UniversalInvoiceSessionResponse,
@@ -505,7 +502,7 @@ async def cancel_invoice_processing(session_id: str) -> UniversalInvoiceCancelRe
 async def _process_invoice_background(session_id: str):
     """Procesa factura en background"""
     try:
-        result = await universal_invoice_engine_system.process_invoice(session_id)
+        await universal_invoice_engine_system.process_invoice(session_id)
         logger.info(f"Background invoice processing completed for session {session_id}")
     except Exception as e:
         logger.error(f"Background invoice processing failed for session {session_id}: {e}")

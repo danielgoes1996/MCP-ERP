@@ -2,7 +2,6 @@
 """
 Script para aplicar mejoras de producción a transacciones existentes
 """
-import sys
 import sqlite3
 from core.enhanced_categorization_engine import EnhancedCategorizationEngine
 

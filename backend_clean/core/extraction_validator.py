@@ -5,8 +5,7 @@ Ensures PDF processing quality for commercial clients
 """
 import re
 import logging
-from typing import Dict, Any, List, Tuple
-from pathlib import Path
+from typing import Dict, Any, List
 from core.robust_pdf_parser import RobustPDFParser
 
 logger = logging.getLogger(__name__)

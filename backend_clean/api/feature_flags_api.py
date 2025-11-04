@@ -14,8 +14,7 @@ from core.feature_flags import (
     FeatureFlag,
     is_automation_enabled,
     enable_automation_for_company,
-    disable_automation_globally,
-    set_automation_rollout
+    disable_automation_globally
 )
 
 router = APIRouter(prefix="/api/v2/feature-flags", tags=["feature-flags"])

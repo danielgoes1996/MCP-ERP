@@ -5,7 +5,6 @@ Migra datos de múltiples DBs SQLite fragmentadas a una DB unificada
 """
 
 import sqlite3
-import os
 from pathlib import Path
 import logging
 from datetime import datetime

@@ -4,9 +4,9 @@ Category Learning System - Sistema de aprendizaje automático para predicción d
 
 import json
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional, Tuple
-from collections import defaultdict, Counter
+from datetime import datetime
+from typing import Dict, Any, List
+from collections import Counter
 
 logger = logging.getLogger(__name__)
 

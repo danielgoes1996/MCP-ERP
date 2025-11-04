@@ -9,10 +9,9 @@ import json
 import logging
 import os
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Any, Union
-import re
+from typing import Dict, List, Optional, Any
 import hashlib
 
 logger = logging.getLogger(__name__)

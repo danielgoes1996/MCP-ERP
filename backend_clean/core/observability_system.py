@@ -12,11 +12,10 @@ import asyncio
 import psutil
 import threading
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Callable
-from dataclasses import dataclass, asdict
+from typing import Dict, List, Any, Callable
+from dataclasses import dataclass
 from enum import Enum
 from collections import defaultdict, deque
-import weakref
 
 # Configuración de logging estructurado
 class StructuredFormatter(logging.Formatter):
@@ -562,14 +561,13 @@ def instrument_function(operation_name: str):
         def sync_wrapper(*args, **kwargs):
             start_time = time.time()
             success = True
-            error = None
 
             try:
                 result = func(*args, **kwargs)
                 return result
             except Exception as e:
                 success = False
-                error = str(e)
+                str(e)
                 raise
             finally:
                 duration_ms = (time.time() - start_time) * 1000

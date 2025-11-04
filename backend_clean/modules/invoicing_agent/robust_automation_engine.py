@@ -17,13 +17,11 @@ Sigue los principios:
 - Feedback visual completo
 """
 
-import asyncio
 import logging
 import time
-import json
 import os
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any
 from enum import Enum
 from dataclasses import dataclass, asdict
 
@@ -31,12 +29,10 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import (
     TimeoutException,
     ElementNotInteractableException,
-    StaleElementReferenceException,
-    NoSuchElementException
+    StaleElementReferenceException
 )
 
 # Verificar disponibilidad de Claude
@@ -48,7 +44,7 @@ except ImportError:
 
 # Importar persistencia
 try:
-    from .automation_persistence import AutomationPersistence, save_automation_session
+    from .automation_persistence import AutomationPersistence
     PERSISTENCE_AVAILABLE = True
 except ImportError:
     PERSISTENCE_AVAILABLE = False
@@ -362,7 +358,7 @@ class RobustAutomationEngine:
         """
         try:
             # Verificar si abre nueva pestaña
-            target = element.get_attribute("target")
+            element.get_attribute("target")
             initial_handles = len(self.driver.window_handles)
 
             # Hacer click
@@ -1341,7 +1337,7 @@ La explicación debe ser comprensible para un usuario no técnico.
 
                     for link in nav_links[:10]:  # Máximo 10 enlaces por selector
                         text = link.get_attribute("textContent").strip().lower()
-                        href = link.get_attribute("href") or ""
+                        link.get_attribute("href") or ""
 
                         # Buscar texto relevante
                         if any(keyword in text for keyword in ["factura", "billing", "servicio", "cliente"]):
@@ -1357,7 +1353,7 @@ La explicación debe ser comprensible para un usuario no técnico.
                                     )
                                     return True
 
-                except Exception as e:
+                except Exception:
                     continue
 
             return False

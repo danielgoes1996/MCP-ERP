@@ -4,10 +4,9 @@ Motor de Reportes Financieros Automáticos
 Genera insights derivados automáticamente para copiloto financiero
 """
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, List, Any
 from dataclasses import dataclass
-import json
 
 @dataclass
 class FinancialInsight:

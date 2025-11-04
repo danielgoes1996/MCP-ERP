@@ -20,7 +20,7 @@ from core.api_models import (
 )
 from core.non_reconciliation_system import non_reconciliation_system
 from core.unified_db_adapter import get_db_adapter
-from core.auth_jwt import User, get_current_user, require_role
+from core.auth_jwt import User, require_role
 
 logger = logging.getLogger(__name__)
 

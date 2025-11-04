@@ -9,20 +9,17 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Query, Request
 from fastapi.responses import RedirectResponse
 from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
-from typing import Dict, Any, List, Optional, Literal
+from typing import Dict, Any, List, Optional
 import uvicorn
 import logging
 import tempfile
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 import math
 import re
 import sqlite3
 
 # Utilidades para movimientos bancarios
-from core.bank_statements_models import infer_movement_kind
 
 # Cargar variables de entorno
 try:
@@ -54,13 +51,13 @@ from fastapi import Depends, status
 
 # Import tenancy system
 from core.tenancy_middleware import (
-    TenancyContext, get_tenancy_context, normalize_tenant_id, extract_tenant_from_company_id
+    TenancyContext, get_tenancy_context, normalize_tenant_id
 )
 
 # Import enhanced error handling
 from core.error_handler import (
-    create_error_context, handle_error_with_context, store_error_in_db,
-    get_error_stats, ValidationError, NotFoundError, BusinessLogicError
+    create_error_context, handle_error_with_context, get_error_stats,
+    ValidationError, NotFoundError, BusinessLogicError
 )
 
 # Import unified DB adapter or fallback to original internal_db
@@ -191,7 +188,7 @@ except ImportError as e:
     db_delete_company_expenses = delete_company_expenses
 # Import voice processing (optional - only if OpenAI is configured)
 try:
-    from core.voice_handler import process_voice_request, get_voice_handler
+    from core.voice_handler import process_voice_request
     VOICE_ENABLED = True
 except ImportError as e:
     VOICE_ENABLED = False
@@ -2351,7 +2348,6 @@ async def reparse_transactions_with_improved_rules(
     try:
         import sqlite3
         from core.llm_pdf_parser import LLMPDFParser
-        from core.bank_statements_models import MovementKind
 
         # Connect to database
         db_path = "unified_mcp_system.db"
@@ -2971,10 +2967,9 @@ async def predict_expense_category_endpoint(
             raise HTTPException(status_code=400, detail="Description is required")
 
         # Get user history for better predictions
-        user_history = []
         if request.get('user_id'):
             from core.unified_db_adapter import get_user_category_preferences
-            user_history = get_user_category_preferences(request['user_id'], tenancy.tenant_id)
+            get_user_category_preferences(request['user_id'], tenancy.tenant_id)
 
         prediction = predict_expense_category({
             'description': description,
@@ -4343,7 +4338,7 @@ async def create_invoice(
     """
     try:
         tenant_id = current_user.tenant_id
-        user_id = current_user.id
+        current_user.id
 
         # Verificar que el gasto existe y pertenece al tenant
         expense = fetch_expense_record(invoice_data.expense_id)

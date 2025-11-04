@@ -8,7 +8,7 @@ Maneja el flujo completo desde subida de ticket hasta factura generada.
 import asyncio
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from enum import Enum
@@ -19,7 +19,7 @@ from .queue_service import QueueService, JobPriority, Job
 
 # Importar servicios del sistema original
 from modules.invoicing_agent.models import (
-    get_ticket, update_ticket, create_invoicing_job, update_invoicing_job
+    get_ticket, update_ticket, create_invoicing_job
 )
 
 logger = logging.getLogger(__name__)

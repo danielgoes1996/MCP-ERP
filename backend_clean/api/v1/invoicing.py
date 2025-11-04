@@ -3,8 +3,7 @@ MCP-Server API v1 - Invoicing Endpoints
 Professional invoicing API with proper versioning
 """
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, Depends
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, HTTPException, UploadFile, File, Query, Depends
 from typing import List, Optional
 from pydantic import BaseModel, Field
 import logging

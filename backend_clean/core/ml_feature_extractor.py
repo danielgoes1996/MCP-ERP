@@ -2,11 +2,10 @@
 ML Feature Extractor - Extrae características ML de gastos para detección de duplicados
 """
 
-import json
 import re
 import hashlib
 from datetime import datetime
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any
 import logging
 
 logger = logging.getLogger(__name__)
@@ -122,7 +121,6 @@ class MLFeatureExtractor:
         }
 
         # Keywords matching
-        keyword_features = {}
         for keyword in self.expense_keywords:
             desc_key = f'desc_contains_{keyword}'
             merchant_key = f'merchant_contains_{keyword}'

@@ -7,14 +7,11 @@ from fastapi import APIRouter, HTTPException, Depends, status, UploadFile, File,
 from typing import List, Optional, Any
 from datetime import datetime, date
 import logging
-import asyncio
 from pathlib import Path
 import os
 
 from core.unified_auth import get_current_active_user, User
 from core.bank_statements_models import (
-    BankStatement,
-    BankTransaction,
     CreateBankStatementRequest,
     BankStatementResponse,
     BankStatementSummary,
@@ -213,7 +210,7 @@ async def get_statement_details(
             summary=summary
         )
 
-    except ValueError as e:
+    except ValueError:
         logger.warning(f"Statement {statement_id} not found for user {current_user.email}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -257,7 +254,7 @@ async def delete_statement(
                 detail="No se pudo eliminar el estado de cuenta"
             )
 
-    except ValueError as e:
+    except ValueError:
         logger.warning(f"Statement {statement_id} not found for user {current_user.email}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -343,7 +340,7 @@ async def reparse_statement(
 
         return {"message": "Re-parsing iniciado en background"}
 
-    except ValueError as e:
+    except ValueError:
         logger.warning(f"Statement {statement_id} not found for user {current_user.email}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

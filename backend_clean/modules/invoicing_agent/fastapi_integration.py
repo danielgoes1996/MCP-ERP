@@ -7,24 +7,21 @@ manteniendo 100% compatibilidad hacia atrás.
 
 import logging
 from typing import Dict, List, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from fastapi.responses import JSONResponse
+from fastapi import HTTPException, BackgroundTasks
 
 # Imports existentes (mantener compatibilidad)
 from modules.invoicing_agent.api import router as existing_router
-from modules.invoicing_agent.models import TicketResponse, InvoicingJobResponse
 
 # Imports robustos
 from modules.invoicing_agent.integration_layer import (
     get_integration_layer,
     process_ticket_with_fallback,
-    get_ticket_with_automation_data,
     validate_automation_system,
     is_enhanced_automation_available
 )
 from modules.invoicing_agent.enhanced_api import enhanced_router
 from core.enhanced_api_models import EnhancedTicketResponse, AutomationStatus
-from core.security_middleware import require_permission, rate_limit, Permission
+from core.security_middleware import rate_limit
 
 logger = logging.getLogger(__name__)
 

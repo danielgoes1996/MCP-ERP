@@ -9,11 +9,11 @@ import time
 import json
 import os
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any
 from enum import Enum
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 
-from playwright.async_api import async_playwright, Page, Browser, BrowserContext, ElementHandle, Playwright
+from playwright.async_api import async_playwright, Page, Browser, BrowserContext, Playwright
 
 # Verificar disponibilidad de Claude
 try:

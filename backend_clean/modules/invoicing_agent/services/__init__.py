@@ -54,7 +54,7 @@ async def initialize_services():
 
     # Verificar disponibilidad de servicios
     ocr_metrics = ocr_service.get_metrics()
-    classifier_metrics = merchant_classifier.get_metrics()
+    merchant_classifier.get_metrics()
     queue_metrics = await queue_service.get_queue_stats()
 
     logger.info(f"OCR Service: {len(ocr_metrics.get('available_backends', []))} backends disponibles")

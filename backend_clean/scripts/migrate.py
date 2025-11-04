@@ -4,7 +4,6 @@
 import argparse
 import logging
 import sqlite3
-from datetime import datetime
 from typing import List
 
 from core.internal_db import _get_db_path, initialize_internal_database, SCHEMA_MIGRATIONS

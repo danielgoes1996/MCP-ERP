@@ -8,9 +8,8 @@ Especializado en HTML complejo, minificado e iframes.
 import os
 import json
 import logging
-import time
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any
 from dataclasses import dataclass
 import requests
 

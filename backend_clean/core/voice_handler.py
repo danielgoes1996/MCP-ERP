@@ -7,9 +7,8 @@ using OpenAI Whisper and TTS APIs
 import os
 import tempfile
 import logging
-from typing import Optional, BinaryIO, Union
+from typing import BinaryIO, Union
 from pathlib import Path
-import json
 
 try:
     from openai import OpenAI

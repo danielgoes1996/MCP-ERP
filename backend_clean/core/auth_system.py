@@ -4,7 +4,7 @@ Proporciona autenticación segura, roles y middleware
 """
 
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, List
 from fastapi import HTTPException, status, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
@@ -90,7 +90,6 @@ class AuthService:
     """Servicio de autenticación"""
 
     def __init__(self):
-        import sqlite3
         self.db_path = "unified_mcp_system.db"
         self.users_db: Dict[str, Dict] = {
             # Usuario demo para testing - eliminar en producción

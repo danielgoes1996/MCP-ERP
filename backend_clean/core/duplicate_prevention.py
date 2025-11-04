@@ -6,7 +6,7 @@ Evita insertar transacciones duplicadas durante el parsing
 import sqlite3
 import hashlib
 from datetime import datetime, date
-from typing import List, Dict, Set, Tuple, Optional
+from typing import List, Dict
 import logging
 
 logger = logging.getLogger(__name__)
@@ -107,7 +107,7 @@ class DuplicateDetector:
         for key, group in groups.items():
             if len(group) > 1:
                 # Si hay múltiples transacciones SPEI del mismo monto en la misma fecha
-                amounts = [txn['amount'] for _, txn in group]
+                [txn['amount'] for _, txn in group]
 
                 # Buscar pares positivo/negativo
                 for i, (idx1, txn1) in enumerate(group):

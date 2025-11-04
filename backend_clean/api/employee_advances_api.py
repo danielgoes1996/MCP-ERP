@@ -17,7 +17,7 @@ from core.employee_advances_models import (
     AdvanceStatus
 )
 from core.employee_advances_service import get_employee_advances_service
-from core.auth_jwt import User, get_current_user, require_role, filter_by_scope, enforce_tenant_isolation
+from core.auth_jwt import User, get_current_user, require_role, enforce_tenant_isolation
 
 logger = logging.getLogger(__name__)
 

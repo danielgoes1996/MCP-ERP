@@ -3,10 +3,9 @@ Sistema robusto de OCR con fallbacks inteligentes
 Implementa los principios de la documentación oficial
 """
 import logging
-import base64
 import os
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 from dataclasses import dataclass
 from enum import Enum
 

@@ -4,7 +4,6 @@ Mejorar descripciones existentes usando toda la información disponible
 Especialmente para domiciliaciones con RFC y razón social completa
 """
 import sqlite3
-import re
 
 def extract_enhanced_info(description: str) -> str:
     """Extraer y mejorar información completa de la descripción"""

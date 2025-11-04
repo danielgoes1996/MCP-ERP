@@ -14,7 +14,7 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from enum import Enum
 
-from .url_extractor import URLExtractor, ExtractedURL, URLType
+from .url_extractor import URLExtractor, ExtractedURL
 from .merchant_classifier import classify_merchant
 from .ocr_service import OCRService
 

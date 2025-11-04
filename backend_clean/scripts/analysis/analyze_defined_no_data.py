@@ -6,7 +6,6 @@ Determina si mantener, evaluar, o eliminar cada tabla
 import sqlite3
 import subprocess
 import json
-from pathlib import Path
 
 DB_PATH = "unified_mcp_system.db"
 SEARCH_PATHS = ["core/", "api/", "modules/", "static/"]

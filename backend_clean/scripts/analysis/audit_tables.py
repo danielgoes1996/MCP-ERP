@@ -5,7 +5,6 @@ Auditoría completa de tablas - Uso en código + Datos reales
 import sqlite3
 import subprocess
 import json
-from pathlib import Path
 
 DB_PATH = "unified_mcp_system.db"
 SEARCH_PATHS = ["core/", "api/", "modules/", "services/"]

@@ -5,7 +5,7 @@ Text cleaner for PDF extraction - removes duplicate tables and reconstructs frag
 
 import re
 import logging
-from typing import List, Tuple
+from typing import List
 
 logger = logging.getLogger(__name__)
 

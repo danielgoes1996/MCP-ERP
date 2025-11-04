@@ -13,7 +13,7 @@ import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, List, Optional, Tuple, Any, Union
+from typing import Dict, List, Optional, Union
 from dataclasses import dataclass
 from enum import Enum
 import hashlib
@@ -679,7 +679,6 @@ class AdvancedOCRService:
             return bool(config.get("api_key") and config.get("endpoint"))
         elif backend == OCRBackend.TESSERACT:
             try:
-                import pytesseract
                 return True
             except ImportError:
                 return False

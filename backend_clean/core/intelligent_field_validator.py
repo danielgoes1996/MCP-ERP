@@ -6,7 +6,7 @@ Integra OCR + GPT Vision para máxima precisión en extracción de campos de tic
 
 import asyncio
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)

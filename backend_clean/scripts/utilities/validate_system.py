@@ -5,9 +5,7 @@ Testea que los servicios críticos funcionen correctamente.
 """
 
 import asyncio
-import os
 import sys
-from pathlib import Path
 
 async def test_ocr_service():
     """Test del servicio OCR avanzado."""

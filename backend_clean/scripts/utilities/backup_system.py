@@ -6,7 +6,6 @@ Protege la base de datos con backups programados y rotación automática
 
 import sqlite3
 import shutil
-import os
 from datetime import datetime, timedelta
 from pathlib import Path
 import logging

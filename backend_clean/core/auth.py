@@ -8,13 +8,11 @@ from typing import Optional, Dict, Any
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, EmailStr
-from sqlalchemy.orm import Session
 import logging
 
 from config.settings import settings
-from core.database import get_db
 
 logger = logging.getLogger(__name__)
 

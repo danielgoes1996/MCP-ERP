@@ -12,7 +12,6 @@ from core.payment_accounts_models import (
     UserPaymentAccount,
     CreateUserPaymentAccountRequest,
     UpdateUserPaymentAccountRequest,
-    UserPaymentAccountResponse,
     BankingInstitution,
     TipoCuenta,
     SubtipoCuenta,
@@ -88,7 +87,7 @@ async def get_payment_account(
 
         return account
 
-    except ValueError as e:
+    except ValueError:
         logger.warning(f"Payment account {account_id} not found for user {current_user.email}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -230,7 +229,7 @@ async def update_payment_account(
         logger.info(f"Payment account updated: {account_id} for user {current_user.email}")
         return account
 
-    except ValueError as e:
+    except ValueError:
         logger.warning(f"Payment account {account_id} not found for user {current_user.email}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -280,7 +279,7 @@ async def delete_payment_account(
                 detail="No se pudo desactivar la cuenta"
             )
 
-    except ValueError as e:
+    except ValueError:
         logger.warning(f"Payment account {account_id} not found for user {current_user.email}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

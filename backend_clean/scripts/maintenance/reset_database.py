@@ -6,7 +6,6 @@ Elimina todos los tickets, merchants, jobs, y otros datos almacenados.
 
 import os
 import sqlite3
-from pathlib import Path
 
 def reset_database():
     """Limpiar completamente la base de datos."""

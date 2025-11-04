@@ -4,7 +4,7 @@ Motor de Categorización Inteligente Jerárquico
 Versión Enterprise para clasificación automática avanzada
 """
 import re
-from typing import Dict, Tuple, Optional, List
+from typing import Dict, Tuple
 from dataclasses import dataclass
 
 @dataclass

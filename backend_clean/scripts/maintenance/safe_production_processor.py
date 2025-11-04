@@ -11,7 +11,6 @@ from core.bank_file_parser import BankFileParser
 from core.extraction_validator import validate_pdf_extraction
 import sqlite3
 import logging
-from datetime import datetime
 
 # Configure logging for production
 logging.basicConfig(

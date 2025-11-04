@@ -10,18 +10,14 @@ Implements:
 - CFDI security
 """
 
-import hashlib
-import hmac
 import json
 import logging
 import time
-from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Tuple
+from datetime import datetime
+from typing import Dict, Any, Optional, Tuple
 from functools import wraps
 from cryptography.fernet import Fernet
-import jwt
-from fastapi import HTTPException, Request, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -424,7 +420,6 @@ class SecurityManager:
     def get_security_middleware(self):
         """Get FastAPI middleware for security."""
         # TODO: Implement middleware that integrates with your auth system
-        pass
 
 # Global instance
 security_manager = SecurityManager()

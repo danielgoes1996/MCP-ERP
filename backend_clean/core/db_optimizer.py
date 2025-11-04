@@ -5,7 +5,6 @@ Implements critical indexes and performance optimizations
 
 import sqlite3
 import logging
-from typing import List, Tuple
 
 logger = logging.getLogger(__name__)
 

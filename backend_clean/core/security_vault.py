@@ -6,7 +6,6 @@ Compatible con HashiCorp Vault y fallback a encriptación local.
 
 import asyncio
 import base64
-import hashlib
 import json
 import logging
 import os
@@ -15,7 +14,7 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, Optional, Any
 import uuid
 
 logger = logging.getLogger(__name__)

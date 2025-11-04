@@ -9,14 +9,12 @@ Este módulo maneja el procesamiento asíncrono de tickets:
 """
 
 import asyncio
-import base64
-import json
 import logging
 import os
 import re
 import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 # Email imports - will be used when implementing real email functionality
 # from email.mime.text import MimeText
 # from email.mime.multipart import MimeMultipart
@@ -25,7 +23,6 @@ from typing import Any, Dict, List, Optional, Tuple
 from modules.invoicing_agent.models import (
     get_ticket,
     update_ticket,
-    get_merchant,
     find_merchant_by_name,
     get_invoicing_job,
     update_invoicing_job,
@@ -35,7 +32,7 @@ from modules.invoicing_agent.models import (
 # Nuevos servicios escalables
 from modules.invoicing_agent.ocr_service import extract_text_from_image
 from modules.invoicing_agent.services.merchant_classifier import classify_merchant
-from modules.invoicing_agent.services.hybrid_processor import HybridProcessor, ProcessingResult, InterventionReason
+from modules.invoicing_agent.services.hybrid_processor import HybridProcessor, ProcessingResult
 
 logger = logging.getLogger(__name__)
 
@@ -865,7 +862,7 @@ Saludos cordiales.
 
             # Configurar API request
             api_url = merchant_metadata.get("api_url")
-            auth_type = merchant_metadata.get("auth_type", "api_key")
+            merchant_metadata.get("auth_type", "api_key")
 
             if not api_url:
                 return {

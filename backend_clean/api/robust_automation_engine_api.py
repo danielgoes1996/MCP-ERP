@@ -5,16 +5,14 @@ Punto 20 de Auditoría: APIs para performance_metrics, recovery_actions y automa
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
-from typing import Dict, List, Optional, Any
+from fastapi import APIRouter, HTTPException, BackgroundTasks
+from typing import Dict, List, Any
 import logging
 from datetime import datetime
 
 from core.robust_automation_engine_system import (
     robust_automation_engine_system,
     AutomationType,
-    RiskLevel,
-    HealthStatus,
     AutomationStatus
 )
 from core.api_models import (
@@ -31,7 +29,7 @@ from core.api_models import (
     RobustAutomationCancelResponse,
     RobustAutomationSystemHealthResponse,
 )
-from core.error_handler import handle_error, log_endpoint_entry, log_endpoint_success, log_endpoint_error
+from core.error_handler import log_endpoint_entry, log_endpoint_success, log_endpoint_error
 
 router = APIRouter(prefix="/robust-automation", tags=["Robust Automation Engine"])
 logger = logging.getLogger(__name__)
@@ -49,7 +47,7 @@ async def create_robust_automation_session(
     try:
         # Validar tipo de automatización
         try:
-            automation_type_enum = AutomationType(request.automation_type)
+            AutomationType(request.automation_type)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid automation_type: {request.automation_type}")
 
@@ -442,7 +440,7 @@ async def get_system_health() -> "RobustAutomationSystemHealthResponse":
 async def _execute_automation_background(session_id: str, steps: List[Dict[str, Any]]):
     """Ejecuta automatización en background"""
     try:
-        result = await robust_automation_engine_system.execute_automation_session(session_id, steps)
+        await robust_automation_engine_system.execute_automation_session(session_id, steps)
         logger.info(f"Background automation completed for session {session_id}")
     except Exception as e:
         logger.error(f"Background automation failed for session {session_id}: {e}")

@@ -71,7 +71,7 @@ def _clean_json_response(raw_text: str) -> str:
         elif char in "}]":
             if not brace_stack:
                 break
-            opening = brace_stack.pop()
+            brace_stack.pop()
             if not brace_stack:
                 end_index = index + 1
                 break

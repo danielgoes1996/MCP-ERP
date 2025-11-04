@@ -9,12 +9,11 @@ import hashlib
 import json
 import logging
 import time
-from decimal import Decimal
-from typing import Dict, List, Optional, Any, Union, Tuple
+from typing import Dict, List, Optional, Any, Tuple
 from enum import Enum
 from dataclasses import dataclass
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -564,7 +563,7 @@ class HybridProcessorSystem:
                                      results: Dict[str, Any]) -> float:
         """Calcula score de calidad basado en resultados"""
         input_type = session_info['input_type']
-        config = self.quality_configs.get(input_type, self.quality_configs['document'])
+        self.quality_configs.get(input_type, self.quality_configs['document'])
 
         total_score = 0.0
         total_weight = 0.0

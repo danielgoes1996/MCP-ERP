@@ -4,10 +4,8 @@ Reprocesar el PDF más reciente (AMEX Gold) con LLM mejorado
 Para obtener descripciones completas con RFC y información detallada
 """
 import os
-import sys
 import sqlite3
 from core.llm_pdf_parser import LLMPDFParser
-from core.unified_db_adapter import get_unified_adapter
 
 def main():
     # PDF más reciente

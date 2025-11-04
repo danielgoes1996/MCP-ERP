@@ -4,22 +4,19 @@ import logging
 import random
 import time
 import hashlib
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple, Union
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 from enum import Enum
 import sqlite3
 from contextlib import asynccontextmanager
-from playwright.async_api import async_playwright, Browser, BrowserContext, Page
+from playwright.async_api import async_playwright, Page
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options as ChromeOptions
-from selenium.webdriver.chrome.service import Service as ChromeService
 import requests_html
-import httpx
 import psutil
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -457,7 +454,7 @@ class WebAutomationEngineSystem:
     async def _execute_web_automation_steps(self, session_id: str):
         """Ejecutar pasos de automatización web de forma asíncrona"""
         try:
-            session_data = await self._get_session_data(session_id)
+            await self._get_session_data(session_id)
             steps = await self._get_session_steps(session_id)
             engine_instance = self.active_engines.get(session_id)
 
@@ -857,7 +854,7 @@ class WebAutomationEngineSystem:
 
             for engine_name in fallback_engines:
                 try:
-                    engine = WebAutomationEngine(engine_name)
+                    WebAutomationEngine(engine_name)
                     logger.info(f"Trying fallback engine: {engine_name}")
 
                     # Implementar lógica de fallback

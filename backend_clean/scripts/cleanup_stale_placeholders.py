@@ -21,7 +21,7 @@ import sqlite3
 import json
 import sys
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Dict, Any
 
 # Add parent directory to path for imports

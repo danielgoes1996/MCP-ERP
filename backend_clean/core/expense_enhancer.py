@@ -5,7 +5,7 @@ Expense Enhancer - Usa LLM para mejorar descripciones y mapear campos de gastos
 import os
 import logging
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 import json
 
 try:
@@ -185,10 +185,9 @@ Responde SOLO en formato JSON:
         if enhanced_data.get('incluye_impuestos', True):
             # Asumir IVA 16% incluido en México
             base_amount = amount / 1.16
-            tax_amount = amount - base_amount
+            amount - base_amount
         else:
             base_amount = amount
-            tax_amount = 0
 
         # Determinar quién paga
         payment_mode = 'own_account'  # Empleado paga (a reembolsar)
@@ -196,7 +195,7 @@ Responde SOLO en formato JSON:
             payment_mode = 'company_account'
 
         # Mapear empleado
-        employee_name = enhanced_data.get('empleado', 'Daniel Gómez')
+        enhanced_data.get('empleado', 'Daniel Gómez')
 
         expense_data = {
             'name': enhanced_data['descripcion_profesional'],

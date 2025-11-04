@@ -9,9 +9,8 @@ import sqlite3
 import logging
 import asyncio
 import hashlib
-import shutil
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Callable
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
 from enum import Enum
 from pathlib import Path

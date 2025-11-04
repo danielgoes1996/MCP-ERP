@@ -3,7 +3,7 @@ API para Gestión de Clientes y Credenciales
 Endpoints para configurar clientes, sus datos fiscales y credenciales de portales.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, EmailStr, validator
 from typing import Dict, List, Optional, Any
 import uuid

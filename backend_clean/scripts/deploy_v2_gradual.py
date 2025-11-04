@@ -6,14 +6,13 @@ Implementa rollout progresivo con feature flags y rollback automático.
 """
 
 import os
-import sys
 import time
 import sqlite3
 import requests
 import logging
 import subprocess
-from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional
+from datetime import datetime
+from typing import Dict, Any
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)

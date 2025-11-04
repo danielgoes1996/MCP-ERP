@@ -3,7 +3,6 @@
 Guardar chunks que recibe el LLM en archivos para revisión
 """
 
-import os
 from core.robust_pdf_parser import RobustPDFParser
 from core.llm_pdf_parser import LLMPDFParser
 

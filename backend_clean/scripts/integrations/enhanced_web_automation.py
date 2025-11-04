@@ -373,7 +373,7 @@ class EnhancedWebAutomationWorker(WebAutomationWorker):
     def _determine_field_value(self, field: Dict[str, Any], ticket_text: str, merchant_name: str) -> Optional[str]:
         """Determinar qué valor llenar en un campo específico"""
         field_name = (field.get("name") or field.get("id") or "").lower()
-        placeholder = (field.get("placeholder") or "").lower()
+        (field.get("placeholder") or "").lower()
 
         # RFC
         if any(keyword in field_name for keyword in ["rfc"]):

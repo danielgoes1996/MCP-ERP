@@ -4,7 +4,6 @@ Migración para agregar sistema completo de facturas
 """
 
 import sqlite3
-import os
 
 def migrate_invoice_system():
     """Agregar columnas para manejo completo de facturas"""

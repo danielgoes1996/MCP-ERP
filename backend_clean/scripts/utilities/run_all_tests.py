@@ -4,14 +4,13 @@
 Ejecuta toda la suite de testing UI ↔ API ↔ BD de forma automatizada
 """
 
-import os
 import sys
 import subprocess
 import time
 import json
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict
 
 # Add root to path
 ROOT = Path(__file__).resolve().parent

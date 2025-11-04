@@ -109,7 +109,7 @@ def init_db():
     """Initialize database tables"""
     try:
         # Import all models to register them with SQLAlchemy
-        from core.models import expense_models, invoice_models, bank_models
+        pass
 
         # Create all tables
         Base.metadata.create_all(bind=engine)
@@ -137,7 +137,7 @@ def test_connection():
     """Test database connection"""
     try:
         with engine.connect() as conn:
-            result = conn.execute("SELECT 1")
+            conn.execute("SELECT 1")
             logger.info("Database connection successful")
             return True
     except Exception as e:

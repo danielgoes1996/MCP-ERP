@@ -14,7 +14,6 @@ import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Lock
-from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Optional
 
 import uuid

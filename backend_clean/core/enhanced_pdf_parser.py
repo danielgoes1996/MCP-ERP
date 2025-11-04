@@ -4,11 +4,10 @@ Enhanced PDF parser with proper amount handling and AI categorization
 """
 import re
 import logging
-from datetime import datetime, date
-from typing import List, Dict, Any, Optional, Tuple
+from datetime import datetime
+from typing import Optional, Tuple
 from core.bank_statements_models import (
     BankTransaction,
-    MovementKind,
     TransactionType,
     infer_movement_kind,
     should_skip_transaction,

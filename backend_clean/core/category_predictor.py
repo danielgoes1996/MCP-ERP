@@ -5,8 +5,7 @@ Category Predictor - Usa LLM contextual para predecir categorías de gastos
 import os
 import logging
 import json
-from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 
 try:

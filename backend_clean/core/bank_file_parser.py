@@ -13,7 +13,6 @@ from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 import logging
 import PyPDF2
-from io import BytesIO
 
 from core.bank_rules_loader import load_bank_rules, merge_unique
 from core.bank_detector import BankDetector

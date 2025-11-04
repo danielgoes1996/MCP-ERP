@@ -4,10 +4,8 @@ Migración de SQLite a PostgreSQL
 Prepara el sistema para escalabilidad empresarial
 """
 
-import sqlite3
 import logging
 from pathlib import Path
-from datetime import datetime
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

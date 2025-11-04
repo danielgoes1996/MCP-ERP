@@ -8,7 +8,7 @@ Handles database operations for split matching:
 
 import sqlite3
 import logging
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Optional
 from datetime import datetime
 from pathlib import Path
 
@@ -17,11 +17,8 @@ from core.split_reconciliation_models import (
     SplitStatus,
     SplitOneToManyRequest,
     SplitManyToOneRequest,
-    SplitExpenseItem,
-    SplitMovementItem,
     SplitResponse,
     SplitDetailResponse,
-    SplitValidation,
     SplitItemResponse,
     SplitSummary,
     validate_split_amounts,

@@ -4,7 +4,6 @@ Resumen simple del parsing actual
 """
 
 import os
-import json
 import sqlite3
 
 def mostrar_resumen_parsing():

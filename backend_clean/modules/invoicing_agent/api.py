@@ -17,25 +17,20 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Request
-from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from modules.invoicing_agent.models import (
-    TicketCreate,
-    TicketResponse,
     MerchantCreate,
     MerchantResponse,
-    InvoicingJobResponse,
     WhatsAppMessage,
     BulkTicketUpload,
     create_ticket,
     get_ticket,
     list_tickets,
-    update_ticket,
     create_merchant,
     get_merchant,
     list_merchants,
-    find_merchant_by_name,
     create_invoicing_job,
     list_pending_jobs,
     create_expense_from_ticket,
@@ -168,7 +163,6 @@ async def upload_ticket(
         if tipo == "imagen":
             logger.info(f"Ticket {ticket_id} es imagen - iniciando procesamiento automático asíncrono")
             # Programar procesamiento automático de la imagen
-            import asyncio
             import threading
 
             async def process_image_async():
@@ -931,7 +925,7 @@ async def process_ticket_v2(
             "high": JobPriority.HIGH,
             "urgent": JobPriority.URGENT
         }
-        job_priority = priority_map.get(priority.lower(), JobPriority.NORMAL)
+        priority_map.get(priority.lower(), JobPriority.NORMAL)
 
         # Procesar con orchestrator
         result = await process_ticket(ticket_id, company_id)
@@ -1058,7 +1052,7 @@ async def initialize_system_v2() -> Dict[str, Any]:
     Debe llamarse al inicio de la aplicación para configurar todos los servicios.
     """
     try:
-        services = await initialize_services()
+        await initialize_services()
 
         return {
             "success": True,
@@ -1398,7 +1392,7 @@ async def _process_ticket_with_ocr_and_llm(ticket_id: int) -> Dict[str, Any]:
                 # Aplicar OCR real para todas las imágenes
                 try:
                     # Procesar base64 directamente sin archivo temporal
-                    import base64
+                    pass
 
                     if raw_data.startswith("data:image"):
                         base64_data = raw_data.split(",")[1]
@@ -1537,7 +1531,7 @@ async def validate_ticket_consistency(ticket_id: int) -> Dict[str, Any]:
                 # Aplicar OCR real para todas las imágenes
                 try:
                     # Procesar base64 directamente sin archivo temporal
-                    import base64
+                    pass
 
                     if raw_data.startswith("data:image"):
                         base64_data = raw_data.split(",")[1]
@@ -2019,7 +2013,6 @@ async def serve_screenshot(filename: str):
     Servir archivos de screenshots para el automation viewer
     """
     try:
-        import os
         from fastapi.responses import FileResponse
 
         # Directorio de screenshots

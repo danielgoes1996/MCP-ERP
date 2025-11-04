@@ -7,7 +7,7 @@ import asyncio
 import logging
 import time
 import json
-from typing import Dict, List, Optional, Any
+from typing import Dict, Optional, Any
 from playwright.async_api import async_playwright, Page, Browser, BrowserContext, Playwright
 
 logger = logging.getLogger(__name__)

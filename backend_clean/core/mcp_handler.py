@@ -272,7 +272,6 @@ def _handle_create_complete_expense(params: Dict[str, Any]) -> Dict[str, Any]:
         # Importar módulos necesarios
         from core.expense_validator import expense_validator
         from connectors.enhanced_odoo_connector import create_complete_expense
-        from core.expense_models import ExpenseModel
 
         logger.info("Iniciando creación de gasto completo...")
 

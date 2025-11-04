@@ -4,7 +4,7 @@ Generate realistic test transaction data to simulate the 90+ transactions
 """
 import sqlite3
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 
 def generate_test_transactions():
     """Generate realistic bank transactions for July 2024"""
@@ -12,7 +12,7 @@ def generate_test_transactions():
     transactions = []
 
     # Base date for July 2024
-    start_date = datetime(2024, 7, 1)
+    datetime(2024, 7, 1)
 
     # Income transactions (salaries, deposits)
     incomes = [

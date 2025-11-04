@@ -2,7 +2,6 @@
 """CLI helper to execute the bank statement golden suite."""
 
 import argparse
-import json
 import subprocess
 import sys
 from pathlib import Path

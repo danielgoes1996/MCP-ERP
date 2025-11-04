@@ -3,7 +3,6 @@
 Re-process PDF through the web interface endpoint
 """
 import requests
-import time
 
 def main():
     # Login first

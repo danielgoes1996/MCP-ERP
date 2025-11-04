@@ -6,10 +6,9 @@ Incluye manejo de proveedores, cuentas contables, adjuntos y CFDI
 import xmlrpc.client
 import base64
 import logging
-from typing import Dict, List, Any, Optional, Tuple
-from datetime import datetime
+from typing import Dict, List, Any, Optional
 
-from core.expense_models import ExpenseModel, Supplier, Attachment, AttachmentType
+from core.expense_models import ExpenseModel, Supplier, Attachment
 
 # Configuración desde variables de entorno
 import os

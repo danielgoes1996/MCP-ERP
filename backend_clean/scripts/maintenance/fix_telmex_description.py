@@ -3,7 +3,6 @@
 Arreglar específicamente la descripción de TELMEX usando la información completa del PDF
 """
 import sqlite3
-import os
 import requests
 import json
 

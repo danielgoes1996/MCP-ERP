@@ -4,7 +4,6 @@ WhatsApp Integration - Integración con WhatsApp Business API para detectar gast
 
 import os
 import logging
-import json
 import hmac
 import hashlib
 from datetime import datetime

@@ -5,11 +5,11 @@ Usa múltiples estrategias y se adapta automáticamente a diferentes formatos
 """
 import logging
 from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime, date
+from datetime import date
 from core.robust_pdf_parser import RobustPDFParser
 from core.universal_bank_patterns import universal_patterns
 from core.bank_detector import BankDetector
-from core.bank_statements_models import BankTransaction, TransactionType, MovementKind
+from core.bank_statements_models import BankTransaction, TransactionType
 
 logger = logging.getLogger(__name__)
 
