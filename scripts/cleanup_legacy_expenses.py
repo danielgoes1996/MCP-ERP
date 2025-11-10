@@ -13,7 +13,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from core.unified_db_adapter import get_unified_adapter
+from core.shared.unified_db_adapter import get_unified_adapter
 
 
 def parse_args() -> argparse.Namespace:

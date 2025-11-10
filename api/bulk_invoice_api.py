@@ -16,8 +16,8 @@ from core.api_models import (
     BulkProcessingRule, BulkProcessingRuleResponse,
     InvoiceMatchResult, BulkInvoiceItemResult
 )
-from core.bulk_invoice_processor import bulk_invoice_processor
-from core.unified_db_adapter import get_db_adapter
+from core.expenses.invoices.bulk_invoice_processor import bulk_invoice_processor
+from core.shared.unified_db_adapter import get_db_adapter
 
 logger = logging.getLogger(__name__)
 

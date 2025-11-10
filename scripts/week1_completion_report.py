@@ -146,7 +146,7 @@ def generate_week1_report():
     print("-" * 35)
 
     try:
-        from core.feature_flags import feature_flags, FeatureFlag, is_automation_enabled
+        from core.config.feature_flags import feature_flags, FeatureFlag, is_automation_enabled
 
         # Test automation flag
         automation_enabled = is_automation_enabled("default")

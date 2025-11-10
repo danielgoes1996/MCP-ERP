@@ -6,7 +6,7 @@ Validación correcta: 1 fecha + 1 referencia = 1 transacción
 
 import re
 import sqlite3
-from core.robust_pdf_parser import RobustPDFParser
+from core.ai_pipeline.parsers.robust_pdf_parser import RobustPDFParser
 
 def extraer_transacciones_unicas_pdf():
     """

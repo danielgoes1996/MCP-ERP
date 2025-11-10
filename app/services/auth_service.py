@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from fastapi import HTTPException, status
 
-from core.auth_system import (
+from core.auth.system import (
     auth_service,
     LoginRequest,
     RegisterRequest,
@@ -13,7 +13,7 @@ from core.auth_system import (
     UserRole,
     validate_password_strength,
 )
-from core.auth_jwt import (
+from core.auth.jwt import (
     User as JWTUser,
     Token,
     authenticate_user,
@@ -22,7 +22,7 @@ from core.auth_jwt import (
     get_db_connection,
     ACCESS_TOKEN_EXPIRE_MINUTES as JWT_ACCESS_TOKEN_EXPIRE_MINUTES,
 )
-from core.unified_auth import (
+from core.auth.unified import (
     RegisterRequest as UnifiedRegisterRequest,
     RegistrationError,
     UserInDB,

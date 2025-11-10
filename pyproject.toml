@@ -1,0 +1,46 @@
+[tool.black]
+line-length = 120
+target-version = ['py39']
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | venv
+  | env
+  | migrations
+  | node_modules
+  | legacy_ui
+  | static
+  | uploads
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+skip_glob = [
+    "*/migrations/*",
+    "*/node_modules/*",
+    "*/legacy_ui/*",
+    "*/static/*"
+]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+exclude = [
+    "migrations",
+    "node_modules",
+    "legacy_ui",
+    "static"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --tb=short --cov=core --cov=api --cov-report=html --cov-report=term --cov-report=xml"

@@ -10,20 +10,20 @@ import os
 import re
 from datetime import datetime, date
 from typing import List, Dict, Any, Optional, Tuple, Union
-from core.bank_statements_models import (
+from core.reconciliation.bank.bank_statements_models import (
     BankTransaction,
     MovementKind,
     TransactionType,
     infer_movement_kind,
     should_skip_transaction,
 )
-from core.robust_pdf_parser import RobustPDFParser
-from core.bank_detector import BankDetector
-from core.duplicate_prevention import DuplicateDetector
+from core.ai_pipeline.parsers.robust_pdf_parser import RobustPDFParser
+from core.reconciliation.bank.bank_detector import BankDetector
+from core.reconciliation.validation.duplicate_prevention import DuplicateDetector
 from core.pdf_extraction_validator import PDFExtractionValidator, validate_pdf_extraction
 from core.extraction_audit_logger import log_extraction_start, log_extraction_complete, log_extraction_failed
 from core.text_cleaner import PDFTextCleaner
-from core.cost_analytics import cost_analytics
+from core.reports.cost_analytics import cost_analytics
 
 # Import LLM configuration
 try:

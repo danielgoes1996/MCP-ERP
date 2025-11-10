@@ -10,7 +10,7 @@ import os
 import tempfile
 from datetime import datetime
 
-from core.universal_invoice_engine_system import (
+from core.expenses.invoices.universal_invoice_engine_system import (
     universal_invoice_engine_system,
     InvoiceFormat,
     ParserType,

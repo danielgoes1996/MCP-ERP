@@ -6,7 +6,7 @@ Identificar y agregar automáticamente las 8 transacciones faltantes
 import re
 import sqlite3
 from datetime import datetime
-from core.robust_pdf_parser import RobustPDFParser
+from core.ai_pipeline.parsers.robust_pdf_parser import RobustPDFParser
 
 def extraer_transacciones_pdf():
     """Extrae todas las transacciones del PDF con detalles completos"""

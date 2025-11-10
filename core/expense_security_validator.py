@@ -25,7 +25,7 @@ import re
 import logging
 from collections import defaultdict
 
-from core.expense_audit_system import ActionType, ActionContext
+from core.expenses.audit.expense_audit_system import ActionType, ActionContext
 
 logger = logging.getLogger(__name__)
 

@@ -1,0 +1,145 @@
+[
+  {
+    "tx_id": 63,
+    "tx_description": "TRASPASO SPEI INBURED",
+    "tx_amount": 21782.77,
+    "tx_date": "2025-01-27",
+    "cfdi_id": 752,
+    "cfdi_emisor": "GARIN ETIQUETAS",
+    "cfdi_total": 21782.77,
+    "cfdi_fecha": "2025-01-27",
+    "diferencia": 0.0
+  },
+  {
+    "tx_id": 62,
+    "tx_description": "TRASPASO SPEI INBURED",
+    "tx_amount": 19305.0,
+    "tx_date": "2025-01-27",
+    "cfdi_id": 736,
+    "cfdi_emisor": "JOSE ADRIAN PATI\u00d1O PEREZ",
+    "cfdi_total": 19305.0,
+    "cfdi_fecha": "2025-01-28",
+    "diferencia": 0.0
+  },
+  {
+    "tx_id": 67,
+    "tx_description": "TRASPASO SPEI INBURED",
+    "tx_amount": 2241.12,
+    "tx_date": "2025-01-29",
+    "cfdi_id": 771,
+    "cfdi_emisor": "TRANSPORTES JULIAN DE OBREGON",
+    "cfdi_total": 2241.12,
+    "cfdi_fecha": "2025-01-29",
+    "diferencia": 0.0
+  },
+  {
+    "tx_id": 74,
+    "tx_description": "DEPOSITO SPEI",
+    "tx_amount": 1871.0,
+    "tx_date": "2025-01-31",
+    "cfdi_id": 778,
+    "cfdi_emisor": "INTERMEXICANA DE EXTINGUIDORES Y SEGURIDAD",
+    "cfdi_total": 1852.0,
+    "cfdi_fecha": "2025-01-31",
+    "diferencia": 19.0
+  },
+  {
+    "tx_id": 76,
+    "tx_description": "DEPOSITO SPEI",
+    "tx_amount": 1402.0,
+    "tx_date": "2025-01-31",
+    "cfdi_id": 824,
+    "cfdi_emisor": "SERVICIOS COMERCIALES AMAZON MEXICO",
+    "cfdi_total": 1384.97,
+    "cfdi_fecha": "2025-02-04",
+    "diferencia": 17.029999999999973
+  },
+  {
+    "tx_id": 54,
+    "tx_description": "DEPOSITO SPEI",
+    "tx_amount": 1270.0,
+    "tx_date": "2025-01-22",
+    "cfdi_id": 756,
+    "cfdi_emisor": "GRUPO GASOLINERO BERISA",
+    "cfdi_total": 1242.68,
+    "cfdi_fecha": "2025-01-23",
+    "diferencia": 27.319999999999936
+  },
+  {
+    "tx_id": 68,
+    "tx_description": "DEPOSITO SPEI",
+    "tx_amount": 1168.0,
+    "tx_date": "2025-01-29",
+    "cfdi_id": 827,
+    "cfdi_emisor": "GRUPO GASOLINERO BERISA",
+    "cfdi_total": 1125.33,
+    "cfdi_fecha": "2025-02-05",
+    "diferencia": 42.67000000000007
+  },
+  {
+    "tx_id": 71,
+    "tx_description": "DEPOSITO SPEI",
+    "tx_amount": 1092.0,
+    "tx_date": "2025-01-30",
+    "cfdi_id": 827,
+    "cfdi_emisor": "GRUPO GASOLINERO BERISA",
+    "cfdi_total": 1125.33,
+    "cfdi_fecha": "2025-02-05",
+    "diferencia": 33.32999999999993
+  },
+  {
+    "tx_id": 66,
+    "tx_description": "DEPOSITO SPEI",
+    "tx_amount": 696.0,
+    "tx_date": "2025-01-27",
+    "cfdi_id": 770,
+    "cfdi_emisor": "TRANSPORTES JULIAN DE OBREGON",
+    "cfdi_total": 646.4,
+    "cfdi_fecha": "2025-01-30",
+    "diferencia": 49.60000000000002
+  },
+  {
+    "tx_id": 53,
+    "tx_description": "DEPOSITO SPEI",
+    "tx_amount": 673.0,
+    "tx_date": "2025-01-22",
+    "cfdi_id": 770,
+    "cfdi_emisor": "TRANSPORTES JULIAN DE OBREGON",
+    "cfdi_total": 646.4,
+    "cfdi_fecha": "2025-01-30",
+    "diferencia": 26.600000000000023
+  },
+  {
+    "tx_id": 55,
+    "tx_description": "DEPOSITO SPEI",
+    "tx_amount": 600.0,
+    "tx_date": "2025-01-22",
+    "cfdi_id": 770,
+    "cfdi_emisor": "TRANSPORTES JULIAN DE OBREGON",
+    "cfdi_total": 646.4,
+    "cfdi_fecha": "2025-01-30",
+    "diferencia": 46.39999999999998
+  },
+  {
+    "tx_id": 7,
+    "tx_description": "DEPOSITO SPEI",
+    "tx_amount": 520.0,
+    "tx_date": "2025-01-05",
+    "cfdi_id": 777,
+    "cfdi_emisor": "NATURAEXTRACTA",
+    "cfdi_total": 548.1,
+    "cfdi_fecha": "2025-01-09",
+    "diferencia": 28.100000000000023
+  },
+  {
+    "tx_id": 32,
+    "tx_description": "DEPOSITO SPEI",
+    "tx_amount": 500.0,
+    "tx_date": "2025-01-14",
+    "cfdi_id": 777,
+    "cfdi_emisor": "NATURAEXTRACTA",
+    "cfdi_total": 548.1,
+    "cfdi_fecha": "2025-01-09",
+    "diferencia": 48.10000000000002
+  }
+]

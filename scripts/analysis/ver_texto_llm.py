@@ -4,7 +4,7 @@ Mostrar el texto exacto que recibe el LLM en cada chunk
 """
 
 import os
-from core.robust_pdf_parser import RobustPDFParser
+from core.ai_pipeline.parsers.robust_pdf_parser import RobustPDFParser
 from core.llm_pdf_parser import LLMPDFParser
 
 def mostrar_texto_llm_chunks():

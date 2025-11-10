@@ -6,7 +6,7 @@ import sys
 sys.path.append('.')
 import sqlite3
 import re
-from core.robust_pdf_parser import RobustPDFParser
+from core.ai_pipeline.parsers.robust_pdf_parser import RobustPDFParser
 
 def compare_references():
     # Get references from PDF

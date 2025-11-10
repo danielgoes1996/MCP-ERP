@@ -8,9 +8,9 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import json
 
-from core.unified_auth import get_current_active_user, User
+from core.auth.unified import get_current_active_user, User
 from core.tenancy_middleware import get_tenancy_context, TenancyContext
-from core.financial_reports_engine import FinancialReportsEngine
+from core.reports.financial_reports_engine import FinancialReportsEngine
 
 router = APIRouter(prefix="/financial-intelligence", tags=["Financial Intelligence"])
 

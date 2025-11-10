@@ -5,7 +5,7 @@ Analyze why specific references are not being extracted
 import sys
 sys.path.append('.')
 import re
-from core.robust_pdf_parser import RobustPDFParser
+from core.ai_pipeline.parsers.robust_pdf_parser import RobustPDFParser
 
 def analyze_missing_references():
     pdf_path = "./uploads/statements/9_20250928_211924_Periodo_DIC 2024 (1).pdf"

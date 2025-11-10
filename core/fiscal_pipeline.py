@@ -19,18 +19,18 @@ try:  # Optional dependency for configurable fallbacks
 except ImportError:  # pragma: no cover - optional dependency
     yaml = None  # type: ignore
 
-from core.accounting_catalog import (
+from core.accounting.accounting_catalog import (
     ACCOUNTING_CATEGORY_CATALOG,
     AccountingCategory,
 )
-from core.account_catalog import get_context_snippets, retrieve_relevant_accounts
+from core.accounting.account_catalog import get_context_snippets, retrieve_relevant_accounts
 from config.config import config
 from core.sat_catalog_seed import CATEGORY_SAT_MAPPING
-from core.text_normalizer import normalize_expense_text
-from core.expense_features import build_expense_feature_snapshot
-from core.expense_llm_classifier import ClassificationResult, ExpenseLLMClassifier
+from core.shared.text_normalizer import normalize_expense_text
+from core.expenses.validation.expense_features import build_expense_feature_snapshot
+from core.ai_pipeline.classification.expense_llm_classifier import ClassificationResult, ExpenseLLMClassifier
 from core.sat_utils import extract_family_code
-from core.classification_trace import record_classification_trace
+from core.ai_pipeline.classification.classification_trace import record_classification_trace
 from core.tenant_policies import get_policies, verify_family_preference
 try:
     from core.ai.ai_context_memory_service import fetch_company_context

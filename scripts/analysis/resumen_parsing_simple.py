@@ -113,7 +113,7 @@ def mostrar_chunks_detectados():
     print("=" * 30)
 
     try:
-        from core.robust_pdf_parser import RobustPDFParser
+        from core.ai_pipeline.parsers.robust_pdf_parser import RobustPDFParser
         from core.llm_pdf_parser import LLMPDFParser
 
         pdf_path = "./uploads/statements/9_20250928_000304_Periodo_JUL 2025 (1).pdf"

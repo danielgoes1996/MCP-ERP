@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from typing import List, Optional
 import logging
 
-from core.employee_advances_models import (
+from core.expenses.employee_advances_models import (
     CreateAdvanceRequest,
     ReimburseAdvanceRequest,
     UpdateAdvanceRequest,
@@ -16,8 +16,8 @@ from core.employee_advances_models import (
     EmployeeAdvancesSummary,
     AdvanceStatus
 )
-from core.employee_advances_service import get_employee_advances_service
-from core.auth_jwt import User, get_current_user, require_role, filter_by_scope, enforce_tenant_isolation
+from core.expenses.employee_advances_service import get_employee_advances_service
+from core.auth.jwt import User, get_current_user, require_role, filter_by_scope, enforce_tenant_isolation
 
 logger = logging.getLogger(__name__)
 

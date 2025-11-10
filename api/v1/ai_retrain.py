@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, validator
 
 from config.config import config
-from core.unified_auth import User, get_current_active_user
+from core.auth.unified import User, get_current_active_user
 from core.ai.correction_learning_service import (
     store_correction_feedback,
     aggregate_correction_stats,

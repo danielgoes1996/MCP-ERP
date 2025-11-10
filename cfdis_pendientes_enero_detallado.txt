@@ -1,0 +1,223 @@
+======================================================================================
+📄 CFDIs DE ENERO 2025 SIN CONCILIAR - RESUMEN DETALLADO
+======================================================================================
+
+TOTAL: 29 CFDIs - $112,591.46 MXN
+
+
+═════════════════════════════════════════════════════════════════════════════════════
+1. FABRICACIONES Y MAQUILAS DE OCCIDENTE - $59,900.00 (1 CFDI)
+═════════════════════════════════════════════════════════════════════════════════════
+
+RFC: FMO170714CU7
+Fecha: 27 de enero 2025
+Método Pago: PPD (Pago en Parcialidades o Diferido)
+Forma Pago: 99 (Por definir)
+
+CFDI-748:  $59,900.00  |  UUID: B794B495-81B6-4705-A21D-C35E7C241634
+
+💡 NOTA: Es el CFDI más grande pendiente. Método PPD indica que se puede pagar
+         en parcialidades. Muy probable que tenga un traspaso SPEI asociado.
+
+
+═════════════════════════════════════════════════════════════════════════════════════
+2. MIELVIL - $37,000.00 (20 CFDIs)
+═════════════════════════════════════════════════════════════════════════════════════
+
+RFC: MIE231106CS9
+Fecha: Todos del 29 de enero 2025
+Método Pago: PUE (Pago en Una sola Exhibición)
+Forma Pago: 01
+Monto: $1,850.00 cada uno (20 CFDIs idénticos)
+
+CFDI-781:  $1,850.00  |  UUID: 14e6fd94-64bd-4350-863a-f47899bed72a
+CFDI-741:  $1,850.00  |  UUID: 89bcceab-efec-4b33-a049-1008aa2091d7
+CFDI-737:  $1,850.00  |  UUID: 684d76db-852b-4eea-86ea-e8879ee1e54b
+CFDI-782:  $1,850.00  |  UUID: fd35c8d6-2416-4afd-b833-e1b97e21927b
+CFDI-759:  $1,850.00  |  UUID: faa22e3f-6dca-407d-964b-660e25a154d7
+CFDI-744:  $1,850.00  |  UUID: 1327428a-a4ac-4098-be26-f0ebf60106c6
+CFDI-751:  $1,850.00  |  UUID: 973ec0b9-5efb-44bc-9353-741de3e8ddbb
+CFDI-764:  $1,850.00  |  UUID: 06a1f142-d425-455e-a7cd-fbf985dff1b7
+CFDI-745:  $1,850.00  |  UUID: 2e1d3fb7-1d5e-46f3-945d-d849ad8f85da
+CFDI-774:  $1,850.00  |  UUID: 60e5d8f1-e38b-49bc-9143-e50a6d1f1c50
+CFDI-779:  $1,850.00  |  UUID: c40ca329-4e4d-4a3a-8849-7ee80a806ca3
+CFDI-763:  $1,850.00  |  UUID: 9dec562d-96e3-44b1-b797-71f4948ad51d
+CFDI-768:  $1,850.00  |  UUID: 2f9afda4-bce8-4e2b-a92d-8f36c514cfad
+CFDI-746:  $1,850.00  |  UUID: 3abd0d46-6453-4189-9bf3-0e8668e78577
+CFDI-776:  $1,850.00  |  UUID: d4dce29a-fbd9-4778-a6af-c6075437935e
+CFDI-753:  $1,850.00  |  UUID: f3b44b6d-4d8e-4909-91c7-9c6aae514ebd
+CFDI-749:  $1,850.00  |  UUID: 948cad98-8167-4d4e-834c-ba92d17c4409
+CFDI-734:  $1,850.00  |  UUID: 8c37a4bd-2d96-4212-bc5d-8bbf8f9e1661
+CFDI-766:  $1,850.00  |  UUID: (ver base de datos)
+CFDI-754:  $1,850.00  |  UUID: (ver base de datos)
+
+💡 NOTA: 20 facturas idénticas del mismo día. Muy probable que:
+         - Se pagaron todas juntas con uno o varios traspasos SPEI
+         - O podrían ser pagos individuales de $1,850 c/u
+         - Posible que el traspaso de $27,010 cubra varias de estas
+
+
+═════════════════════════════════════════════════════════════════════════════════════
+3. VENTUS SPORT - $4,325.00 (1 CFDI)
+═════════════════════════════════════════════════════════════════════════════════════
+
+RFC: VSP090915IH0
+Fecha: 23 de enero 2025
+Método Pago: PUE (Pago en Una sola Exhibición)
+Forma Pago: 04 (Tarjeta de crédito)
+
+CFDI-747:  $4,325.00  |  UUID: C60E9910-26AB-4FAF-AA72-C9ED41DA5681
+
+💡 NOTA: Pagado con tarjeta de crédito. Revisar si hay cargo en el estado de cuenta
+         o si fue tarjeta personal.
+
+
+═════════════════════════════════════════════════════════════════════════════════════
+4. CLIFTON PACKAGING - $3,992.67 (1 CFDI)
+═════════════════════════════════════════════════════════════════════════════════════
+
+RFC: CPA140716JP0
+Fecha: 30 de enero 2025
+Método Pago: PUE (Pago en Una sola Exhibición)
+Forma Pago: 04 (Tarjeta de crédito)
+
+CFDI-767:  $3,992.67  |  UUID: D01FAD12-06D1-4272-8E0E-F77FB0E8F3AE
+
+💡 NOTA: Pagado con tarjeta de crédito. Revisar cargos en estado de cuenta.
+
+
+═════════════════════════════════════════════════════════════════════════════════════
+5. CARLOS ANDRES GOMEZ CASTILLO - $3,600.00 (1 CFDI)
+═════════════════════════════════════════════════════════════════════════════════════
+
+RFC: GOCC910110GD1
+Fecha: 9 de enero 2025
+Método Pago: PUE (Pago en Una sola Exhibición)
+Forma Pago: 01
+
+CFDI-735:  $3,600.00  |  UUID: DFBF586E-A929-41D1-BF62-D2B574B455F4
+
+💡 NOTA: Persona física. Posible pago SPEI o transferencia. Revisar alrededor
+         del 9 de enero.
+
+
+═════════════════════════════════════════════════════════════════════════════════════
+6. HAISO PLASTICOS - $1,653.00 (1 CFDI)
+═════════════════════════════════════════════════════════════════════════════════════
+
+RFC: (ver base de datos)
+Fecha: 27 de enero 2025
+Método Pago: PUE (Pago en Una sola Exhibición)
+
+CFDI-761:  $1,653.00  |  UUID: (ver base de datos)
+
+💡 NOTA: Proveedor de plásticos. Revisar transferencias SPEI cercanas a esta fecha.
+
+
+═════════════════════════════════════════════════════════════════════════════════════
+7. SERVICIOS COMERCIALES AMAZON MEXICO - $902.69 (1 CFDI)
+═════════════════════════════════════════════════════════════════════════════════════
+
+Fecha: 3 de enero 2025
+Método Pago: PPD (Pago en Parcialidades o Diferido)
+
+CFDI-740:  $902.69  |  UUID: (ver base de datos)
+
+💡 NOTA: Ya tenemos 1 CFDI de Amazon conciliado ($1,402). Este es adicional.
+
+
+═════════════════════════════════════════════════════════════════════════════════════
+8. CARLOS ADRIAN DEL CALLEJO NAVA - $780.00 (1 CFDI)
+═════════════════════════════════════════════════════════════════════════════════════
+
+Fecha: 28 de enero 2025
+Método Pago: PUE (Pago en Una sola Exhibición)
+
+CFDI-780:  $780.00  |  UUID: (ver base de datos)
+
+💡 NOTA: Persona física. Posible servicio profesional.
+
+
+═════════════════════════════════════════════════════════════════════════════════════
+9. BANCO INBURSA - $252.88 (1 CFDI)
+═════════════════════════════════════════════════════════════════════════════════════
+
+Fecha: 3 de enero 2025
+Método Pago: PUE (Pago en Una sola Exhibición)
+
+CFDI-773:  $252.88  |  UUID: (ver base de datos)
+
+💡 NOTA: Banco Inbursa. Posible comisión bancaria o servicio financiero.
+
+
+═════════════════════════════════════════════════════════════════════════════════════
+10. FINKOK - $185.22 (1 CFDI)
+═════════════════════════════════════════════════════════════════════════════════════
+
+Fecha: 20 de enero 2025
+Método Pago: PUE (Pago en Una sola Exhibición)
+
+CFDI-765:  $185.22  |  UUID: (ver base de datos)
+
+💡 NOTA: Ya tenemos 3 CFDIs de Finkok conciliados. Este es adicional del 20 de enero.
+         Revisar si hay un pago Stripe adicional en esa fecha.
+
+
+═════════════════════════════════════════════════════════════════════════════════════
+🔍 ANÁLISIS Y RECOMENDACIONES
+═════════════════════════════════════════════════════════════════════════════════════
+
+ALTA PRIORIDAD - Revisar Traspasos SPEI:
+
+1. FABRICACIONES Y MAQUILAS ($59,900) → Método PPD
+   • Buscar traspaso SPEI cercano al 27 de enero
+   • Posiblemente el traspaso de $11,241.70 (TX-4) sea un anticipo
+
+2. MIELVIL - 20 CFDIs ($37,000 total)
+   • Todos del 29 de enero
+   • Buscar traspasos SPEI del 29 de enero o cercanos
+   • El traspaso de $27,010 (TX-29) podría cubrir varios de estos
+   • Revisar si hay pagos múltiples
+
+3. CARLOS ANDRES GOMEZ CASTILLO ($3,600)
+   • Buscar traspaso SPEI cercano al 9 de enero
+   • Posible TX-3 ($968), TX-6 ($1,092), o combinación
+
+MEDIA PRIORIDAD - Revisar Tarjetas de Crédito:
+
+4. VENTUS SPORT ($4,325) → Tarjeta de crédito
+   • Buscar en estados de cuenta de tarjeta el 23 de enero
+
+5. CLIFTON PACKAGING ($3,992.67) → Tarjeta de crédito
+   • Buscar en estados de cuenta de tarjeta el 30 de enero
+
+BAJA PRIORIDAD - Montos menores:
+
+6. HAISO PLASTICOS ($1,653)
+7. SERVICIOS COMERCIALES AMAZON ($902.69)
+8. CARLOS ADRIAN DEL CALLEJO NAVA ($780)
+9. BANCO INBURSA ($252.88)
+10. FINKOK ($185.22)
+
+
+═════════════════════════════════════════════════════════════════════════════════════
+📊 RESUMEN FINAL
+═════════════════════════════════════════════════════════════════════════════════════
+
+CFDIs Pendientes:           29
+Monto Total Pendiente:      $112,591.46
+
+Por Método de Pago:
+  • PPD (Parcialidades):    $60,802.69 (2 CFDIs)
+  • PUE (Una exhibición):   $51,788.77 (27 CFDIs)
+
+Por Forma de Pago:
+  • Transferencia (01):     $42,600.00 (21 CFDIs - mayormente MIELVIL)
+  • Tarjeta crédito (04):   $8,317.67 (2 CFDIs)
+  • Por definir (99):       $59,900.00 (1 CFDI)
+  • Otros:                  $1,773.79
+
+Siguiente Paso:
+  → Ejecutar matching con traspasos SPEI pendientes
+  → Revisar estados de cuenta de tarjetas de crédito
+  → Verificar pagos cercanos a las fechas de emisión

@@ -79,7 +79,7 @@ def submit_category_feedback(
     - 'rejected': Usuario rechazó completamente la sugerencia
     """
     try:
-        from core.category_learning_system import CategoryLearningSystem
+        from core.ai_pipeline.classification.category_learning_system import CategoryLearningSystem
 
         learning_system = CategoryLearningSystem()
 
@@ -123,7 +123,7 @@ def predict_category(
     Predecir categoría para un gasto usando ML
     """
     try:
-        from core.enhanced_categorization_engine import EnhancedCategorizationEngine
+        from core.ai_pipeline.classification.enhanced_categorization_engine import EnhancedCategorizationEngine
 
         engine = EnhancedCategorizationEngine()
 

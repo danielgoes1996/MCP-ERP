@@ -9,7 +9,7 @@ from pydantic import BaseModel, EmailStr, field_validator
 from typing import Dict, Any, Optional
 import logging
 
-from core.auth_system import (
+from core.auth.system import (
     auth_service,
     get_current_user,
     LoginRequest,

@@ -7,7 +7,7 @@ import os
 import sys
 import sqlite3
 from core.llm_pdf_parser import LLMPDFParser
-from core.unified_db_adapter import get_unified_adapter
+from core.shared.unified_db_adapter import get_unified_adapter
 
 def main():
     # PDF más reciente

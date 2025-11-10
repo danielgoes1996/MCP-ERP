@@ -25,7 +25,7 @@ except ImportError:
 
 # Importar sistema de fallbacks robusto
 try:
-    from core.robust_fallback_system import try_llm_analysis_with_fallbacks, fallback_system
+    from core.shared.robust_fallback_system import try_llm_analysis_with_fallbacks, fallback_system
     FALLBACK_SYSTEM_AVAILABLE = True
 except ImportError:
     FALLBACK_SYSTEM_AVAILABLE = False

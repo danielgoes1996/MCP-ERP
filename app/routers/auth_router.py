@@ -5,7 +5,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Form, Request
 from fastapi.security import HTTPAuthorizationCredentials
 
-from core.auth_system import (
+from core.auth.system import (
     LoginRequest,
     RegisterRequest,
     AuthResponse,
@@ -15,7 +15,7 @@ from core.auth_system import (
     get_current_user,
     require_role,
 )
-from core.auth_jwt import (
+from core.auth.jwt import (
     User as JWTUser,
     get_current_user as get_current_jwt_user,
     Token,
@@ -34,8 +34,8 @@ from api.v1.user_context import (
     _build_ai_stack,
     _derive_permissions,
 )
-from core.auth_jwt import get_db_connection
-from core.company_settings import get_company_settings_by_tenant
+from core.auth.jwt import get_db_connection
+from core.config.company_settings import get_company_settings_by_tenant
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

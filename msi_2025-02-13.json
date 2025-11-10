@@ -1,0 +1,38 @@
+{
+  "tiene_pagos_diferidos": true,
+  "saldo_total_pendiente": 55054.33,
+  "pagos_diferidos": [
+    {
+      "comercio": "MERCADO LIBRE MEXICO",
+      "fecha_original": "2025-01-23",
+      "monto_original": 59900.0,
+      "tasa_interes_anual": 0.0,
+      "saldo_pendiente": 54908.33,
+      "mensualidad_actual": 1,
+      "total_mensualidades": 12,
+      "monto_mensualidad": 4991.67,
+      "monto_total_a_pagar": 59900.0,
+      "desglose_mensualidad": {
+        "pago_capital": 4991.67,
+        "interes": 0.0,
+        "iva": 0.0
+      }
+    },
+    {
+      "comercio": "MERCADO LIBRE MEXICO",
+      "fecha_original": "2025-02-07",
+      "monto_original": 219.0,
+      "tasa_interes_anual": 0.0,
+      "saldo_pendiente": 146.0,
+      "mensualidad_actual": 1,
+      "total_mensualidades": 3,
+      "monto_mensualidad": 73.0,
+      "monto_total_a_pagar": 219.0,
+      "desglose_mensualidad": {
+        "pago_capital": 73.0,
+        "interes": 0.0,
+        "iva": 0.0
+      }
+    }
+  ]
+}

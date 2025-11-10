@@ -13,7 +13,7 @@ import json
 import sqlite3
 import time
 
-from core.expense_validation import expense_validator
+from core.expenses.validation.expense_validation import expense_validator
 from core.structured_logger import (
     get_structured_logger,
     set_request_context,

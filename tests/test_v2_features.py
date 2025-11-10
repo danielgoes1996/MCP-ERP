@@ -11,7 +11,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
 from main_enhanced import app
-from core.enhanced_api_models import AutomationStatus, JobPriority
+from core.expenses.enhanced_api_models import AutomationStatus, JobPriority
 
 class TestEnhancedTicketAPI:
     """Test endpoints v2 de tickets con features robustas."""

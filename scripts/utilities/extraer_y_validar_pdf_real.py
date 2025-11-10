@@ -5,7 +5,7 @@ Extraer texto del PDF real y validar contra BD
 
 import re
 import sqlite3
-from core.robust_pdf_parser import RobustPDFParser
+from core.ai_pipeline.parsers.robust_pdf_parser import RobustPDFParser
 
 def extraer_fechas_del_pdf_real():
     """Extrae fechas del PDF real subido"""

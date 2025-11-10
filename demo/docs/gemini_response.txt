@@ -1,0 +1,502 @@
+```json
+{
+  "bank_info": {
+    "bank_name": "Inbursa",
+    "account_type": "Empresarial",
+    "period_start": "2025-01-01",
+    "period_end": "2025-01-31"
+  },
+  "summary": {
+    "opening_balance": 20900.15,
+    "closing_balance": 79730.41
+  },
+  "transactions": [
+    {
+      "date": "2025-01-01",
+      "description": "DEPOSITO SPEI",
+      "amount": 5500.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-02",
+      "description": "DEPOSITO SPEI",
+      "amount": 968.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-02",
+      "description": "TRASPASO SPEI INBURED",
+      "amount": 11241.70,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-03",
+      "description": "GO GASOLINERO BERISA MX",
+      "amount": 1045.70,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-03",
+      "description": "DEPOSITO SPEI",
+      "amount": 1092.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-05",
+      "description": "DEPOSITO SPEI",
+      "amount": 520.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-06",
+      "description": "TAQUERIA GUADALAJARA MX",
+      "amount": 115.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-06",
+      "description": "SUSHI MAMS BAS MX",
+      "amount": 330.05,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-07",
+      "description": "STR*WWW FINKOK COM MX",
+      "amount": 185.22,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-07",
+      "description": "STR*WWW FINKOK COM MX",
+      "amount": 185.22,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-07",
+      "description": "CONEKTA*ENVIOSPERROS MX",
+      "amount": 129.40,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-07",
+      "description": "DTM WEB CYBER MX",
+      "amount": 290.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-07",
+      "description": "STR*WWW FINKOK COM MX",
+      "amount": 185.22,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-08",
+      "description": "DEPOSITO SPEI",
+      "amount": 2121.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-08",
+      "description": "DISTRIB CRISTAL PREZ MX",
+      "amount": 8090.01,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-08",
+      "description": "DISTRIB CRISTAL PREZ MX",
+      "amount": 2045.35,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-08",
+      "description": "DISTRIB CRISTAL PREZ MX",
+      "amount": 152.70,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-08",
+      "description": "DISTRIB CRISTAL PREZ MX",
+      "amount": 1625.11,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-08",
+      "description": "DEPOSITO SPEI",
+      "amount": 750.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-10",
+      "description": "DEPOSITO EN CUENTA",
+      "amount": 476.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-10",
+      "description": "DEPOSITO SPEI",
+      "amount": 2700.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-11",
+      "description": "Google One US",
+      "amount": 34.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-11",
+      "description": "STRIPE *ODOO TECHNOLOG MX",
+      "amount": 535.92,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-11",
+      "description": "DEPOSITO SPEI",
+      "amount": 4440.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-13",
+      "description": "MERCADO PAGO 5 MX",
+      "amount": 149.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-13",
+      "description": "CEA QRO APP 2 MX",
+      "amount": 155.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-13",
+      "description": "DEPOSITO SPEI",
+      "amount": 760.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-14",
+      "description": "DEPOSITO SPEI",
+      "amount": 27010.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-14",
+      "description": "APPLE.COM/BILL US",
+      "amount": 82.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-14",
+      "description": "D J*WSJ US 2.0 USD/TC",
+      "amount": 41.62,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-14",
+      "description": "DEPOSITO SPEI",
+      "amount": 500.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-14",
+      "description": "DOMICILIACION",
+      "amount": 389.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-14",
+      "description": "DEPOSITO SPEI",
+      "amount": 672.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-15",
+      "description": "DEPOSITO SPEI",
+      "amount": 693.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-16",
+      "description": "GO GASOLINERO BERISA MX",
+      "amount": 1250.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-16",
+      "description": "APPLE.COM/BILL US",
+      "amount": 49.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-17",
+      "description": "TRASPASO ENTRE CUENTAS",
+      "amount": 714.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-17",
+      "description": "APPLE.COM/BILL US",
+      "amount": 375.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-17",
+      "description": "PAYPAL*GOOGLE ROUTIN MX",
+      "amount": 189.99,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-18",
+      "description": "DEPOSITO SPEI",
+      "amount": 2070.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-20",
+      "description": "TELCEL 6MPS ECOM MX",
+      "amount": 740.23,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-20",
+      "description": "TRES GUERRAS SUC QRO MX",
+      "amount": 293.36,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-20",
+      "description": "ADOBE 2 MX",
+      "amount": 199.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-20",
+      "description": "CANCINO POLANQUITO MX",
+      "amount": 575.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-20",
+      "description": "GASOL GRUPO Q L MX",
+      "amount": 500.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-21",
+      "description": "RECARGA PASE TUTAG MX",
+      "amount": 300.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-21",
+      "description": "RECARGA PASE TUTAG MX",
+      "amount": 200.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-21",
+      "description": "ADOBE MX",
+      "amount": 777.29,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-21",
+      "description": "DEPOSITO TEF",
+      "amount": 108.79,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-22",
+      "description": "GPO GASOLINERO BERISA MX",
+      "amount": 920.41,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-22",
+      "description": "RECARGA PASE TUTAG MX",
+      "amount": 300.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-22",
+      "description": "DEPOSITO SPEI",
+      "amount": 673.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-22",
+      "description": "DEPOSITO SPEI",
+      "amount": 1270.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-22",
+      "description": "DEPOSITO SPEI",
+      "amount": 600.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-23",
+      "description": "STARBUCKS CENTRO MAX MX",
+      "amount": 89.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-23",
+      "description": "G TEPA ARANDAS GDL MX",
+      "amount": 60.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-24",
+      "description": "TRASPASO ENTRE CUENTAS",
+      "amount": 462.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-25",
+      "description": "DEPOSITO SPEI",
+      "amount": 1500.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-26",
+      "description": "DEPOSITO SPEI",
+      "amount": 2583.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-26",
+      "description": "SQSP* INV166785787 US",
+      "amount": 240.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-27",
+      "description": "TRASPASO SPEI INBURED",
+      "amount": 19305.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-27",
+      "description": "TRASPASO SPEI INBURED",
+      "amount": 21782.77,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-27",
+      "description": "DEPOSITO EN CUENTA",
+      "amount": 900.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-27",
+      "description": "DEPOSITO SPEI",
+      "amount": 0.01,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-27",
+      "description": "DEPOSITO SPEI",
+      "amount": 696.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-29",
+      "description": "TRASPASO SPEI INBURED",
+      "amount": 2241.12,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-29",
+      "description": "DEPOSITO SPEI",
+      "amount": 1168.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-29",
+      "description": "DEPOSITO SPEI",
+      "amount": 4242.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-30",
+      "description": "DEPOSITO EFECTIVO CORRESPONSAL",
+      "amount": 2184.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-30",
+      "description": "DEPOSITO SPEI",
+      "amount": 1092.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-30",
+      "description": "APPLE.COM/BILL US",
+      "amount": 215.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-31",
+      "description": "DEPOSITO EN CUENTA",
+      "amount": 62490.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-31",
+      "description": "DEPOSITO SPEI",
+      "amount": 1871.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-31",
+      "description": "DEPOSITO SPEI",
+      "amount": 2304.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-31",
+      "description": "DEPOSITO SPEI",
+      "amount": 1402.00,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-31",
+      "description": "COMISION POR MOVIMIENTOS INBURED",
+      "amount": 18.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-31",
+      "description": "COMISION POR MOVIMIENTOS INBURED",
+      "amount": 2.88,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-31",
+      "description": "INTERESES GANADOS",
+      "amount": 172.22,
+      "type": "credit"
+    },
+    {
+      "date": "2025-01-31",
+      "description": "ISR RETENIDO",
+      "amount": 11.49,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-31",
+      "description": "COMISION MANEJO DE CUENTA",
+      "amount": 200.00,
+      "type": "debit"
+    },
+    {
+      "date": "2025-01-31",
+      "description": "IVA COMISION MANEJO DE CUENTA",
+      "amount": 32.00,
+      "type": "debit"
+    }
+  ]
+}
+```

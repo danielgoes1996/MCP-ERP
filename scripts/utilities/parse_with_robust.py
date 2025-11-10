@@ -2,8 +2,8 @@
 """
 Parse PDF using robust parser with corrected 2024 dates
 """
-from core.robust_pdf_parser import RobustPDFParser
-from core.unified_db_adapter import UnifiedDBAdapter
+from core.ai_pipeline.parsers.robust_pdf_parser import RobustPDFParser
+from core.shared.unified_db_adapter import UnifiedDBAdapter
 
 def main():
     pdf_path = '/Users/danielgoes96/Desktop/mcp-server/uploads/statements/9_20250928_000304_Periodo_JUL 2025 (1).pdf'

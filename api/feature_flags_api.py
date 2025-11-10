@@ -9,7 +9,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query, Body
 from pydantic import BaseModel, Field
 
-from core.feature_flags import (
+from core.config.feature_flags import (
     feature_flags,
     FeatureFlag,
     is_automation_enabled,
