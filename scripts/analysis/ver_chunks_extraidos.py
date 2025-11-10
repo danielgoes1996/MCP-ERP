@@ -4,7 +4,7 @@ Mostrar los chunks de texto extraído tal como se envían a OpenAI
 """
 
 import os
-from core.robust_pdf_parser import RobustPDFParser
+from core.ai_pipeline.parsers.robust_pdf_parser import RobustPDFParser
 from core.llm_pdf_parser import LLMPDFParser
 
 def mostrar_chunks_completos():

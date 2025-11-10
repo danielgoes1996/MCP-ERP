@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator, Validat
 from starlette.datastructures import UploadFile
 
 from config.config import config
-from core.unified_auth import User, get_current_active_user
+from core.auth.unified import User, get_current_active_user
 from core.ai import (
     analyze_and_store_context,
     generate_context_questions,

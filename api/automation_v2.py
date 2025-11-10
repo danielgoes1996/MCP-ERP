@@ -13,7 +13,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, Depends
 from fastapi.responses import JSONResponse
 
-from core.automation_models import (
+from core.expenses.automation_models import (
     AutomationJobResponse,
     AutomationLogEntry,
     AutomationScreenshot,

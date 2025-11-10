@@ -12,7 +12,7 @@ from datetime import datetime
 import json
 import logging
 
-from core.unified_auth import get_current_active_user, User as AuthUser
+from core.auth.unified import get_current_active_user, User as AuthUser
 
 logger = logging.getLogger(__name__)
 

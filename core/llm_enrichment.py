@@ -9,7 +9,7 @@ from dataclasses import asdict
 from typing import Any, Dict
 
 from config.config import config
-from core.accounting_catalog import (
+from core.accounting.accounting_catalog import (
     CategoryNormalizationResult,
     normalize_accounting_category,
 )

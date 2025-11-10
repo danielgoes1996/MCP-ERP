@@ -27,7 +27,7 @@ from core.split_reconciliation_service import (
     undo_split,
     get_split_summary,
 )
-from core.auth_jwt import User, get_current_user, require_role, enforce_tenant_isolation
+from core.auth.jwt import User, get_current_user, require_role, enforce_tenant_isolation
 
 logger = logging.getLogger(__name__)
 

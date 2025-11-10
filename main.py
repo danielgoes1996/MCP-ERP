@@ -6,7 +6,8 @@ a universal layer between AI agents and business systems.
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Query, Request
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Query, Request, BackgroundTasks, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -19,10 +20,13 @@ import os
 from datetime import datetime, timedelta
 import math
 import re
-import sqlite3
+# PostgreSQL adapter (drop-in replacement for sqlite3)
+from core.database import pg_sync_adapter as sqlite3
+import io
+import uuid
 
 # Utilidades para movimientos bancarios
-from core.bank_statements_models import infer_movement_kind
+from core.reconciliation.bank.bank_statements_models import infer_movement_kind
 
 # Cargar variables de entorno
 try:
@@ -33,18 +37,18 @@ except ImportError:
     logging.warning("python-dotenv no instalado, usando variables del sistema")
 
 # Import our core MCP handler and reconciliation helpers
-from core.mcp_handler import handle_mcp_request
-from core.bank_reconciliation import suggest_bank_matches
-from core.invoice_parser import parse_cfdi_xml, InvoiceParseError
+from core.shared.mcp_handler import handle_mcp_request
+from core.reconciliation.matching.bank_reconciliation import suggest_bank_matches
+from core.ai_pipeline.parsers.invoice_parser import parse_cfdi_xml, InvoiceParseError
 
 # Import configuration first
 from config.config import config
 
 # Import JWT authentication system (primary)
-from core.auth_jwt import get_current_user, User
+from core.auth.jwt import get_current_user, User
 
 # Import legacy auth system (fallback)
-from core.unified_auth import (
+from core.auth.unified import (
     authenticate_user, create_user, create_tokens_for_user,
     verify_refresh_token, revoke_refresh_token,
     LoginRequest, RegisterRequest, Token, get_current_active_user
@@ -66,7 +70,7 @@ from core.error_handler import (
 # Import unified DB adapter or fallback to original internal_db
 try:
     if config.USE_UNIFIED_DB:
-        from core.unified_db_adapter import (
+        from core.shared.unified_db_adapter import (
             record_internal_expense,
             fetch_expense_records,
             fetch_expense_record,
@@ -213,15 +217,13 @@ async def lifespan(app: FastAPI):
         initialize_internal_database()
         logger.info("Internal account catalog initialised")
 
-        # Apply database optimizations
-        import sqlite3
-        from pathlib import Path
-
-        db_path = Path(config.DB_PATH).resolve()
-        if db_path.exists():
-            with sqlite3.connect(str(db_path)) as conn:
-                optimize_database_connection(conn)
-                logger.info("Database optimizations applied")
+        # Apply database optimizations (PostgreSQL - skip for now)
+        # from pathlib import Path
+        # db_path = Path(config.DB_PATH).resolve()
+        # if db_path.exists():
+        #     with sqlite3.connect(str(db_path)) as conn:
+        #         optimize_database_connection(conn)
+        logger.info("Database optimizations skipped (using PostgreSQL)")
 
         yield
     except Exception as exc:  # pragma: no cover - defensive logging
@@ -238,8 +240,25 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Configure CORS to allow frontend access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3004",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://127.0.0.1:3004",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Mount static files for web interface
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Commented out temporarily - static directory doesn't exist
+# app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Direct access endpoints for main pages
 @app.get("/payment-accounts.html")
@@ -306,6 +325,14 @@ try:
     logger.info("Client management API loaded successfully")
 except ImportError as e:
     logger.warning(f"Client management API not available: {e}")
+
+# Import and mount payment methods API
+try:
+    from api.payment_methods_api import router as payment_methods_router
+    app.include_router(payment_methods_router)
+    logger.info("Payment methods API loaded successfully")
+except ImportError as e:
+    logger.warning(f"Payment methods API not available: {e}")
 
 # Import and mount non-reconciliation API
 try:
@@ -419,6 +446,14 @@ try:
 except ImportError as e:
     logger.warning(f"Split reconciliation API not available: {e}")
 
+# Reconciliation V1 API (for VC demo)
+try:
+    from app.routers.reconciliation_router import router as reconciliation_v1_router
+    app.include_router(reconciliation_v1_router)
+    logger.info("✅ Reconciliation V1 API loaded successfully")
+except ImportError as e:
+    logger.warning(f"Reconciliation V1 API not available: {e}")
+
 # AI Reconciliation API
 try:
     from api.ai_reconciliation_api import router as ai_reconciliation_router
@@ -508,7 +543,7 @@ async def get_public_banking_institutions():
 # Import all API models from centralized location
 from core.api_models import *
 from core.error_handler import handle_error, log_endpoint_entry, log_endpoint_success, log_endpoint_error, ValidationError, NotFoundError, ServiceError
-from core.db_optimizer import optimize_database_connection
+from core.shared.db_optimizer import optimize_database_connection
 logger.info("✅ API models loaded from core.api_models")
 
 # Legacy model definitions below will be removed in next phase
@@ -1158,7 +1193,7 @@ async def refresh_access_token(refresh_token: str):
                 detail="Invalid or expired refresh token"
             )
 
-        from core.unified_auth import get_user_by_id
+        from core.auth.unified import get_user_by_id
         user = get_user_by_id(user_id)
         if not user:
             raise HTTPException(
@@ -1698,7 +1733,7 @@ async def voice_mcp_enhanced_endpoint(file: UploadFile = File(...)):
 
         # Step 2: Enhance with LLM
         try:
-            from core.expense_enhancer import enhance_expense_from_voice
+            from core.expenses.completion.expense_enhancer import enhance_expense_from_voice
             # Extract amount from transcript for enhancement
             import re
             amount_match = re.search(r'(\d+(?:\.\d+)?)', transcript)
@@ -1715,7 +1750,7 @@ async def voice_mcp_enhanced_endpoint(file: UploadFile = File(...)):
             }
 
         # Step 3: Validate completeness
-        from core.expense_validator import expense_validator
+        from core.expenses.validation.expense_validator import expense_validator
         validation_result = expense_validator.validate_expense_data(enhanced_data)
 
         # Step 4: Generate completion form if needed
@@ -2350,7 +2385,7 @@ async def reparse_transactions_with_improved_rules(
     try:
         import sqlite3
         from core.llm_pdf_parser import LLMPDFParser
-        from core.bank_statements_models import MovementKind
+        from core.reconciliation.bank.bank_statements_models import MovementKind
 
         # Connect to database
         db_path = "unified_mcp_system.db"
@@ -2931,7 +2966,7 @@ async def create_expense_with_duplicate_detection(
 
                 # Save ML features if available
                 if duplicate_result.get('ml_features'):
-                    from core.unified_db_adapter import save_expense_ml_features
+                    from core.shared.unified_db_adapter import save_expense_ml_features
                     try:
                         save_expense_ml_features(
                             expense_id,
@@ -2960,7 +2995,7 @@ async def predict_expense_category_endpoint(
 ):
     """Predict category for an expense"""
     try:
-        from core.unified_db_adapter import predict_expense_category
+        from core.shared.unified_db_adapter import predict_expense_category
 
         description = request.get('description', '')
         amount = request.get('amount', 0)
@@ -2972,7 +3007,7 @@ async def predict_expense_category_endpoint(
         # Get user history for better predictions
         user_history = []
         if request.get('user_id'):
-            from core.unified_db_adapter import get_user_category_preferences
+            from core.shared.unified_db_adapter import get_user_category_preferences
             user_history = get_user_category_preferences(request['user_id'], tenancy.tenant_id)
 
         prediction = predict_expense_category({
@@ -2997,7 +3032,7 @@ async def get_custom_categories_endpoint(
 ):
     """Get custom categories for tenant"""
     try:
-        from core.unified_db_adapter import get_custom_categories
+        from core.shared.unified_db_adapter import get_custom_categories
         categories = get_custom_categories(tenancy.tenant_id)
 
         return {
@@ -3016,7 +3051,7 @@ async def get_category_config_endpoint(
 ):
     """Get category prediction configuration"""
     try:
-        from core.unified_db_adapter import get_category_prediction_config
+        from core.shared.unified_db_adapter import get_category_prediction_config
         config = get_category_prediction_config(tenancy.tenant_id)
 
         if not config:
@@ -3042,7 +3077,7 @@ async def record_category_feedback_endpoint(
 ):
     """Record user feedback on category prediction"""
     try:
-        from core.unified_db_adapter import record_category_feedback
+        from core.shared.unified_db_adapter import record_category_feedback
 
         expense_id = request.get('expense_id')
         feedback_type = request.get('feedback_type')  # 'accepted', 'corrected', 'rejected'
@@ -3063,7 +3098,7 @@ async def record_category_feedback_endpoint(
         learning_success = False
         if success:
             try:
-                from core.category_learning_system import process_category_feedback
+                from core.ai_pipeline.classification.category_learning_system import process_category_feedback
                 learning_success = process_category_feedback(expense_id, feedback_data, tenancy.tenant_id)
             except Exception as e:
                 logger.warning(f"Learning system processing failed: {e}")
@@ -3085,7 +3120,7 @@ async def get_category_stats_endpoint(
 ):
     """Get category prediction statistics"""
     try:
-        from core.unified_db_adapter import get_category_stats
+        from core.shared.unified_db_adapter import get_category_stats
         stats = get_category_stats(tenancy.tenant_id)
 
         return {
@@ -3104,7 +3139,7 @@ async def get_category_learning_insights_endpoint(
 ):
     """Get category learning system insights"""
     try:
-        from core.category_learning_system import get_category_learning_insights
+        from core.ai_pipeline.classification.category_learning_system import get_category_learning_insights
         insights = get_category_learning_insights(tenancy.tenant_id)
 
         return {
@@ -3124,7 +3159,7 @@ async def optimize_category_predictor_endpoint(
 ):
     """Optimize category predictor based on learning"""
     try:
-        from core.category_learning_system import optimize_category_predictor
+        from core.ai_pipeline.classification.category_learning_system import optimize_category_predictor
         optimizations = optimize_category_predictor(tenancy.tenant_id)
 
         return {
@@ -3154,6 +3189,486 @@ async def parse_invoice(file: UploadFile = File(...)) -> InvoiceParseResponse:
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("Invoice parsing error: %s", exc)
         raise HTTPException(status_code=500, detail="Error interno al analizar la factura")
+
+
+@app.post("/invoices/upload-bulk")
+async def upload_bulk_invoices(
+    files: List[UploadFile] = File(...),
+    company_id: str = Form(...),
+    create_placeholder_on_no_match: bool = Form(True),
+    auto_link_threshold: float = Form(0.8),
+    auto_mark_invoiced: bool = Form(True),
+    batch_tag: Optional[str] = Form(None),
+    background_tasks: BackgroundTasks = None,
+    tenancy_context: TenancyContext = Depends(get_tenancy_context)
+):
+    """
+    Upload multiple XML invoices or ZIP files containing XMLs for bulk processing.
+
+    Features:
+    - Supports multiple individual XML files
+    - Supports ZIP files containing multiple XMLs
+    - Automatic CFDI parsing and validation
+    - Creates audit trail in invoice_import_logs
+    - Async batch processing with real-time status tracking
+    - Security: File size limits, MIME validation, hash duplicate detection
+
+    Args:
+        files: List of XML or ZIP files
+        company_id: Company/tenant ID
+        create_placeholder_on_no_match: Create expense placeholder if no match found
+        auto_link_threshold: Confidence threshold for auto-linking (0.0-1.0)
+        auto_mark_invoiced: Auto-mark expenses as invoiced when linked
+        batch_tag: Optional tag for grouping (e.g., "sat_enero_2025")
+
+    Returns:
+        {
+            "batch_id": "batch_xyz123",
+            "status": "processing",
+            "total_files": 50,
+            "message": "Batch created successfully"
+        }
+    """
+    import zipfile
+    import tempfile
+    import hashlib
+    from pathlib import Path
+    import asyncio
+
+    # Security: File size limit (200 MB total)
+    MAX_TOTAL_SIZE = 200 * 1024 * 1024  # 200 MB
+    MAX_SINGLE_FILE_SIZE = 50 * 1024 * 1024  # 50 MB per file
+    ALLOWED_MIMES = ['application/xml', 'text/xml', 'application/zip', 'application/x-zip-compressed']
+
+    try:
+        # Connect to PostgreSQL using adapter
+        conn = sqlite3.connect()  # Uses PostgreSQL adapter
+        cursor = conn.cursor()
+
+        tenant_id = tenancy_context.tenant_id
+        user_id = getattr(tenancy_context, 'user_id', 1)  # TODO: Get from auth
+
+        batch_id = f"batch_{uuid.uuid4().hex[:16]}"
+        parsed_invoices = []
+        import_logs = []
+        total_size = 0
+
+        logger.info(f"Starting bulk upload for company {company_id}, batch {batch_id}, {len(files)} files")
+
+        # Process each uploaded file
+        for file in files:
+            filename = file.filename or "unknown"
+
+            # Read file content
+            content = await file.read()
+            file_size = len(content)
+            total_size += file_size
+
+            # Security: Check total size
+            if total_size > MAX_TOTAL_SIZE:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Total upload size exceeds limit of {MAX_TOTAL_SIZE // (1024*1024)} MB"
+                )
+
+            # Security: Check single file size
+            if file_size > MAX_SINGLE_FILE_SIZE:
+                logger.warning(f"File {filename} exceeds size limit: {file_size} bytes")
+                import_logs.append({
+                    'filename': filename,
+                    'tenant_id': tenant_id,
+                    'status': 'error',
+                    'error_message': f'File size {file_size // (1024*1024)} MB exceeds limit of {MAX_SINGLE_FILE_SIZE // (1024*1024)} MB',
+                    'source': 'bulk_upload',
+                    'import_method': 'file_upload',
+                    'batch_id': batch_id,
+                    'imported_by': user_id,
+                    'file_size': file_size
+                })
+                continue
+
+            # Security: Validate MIME type
+            content_type = file.content_type or ''
+            if content_type not in ALLOWED_MIMES:
+                logger.warning(f"File {filename} has invalid MIME type: {content_type}")
+                import_logs.append({
+                    'filename': filename,
+                    'tenant_id': tenant_id,
+                    'status': 'error',
+                    'error_message': f'Invalid file type: {content_type}. Only XML and ZIP allowed.',
+                    'source': 'bulk_upload',
+                    'import_method': 'file_upload',
+                    'batch_id': batch_id,
+                    'imported_by': user_id,
+                    'file_size': file_size,
+                    'detected_format': content_type
+                })
+                continue
+
+            # Calculate file hash for duplicate detection
+            file_hash = hashlib.sha256(content).hexdigest()
+
+            # Check for duplicate by hash
+            cursor.execute("""
+                SELECT filename, import_date FROM invoice_import_logs
+                WHERE file_hash = ? AND tenant_id = ?
+                ORDER BY import_date DESC LIMIT 1
+            """, (file_hash, tenant_id))
+
+            duplicate = cursor.fetchone()
+            if duplicate:
+                logger.info(f"Duplicate file detected: {filename} (hash: {file_hash[:8]}...)")
+                # PostgreSQL adapter returns dict, not tuple
+                dup_filename = duplicate.get('filename', duplicate.get(0, 'unknown'))
+                dup_date = duplicate.get('import_date', duplicate.get(1, 'unknown'))
+                import_logs.append({
+                    'filename': filename,
+                    'tenant_id': tenant_id,
+                    'status': 'duplicate',
+                    'error_message': f'Duplicate of {dup_filename} uploaded on {dup_date}',
+                    'source': 'bulk_upload',
+                    'import_method': 'file_upload',
+                    'batch_id': batch_id,
+                    'imported_by': user_id,
+                    'file_size': file_size,
+                    'file_hash': file_hash
+                })
+                continue
+
+            # Process ZIP files
+            if filename.lower().endswith('.zip'):
+                logger.info(f"Processing ZIP file: {filename}")
+
+                try:
+                    # Use TemporaryDirectory for async-safe decompression
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        temp_path = Path(temp_dir)
+
+                        # Extract ZIP
+                        with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                            # Security: Check for zip bombs
+                            total_extracted_size = sum(info.file_size for info in zf.filelist)
+                            if total_extracted_size > MAX_TOTAL_SIZE:
+                                raise HTTPException(
+                                    status_code=413,
+                                    detail=f"ZIP file expands to {total_extracted_size // (1024*1024)} MB, exceeds limit"
+                                )
+
+                            # Extract all files
+                            zf.extractall(temp_path)
+
+                            # Process each XML in the ZIP
+                            for xml_path in temp_path.rglob('*.xml'):
+                                xml_filename = f"{filename}/{xml_path.name}"
+
+                                try:
+                                    xml_content = xml_path.read_bytes()
+                                    xml_hash = hashlib.sha256(xml_content).hexdigest()
+
+                                    # Parse CFDI
+                                    parsed = parse_cfdi_xml(xml_content)
+                                    parsed['filename'] = xml_filename
+                                    parsed['file_size'] = len(xml_content)
+                                    parsed['file_hash'] = xml_hash
+                                    parsed_invoices.append(parsed)
+
+                                    # Log successful parse
+                                    import_logs.append({
+                                        'filename': xml_filename,
+                                        'uuid_detectado': parsed.get('uuid'),
+                                        'tenant_id': tenant_id,
+                                        'status': 'pending',
+                                        'source': 'bulk_upload',
+                                        'import_method': 'zip_upload',
+                                        'batch_id': batch_id,
+                                        'imported_by': user_id,
+                                        'file_size': len(xml_content),
+                                        'file_hash': xml_hash,
+                                        'detected_format': 'xml'
+                                    })
+
+                                except InvoiceParseError as e:
+                                    logger.warning(f"Failed to parse {xml_filename}: {e}")
+                                    import_logs.append({
+                                        'filename': xml_filename,
+                                        'tenant_id': tenant_id,
+                                        'status': 'error',
+                                        'error_message': f'Parse error: {str(e)}',
+                                        'source': 'bulk_upload',
+                                        'import_method': 'zip_upload',
+                                        'batch_id': batch_id,
+                                        'imported_by': user_id,
+                                        'file_size': len(xml_content),
+                                        'detected_format': 'xml'
+                                    })
+
+                except zipfile.BadZipFile:
+                    logger.error(f"Invalid ZIP file: {filename}")
+                    import_logs.append({
+                        'filename': filename,
+                        'tenant_id': tenant_id,
+                        'status': 'error',
+                        'error_message': 'Invalid or corrupted ZIP file',
+                        'source': 'bulk_upload',
+                        'import_method': 'file_upload',
+                        'batch_id': batch_id,
+                        'imported_by': user_id,
+                        'file_size': file_size
+                    })
+
+            # Process individual XML files
+            elif filename.lower().endswith('.xml'):
+                try:
+                    parsed = parse_cfdi_xml(content)
+                    parsed['filename'] = filename
+                    parsed['file_size'] = file_size
+                    parsed['file_hash'] = file_hash
+                    # ⭐ IMPORTANTE: Guardar XML completo para auditoría fiscal SAT
+                    parsed['raw_xml'] = content.decode('utf-8') if isinstance(content, bytes) else content
+                    parsed_invoices.append(parsed)
+
+                    # Log successful parse
+                    import_logs.append({
+                        'filename': filename,
+                        'uuid_detectado': parsed.get('uuid'),
+                        'tenant_id': tenant_id,
+                        'status': 'pending',
+                        'source': 'bulk_upload',
+                        'import_method': 'file_upload',
+                        'batch_id': batch_id,
+                        'imported_by': user_id,
+                        'file_size': file_size,
+                        'file_hash': file_hash,
+                        'detected_format': 'xml'
+                    })
+
+                except InvoiceParseError as e:
+                    logger.warning(f"Failed to parse {filename}: {e}")
+                    import_logs.append({
+                        'filename': filename,
+                        'tenant_id': tenant_id,
+                        'status': 'error',
+                        'error_message': f'Parse error: {str(e)}',
+                        'source': 'bulk_upload',
+                        'import_method': 'file_upload',
+                        'batch_id': batch_id,
+                        'imported_by': user_id,
+                        'file_size': file_size,
+                        'file_hash': file_hash,
+                        'detected_format': 'xml'
+                    })
+
+        # Insert all import logs into database
+        if import_logs:
+            for log in import_logs:
+                cursor.execute("""
+                    INSERT INTO invoice_import_logs (
+                        filename, uuid_detectado, tenant_id, status, error_message,
+                        source, import_method, batch_id, imported_by,
+                        file_size, file_hash, detected_format, import_date
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    log['filename'],
+                    log.get('uuid_detectado'),
+                    log['tenant_id'],
+                    log['status'],
+                    log.get('error_message'),
+                    log['source'],
+                    log['import_method'],
+                    log['batch_id'],
+                    log['imported_by'],
+                    log.get('file_size'),
+                    log.get('file_hash'),
+                    log.get('detected_format'),
+                    datetime.utcnow()
+                ))
+            conn.commit()
+            logger.info(f"Logged {len(import_logs)} import records")
+
+        # If no valid invoices parsed, return error summary
+        if not parsed_invoices:
+            error_count = sum(1 for log in import_logs if log['status'] == 'error')
+            duplicate_count = sum(1 for log in import_logs if log['status'] == 'duplicate')
+
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "batch_id": batch_id,
+                    "status": "failed",
+                    "total_files": len(files),
+                    "parsed": 0,
+                    "errors": error_count,
+                    "duplicates": duplicate_count,
+                    "message": "No valid invoices could be parsed",
+                    "import_logs": import_logs[:10]  # Show first 10 errors
+                }
+            )
+
+        # Initialize bulk processor
+        from core.expenses.invoices.bulk_invoice_processor import bulk_invoice_processor
+        # Note: bulk processor will initialize its own DB connection
+
+        # Create batch with metadata
+        batch_metadata = {
+            "source": "file_upload",
+            "batch_tag": batch_tag,
+            "create_placeholder_on_no_match": create_placeholder_on_no_match,
+            "total_files_uploaded": len(files),
+            "total_xmls_parsed": len(parsed_invoices),
+            "upload_timestamp": datetime.utcnow().isoformat()
+        }
+
+        # Create batch for async processing
+        batch = await bulk_invoice_processor.create_batch(
+            company_id=company_id,
+            invoices=parsed_invoices,
+            auto_link_threshold=auto_link_threshold,
+            auto_mark_invoiced=auto_mark_invoiced,
+            batch_metadata=batch_metadata,
+            created_by=user_id
+        )
+
+        logger.info(f"Batch {batch_id} created with {len(parsed_invoices)} invoices")
+
+        # Return immediately with batch_id for status tracking
+        return {
+            "batch_id": batch.batch_id,
+            "status": "processing",
+            "total_files": len(files),
+            "total_invoices": len(parsed_invoices),
+            "errors": sum(1 for log in import_logs if log['status'] == 'error'),
+            "duplicates": sum(1 for log in import_logs if log['status'] == 'duplicate'),
+            "message": f"Batch created successfully. {len(parsed_invoices)} invoices queued for processing.",
+            "status_url": f"/api/bulk-invoice/batch/{batch.batch_id}/status",
+            "results_url": f"/api/bulk-invoice/batch/{batch.batch_id}/results"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Bulk upload error: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing bulk upload: {str(e)}")
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+
+@app.post("/invoices/process-batch/{batch_id}")
+async def process_invoice_batch(
+    batch_id: str,
+    tenancy_context: TenancyContext = Depends(get_tenancy_context)
+):
+    """
+    Trigger processing of a pending batch of invoices.
+
+    This endpoint processes all invoices in the specified batch by:
+    - Parsing and storing invoice data in expense_invoices table
+    - Attempting to link invoices to existing expenses
+    - Creating placeholders if no match found (based on batch config)
+    - Updating batch status and metrics
+
+    Args:
+        batch_id: The batch ID to process
+
+    Returns:
+        {
+            "batch_id": "batch_xyz",
+            "status": "completed",
+            "processed_count": 50,
+            "linked_count": 35,
+            "placeholder_count": 12,
+            "error_count": 3
+        }
+    """
+    try:
+        from core.expenses.invoices.bulk_invoice_processor import bulk_invoice_processor
+
+        logger.info(f"Processing batch {batch_id}")
+
+        # Trigger batch processing
+        batch = await bulk_invoice_processor.process_batch(batch_id)
+
+        return {
+            "batch_id": batch.batch_id,
+            "status": batch.status.value,
+            "processed_count": batch.processed_count,
+            "linked_count": batch.linked_count,
+            "placeholder_count": batch.batch_metadata.get('placeholder_count', 0) if batch.batch_metadata else 0,
+            "error_count": batch.errors_count,
+            "message": f"Batch processed successfully"
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.exception(f"Batch processing error: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing batch: {str(e)}")
+
+
+@app.post("/webhooks/batch-subscribe")
+async def subscribe_to_batch_webhook(
+    batch_id: str = Form(...),
+    webhook_url: str = Form(...),
+    tenancy_context: TenancyContext = Depends(get_tenancy_context)
+):
+    """
+    Subscribe to batch completion notifications.
+
+    When the batch processing completes, a POST request will be sent to webhook_url with:
+    {
+        "batch_id": "batch_xyz",
+        "status": "completed",
+        "total_invoices": 100,
+        "linked": 75,
+        "placeholders_created": 20,
+        "errors": 5,
+        "success_rate": 95.0,
+        "processing_time_ms": 45000,
+        "completed_at": "2025-11-07T12:00:00Z"
+    }
+    """
+    try:
+        db = get_db_adapter()
+        cursor = db.conn.cursor()
+
+        # Validate batch exists
+        cursor.execute("""
+            SELECT COUNT(*) FROM bulk_invoice_batches
+            WHERE batch_id = ?
+        """, (batch_id,))
+
+        if cursor.fetchone()[0] == 0:
+            raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+
+        # Store webhook subscription
+        cursor.execute("""
+            INSERT INTO batch_webhooks (
+                batch_id, webhook_url, tenant_id,
+                created_at, status
+            ) VALUES (?, ?, ?, ?, ?)
+        """, (
+            batch_id,
+            webhook_url,
+            tenancy_context.tenant_id,
+            datetime.utcnow(),
+            'pending'
+        ))
+
+        db.conn.commit()
+
+        logger.info(f"Webhook subscription created: batch {batch_id} -> {webhook_url}")
+
+        return {
+            "message": "Webhook subscription created",
+            "batch_id": batch_id,
+            "webhook_url": webhook_url
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error subscribing to webhook: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/invoices/bulk-match", response_model=BulkInvoiceMatchResponse)
@@ -3224,7 +3739,7 @@ async def create_expense(
         ValidationError: Si los datos no pasan validación
         ServiceError: Si hay error en la BD
     """
-    from core.category_mappings import get_account_code_for_category
+    from core.ai_pipeline.classification.category_mappings import get_account_code_for_category
 
     endpoint = "POST /expenses"
     log_endpoint_entry(endpoint, amount=expense.monto_total, company_id=expense.company_id)
@@ -3284,7 +3799,7 @@ async def create_expense(
             raise ServiceError("Database", "No se pudo recuperar el gasto creado")
 
         # ✅ NUEVO: Hook de escalamiento automático
-        from core.expense_escalation_hooks import post_expense_creation_hook
+        from core.expenses.workflow.expense_escalation_hooks import post_expense_creation_hook
 
         escalation_info = await post_expense_creation_hook(
             expense_id=expense_id,
@@ -3524,7 +4039,7 @@ async def check_expense_duplicates(request: DuplicateCheckRequest) -> DuplicateC
     Usa embeddings semánticos y heurísticas para detectar similitudes.
     """
     try:
-        from core.duplicate_detector import detect_expense_duplicates
+        from core.reconciliation.validation.duplicate_detector import detect_expense_duplicates
 
         # Obtener gastos existentes si se solicita
         existing_expenses = []
@@ -3592,7 +4107,7 @@ async def predict_expense_category(request: CategoryPredictionRequest) -> Catego
     Incluye sugerencias de autocompletado para mejorar la UX.
     """
     try:
-        from core.category_predictor import predict_expense_category, get_category_predictor
+        from core.ai_pipeline.classification.category_predictor import predict_expense_category, get_category_predictor
 
         # Obtener historial de gastos si se solicita
         expense_history = []
@@ -3657,7 +4172,7 @@ async def get_category_suggestions(partial: str = "") -> Dict[str, List[Dict[str
     Obtiene sugerencias de categorías para autocompletado.
     """
     try:
-        from core.category_predictor import get_category_predictor
+        from core.ai_pipeline.classification.category_predictor import get_category_predictor
 
         predictor = get_category_predictor()
         suggestions = predictor.get_category_suggestions(partial)
@@ -5009,6 +5524,27 @@ async def get_validation_system_status(
     except Exception as e:
         logger.exception(f"Error getting validation system status: {e}")
         raise HTTPException(status_code=500, detail="Error retrieving system status")
+
+
+# ========================================
+# SAT Descarga Masiva API
+# ========================================
+try:
+    from api.sat_download_simple import router as sat_download_router
+    app.include_router(sat_download_router)
+    logger.info("✅ SAT Download API loaded successfully (simplified version)")
+except ImportError as e:
+    logger.warning(f"⚠️  SAT Download API not available: {e}")
+
+# ========================================
+# CFDI Verification API
+# ========================================
+try:
+    from api.cfdi_api import router as cfdi_router
+    app.include_router(cfdi_router)
+    logger.info("✅ CFDI Verification API loaded successfully")
+except ImportError as e:
+    logger.warning(f"⚠️  CFDI Verification API not available: {e}")
 
 
 if __name__ == "__main__":

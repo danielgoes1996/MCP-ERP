@@ -26,7 +26,7 @@ async def get_bank_movements_by_account(
     """Get all bank movements for a specific account."""
     try:
         # Get database connection
-        from core.unified_db_adapter import get_unified_adapter
+        from core.shared.unified_db_adapter import get_unified_adapter
         db = get_unified_adapter()
 
         # Query bank movements for the account

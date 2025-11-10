@@ -1,7 +1,7 @@
 import importlib
 
 from core import bank_rules_loader
-from core.bank_file_parser import BankFileParser
+from core.reconciliation.bank.bank_file_parser import BankFileParser
 
 
 def test_load_bank_specific_rules(tmp_path, monkeypatch):

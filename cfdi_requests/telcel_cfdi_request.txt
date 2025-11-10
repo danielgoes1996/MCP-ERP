@@ -1,0 +1,70 @@
+
+====================================================================================================
+📧 SOLICITUD DE FACTURA ELECTRÓNICA (CFDI)
+====================================================================================================
+
+Para: Telcel
+Asunto: Solicitud de Facturas Electrónicas (CFDIs) - November 2025
+
+====================================================================================================
+
+Estimado equipo de Telcel,
+
+Por medio del presente, solicito amablemente la emisión de las siguientes facturas electrónicas (CFDIs)
+correspondientes a los cargos realizados a mi tarjeta/cuenta durante el mes de enero 2025:
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+Fecha               Monto Referencia/Descripción                                                
+────────────────────────────────────────────────────────────────────────────────────────────────────
+20/01/2025   $    740.23 TELCEL 6MPS ECOM MX                                                   
+────────────────────────────────────────────────────────────────────────────────────────────────────
+TOTAL        $    740.23
+────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+DATOS FISCALES PARA LA FACTURACIÓN:
+
+RFC:                POL210218264
+Razón Social:       [COMPLETAR CON RAZÓN SOCIAL DE LA EMPRESA]
+Régimen Fiscal:     [COMPLETAR - ej: 601 General de Ley Personas Morales]
+Código Postal:      [COMPLETAR]
+Uso de CFDI:        G03 - Gastos en General
+
+Email de envío:     facturacion@[EMPRESA].com
+
+
+INSTRUCCIONES ESPECÍFICAS:
+
+- Si tiene portal de facturación en línea, favor de indicar la URL
+- Método de pago: PUE (Pago en una sola exhibición)
+- Forma de pago: 04 - Tarjeta de crédito (o la que corresponda)
+
+
+PLAZO DE ENTREGA:
+
+Por disposiciones fiscales del SAT, las facturas deben emitirse en el mismo mes del consumo.
+Agradecería que pudieran enviarme las facturas a la brevedad posible.
+
+Si tienen algún portal de autofacturación en línea, favor de compartir la liga y las instrucciones.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Quedo al pendiente de su respuesta.
+
+Saludos cordiales,
+[NOMBRE DEL SOLICITANTE]
+[PUESTO]
+[EMPRESA]
+[TELÉFONO]
+[EMAIL]
+
+====================================================================================================
+
+NOTAS INTERNAS:
+- Total de transacciones: 1
+- Monto total a facturar: $740.23 MXN
+- Categoría: Telecomunicaciones
+- Prioridad: ALTA
+
+====================================================================================================

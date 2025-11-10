@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Depends, status, Query
 from typing import List, Optional
 import logging
 
-from core.unified_auth import get_current_active_user, User
+from core.auth.unified import get_current_active_user, User
 from core.payment_accounts_models import (
     UserPaymentAccount,
     CreateUserPaymentAccountRequest,

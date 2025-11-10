@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from core.bank_file_parser import BankFileParser
-from core.bank_statements_models import BankTransaction, TransactionType
+from core.reconciliation.bank.bank_file_parser import BankFileParser
+from core.reconciliation.bank.bank_statements_models import BankTransaction, TransactionType
 
 
 FIXTURES_ROOT = Path(__file__).resolve().parent / "fixtures" / "bank_statements"

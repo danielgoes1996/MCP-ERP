@@ -6,7 +6,7 @@ Verifica que el mapeo de categorías a cuentas contables SAT funcione correctame
 """
 
 import pytest
-from core.category_mappings import (
+from core.ai_pipeline.classification.category_mappings import (
     get_account_code_for_category,
     get_all_categories,
     get_categories_for_account,

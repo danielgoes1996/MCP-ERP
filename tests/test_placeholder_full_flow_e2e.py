@@ -147,7 +147,7 @@ def test_3_get_completion_prompt(expense_id):
     print("\n📝 Test 3: Getting completion prompt data...")
 
     # Simulate the validation and prompt generation
-    from core.expense_validation import expense_validator
+    from core.expenses.validation.expense_validation import expense_validator
 
     conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
@@ -228,7 +228,7 @@ def test_4_update_with_completed_fields(expense_id):
         'payment_account_id': current_data[4],
     }
 
-    from core.expense_validation import expense_validator
+    from core.expenses.validation.expense_validation import expense_validator
     validation_result = expense_validator.validate_expense_data(expense_data_after, context="bulk_invoice")
 
     new_workflow_status = "draft" if validation_result.is_complete else "requiere_completar"

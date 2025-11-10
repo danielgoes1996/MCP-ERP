@@ -15,8 +15,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import uuid
 
 # Imports del sistema bajo prueba
-from core.advanced_ocr_service import AdvancedOCRService, OCRResult, OCRBackend, OCRConfig
-from core.ai_rpa_planner import AIRPAPlanner, RPAPlan, RPAAction, ActionType
+from core.ai_pipeline.ocr.advanced_ocr_service import AdvancedOCRService, OCRResult, OCRBackend, OCRConfig
+from core.ai_pipeline.automation.ai_rpa_planner import AIRPAPlanner, RPAPlan, RPAAction, ActionType
 from core.playwright_executor import PlaywrightExecutor, ExecutionResult, ExecutionStatus
 from core.security_vault import SecurityVault, CredentialEntry, store_merchant_credentials
 from modules.invoicing_agent.ticket_processor import process_ticket_with_intelligence

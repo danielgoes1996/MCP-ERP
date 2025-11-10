@@ -16,7 +16,7 @@ try:
     )
 except ImportError:
     # Usar versión simplificada si la completa no está disponible
-    from core.financial_reports_generator_simple import FinancialReportsGenerator
+    from core.reports.financial_reports_generator_simple import FinancialReportsGenerator
     from enum import Enum
 
     class ReportType(Enum):
@@ -257,7 +257,7 @@ async def get_resumen_fiscal(
     """
     try:
         # Intentar usar generador simplificado para evitar errores
-        from core.financial_reports_generator_simple import FinancialReportsGenerator as SimpleGenerator
+        from core.reports.financial_reports_generator_simple import FinancialReportsGenerator as SimpleGenerator
         generator = SimpleGenerator(tenant_id)
         resumen = generator.generate_resumen_fiscal(
             year=year,

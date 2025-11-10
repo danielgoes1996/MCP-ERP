@@ -15,10 +15,10 @@ from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 
 # Importar nueva stack
-from core.service_stack_config import get_service_stack
+from core.config.service_stack_config import get_service_stack
 from core.google_vision_ocr import create_vision_ocr, migrate_from_legacy_ocr
-from core.claude_dom_analyzer import create_claude_analyzer
-from core.captcha_solver import create_captcha_solver, auto_solve_page_captcha
+from core.ai_pipeline.automation.claude_dom_analyzer import create_claude_analyzer
+from core.ai_pipeline.automation.captcha_solver import create_captcha_solver, auto_solve_page_captcha
 
 # Importar motor robusto existente
 try:

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import logging
-from core.expense_completion_system import ExpenseCompletionSystem
+from core.expenses.completion.expense_completion_system import ExpenseCompletionSystem
 from core.api_models import (
     ExpenseCompletionSuggestionRequest,
     ExpenseCompletionSuggestionResponse,

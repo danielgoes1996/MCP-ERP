@@ -20,8 +20,8 @@ from pydantic import BaseModel, Field, validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Imports de nuestros módulos
-from core.advanced_ocr_service import extract_text_intelligent, OCRResult
-from core.ai_rpa_planner import create_rpa_plan, RPAPlan
+from core.ai_pipeline.ocr.advanced_ocr_service import extract_text_intelligent, OCRResult
+from core.ai_pipeline.automation.ai_rpa_planner import create_rpa_plan, RPAPlan
 from core.playwright_executor import execute_rpa_plan, ExecutionResult
 from modules.invoicing_agent.ticket_processor import process_ticket_with_intelligence
 

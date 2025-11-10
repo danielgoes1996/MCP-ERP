@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from core.database import SessionLocal
-from core.bank_transactions_models import BankTransaction
-from core.unified_auth import get_current_active_user, UserInDB
+from core.reconciliation.bank.bank_transactions_models import BankTransaction
+from core.auth.unified import get_current_active_user, UserInDB
 
 
 router = APIRouter(prefix="/api/v1/transactions", tags=["Transactions Review"])

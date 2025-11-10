@@ -3,7 +3,7 @@
 Parse PDF with CARGOS/ABONOS and save to database with corrected amounts
 """
 import sqlite3
-from core.cargos_abonos_parser import parse_with_cargos_abonos
+from core.reconciliation.bank.cargos_abonos_parser import parse_with_cargos_abonos
 
 def main():
     pdf_path = '/Users/danielgoes96/Desktop/mcp-server/uploads/statements/9_20250928_000304_Periodo_JUL 2025 (1).pdf'

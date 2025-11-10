@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from core.auth_jwt import (
+from core.auth.jwt import (
     User as JWTUser,
     get_current_user,
     get_db_connection,
@@ -18,7 +18,7 @@ from core.ai.ai_context_memory_service import (
     get_latest_context_for_company,
 )
 from core.ai import get_ai_provider_stack
-from core.company_settings import get_company_settings_by_tenant, CompanySettings
+from core.config.company_settings import get_company_settings_by_tenant, CompanySettings
 
 
 auth_router = APIRouter(prefix="/api/v1/auth", tags=["Auth Context"])

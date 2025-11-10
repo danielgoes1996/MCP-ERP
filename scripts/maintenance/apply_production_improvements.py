@@ -4,7 +4,7 @@ Script para aplicar mejoras de producción a transacciones existentes
 """
 import sys
 import sqlite3
-from core.enhanced_categorization_engine import EnhancedCategorizationEngine
+from core.ai_pipeline.classification.enhanced_categorization_engine import EnhancedCategorizationEngine
 
 def apply_improvements():
     print("🚀 APPLYING PRODUCTION IMPROVEMENTS")

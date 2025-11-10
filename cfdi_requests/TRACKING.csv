@@ -1,0 +1,23 @@
+Proveedor,Transacciones,Monto,Prioridad,Fecha_Solicitud,Estado,Fecha_Recibido,Notas
+DISTRIB,4,$11913.17,CRÍTICA,,,Identificar proveedor exacto
+Grupo Gasolinero Berisa,3,$3216.11,ALTA,,,Revisar si tienen portal de facturación
+Adobe,2,$976.29,ALTA,,,Portal: https://helpx.adobe.com/mx/invoice.html
+Telcel,1,$740.23,ALTA,,,Portal: https://www.mitelcel.com/facturacion
+Apple,4,$721.00,MEDIA,,,Portal: https://support.apple.com/es-mx/billing
+Polanquito,1,$575.00,BAJA,,,Email directo al restaurante
+STR*WWW,3,$555.66,BAJA,,,Identificar comercio final (no Stripe)
+STRIPE,1,$535.92,BAJA,,,Identificar comercio final
+Gasolinera,1,$500.00,BAJA,,,Puede ser difícil si no se solicitó en momento
+DOMICILIACION,1,$389.00,BAJA,,,Revisar cargo bancario
+Sushi Roll,1,$330.05,BAJA,,,Email directo al restaurante
+TRES,1,$293.36,BAJA,,,Identificar proveedor
+DTM,1,$290.00,BAJA,,,Identificar proveedor
+SQSP*,1,$240.00,BAJA,,,Probablemente Squarespace
+CEA,1,$155.00,BAJA,,,Identificar proveedor
+MERCADO,1,$149.00,BAJA,,,Probablemente Mercado Libre
+CONEKTA*ENVIOSPERROS,1,$129.40,BAJA,,,Email al comercio
+Taquería,1,$115.00,BAJA,,,Email directo
+Starbucks,1,$89.00,BAJA,,,Difícil si no se solicitó en momento
+G,1,$60.00,BAJA,,,Identificar proveedor
+D,1,$41.62,BAJA,,,Identificar proveedor
+Google,1,$34.00,BAJA,,,Portal: https://support.google.com/googleplay

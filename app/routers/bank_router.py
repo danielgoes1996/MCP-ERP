@@ -5,8 +5,8 @@ from typing import List
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, status
 import logging
 
-from core.unified_auth import get_current_active_user, User
-from core.bank_statements_models import (
+from core.auth.unified import get_current_active_user, User
+from core.reconciliation.bank.bank_statements_models import (
     BankStatementResponse,
     BankStatementSummary,
     CreateBankStatementRequest,
@@ -170,7 +170,7 @@ async def parse_statement_background(
 ) -> None:
     """Background parsing task reused from legacy implementation."""
     try:
-        from core.bank_file_parser import bank_file_parser
+        from core.reconciliation.bank.bank_file_parser import bank_file_parser
 
         logger.info("Parsing bank statement %s in background", statement_id)
         transactions = await bank_file_parser.parse_file_async(file_path, file_type)

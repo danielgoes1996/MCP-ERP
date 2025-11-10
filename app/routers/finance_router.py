@@ -9,7 +9,7 @@ import logging
 try:
     from core.financial_reports_generator import FinancialReportsGenerator, ReportType
 except ImportError:  # pragma: no cover - fallback
-    from core.financial_reports_generator_simple import FinancialReportsGenerator
+    from core.reports.financial_reports_generator_simple import FinancialReportsGenerator
     from enum import Enum
 
     class ReportType(Enum):

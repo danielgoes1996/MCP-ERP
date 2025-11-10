@@ -11,8 +11,8 @@ import asyncio
 from pathlib import Path
 import os
 
-from core.unified_auth import get_current_active_user, User
-from core.bank_statements_models import (
+from core.auth.unified import get_current_active_user, User
+from core.reconciliation.bank.bank_statements_models import (
     BankStatement,
     BankTransaction,
     CreateBankStatementRequest,
@@ -22,7 +22,7 @@ from core.bank_statements_models import (
     FileType,
     bank_statements_service
 )
-from core.bank_file_parser import bank_file_parser
+from core.reconciliation.bank.bank_file_parser import bank_file_parser
 
 logger = logging.getLogger(__name__)
 

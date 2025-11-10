@@ -11,15 +11,15 @@ from unittest.mock import Mock, patch, AsyncMock
 from typing import Dict, Any
 
 # Imports del sistema
-from core.intelligent_field_validator import (
+from core.expenses.completion.intelligent_field_validator import (
     IntelligentFieldValidator,
     ValidationRequest,
     ValidationResult,
     validate_single_field,
     validate_ticket_fields
 )
-from core.hybrid_vision_service import FieldExtractionResult, ExtractionMethod
-from core.cost_analytics import CostAnalytics
+from core.ai_pipeline.ocr.hybrid_vision_service import FieldExtractionResult, ExtractionMethod
+from core.reports.cost_analytics import CostAnalytics
 
 
 class TestIntelligentValidation:

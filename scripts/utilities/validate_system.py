@@ -13,7 +13,7 @@ async def test_ocr_service():
     """Test del servicio OCR avanzado."""
     print("🔍 Testing OCR Service...")
     try:
-        from core.advanced_ocr_service import AdvancedOCRService
+        from core.ai_pipeline.ocr.advanced_ocr_service import AdvancedOCRService
 
         service = AdvancedOCRService()
 

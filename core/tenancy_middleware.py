@@ -7,11 +7,11 @@ from fastapi import Request, HTTPException, Depends
 from typing import Optional
 import logging
 
-from core.unified_auth import get_current_active_user, UserInDB
+from core.auth.unified import get_current_active_user, UserInDB
 from config.config import config
 
 try:
-    from core.unified_db_adapter import get_unified_adapter
+    from core.shared.unified_db_adapter import get_unified_adapter
 except Exception:  # pragma: no cover - fallback when adapter not available
     get_unified_adapter = None
 

@@ -13,7 +13,7 @@ from dataclasses import dataclass, asdict
 
 # Import database adapter for error storage
 try:
-    from core.unified_db_adapter import get_unified_adapter
+    from core.shared.unified_db_adapter import get_unified_adapter
     DB_AVAILABLE = True
 except ImportError:
     DB_AVAILABLE = False

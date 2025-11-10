@@ -7,7 +7,7 @@ import re
 import logging
 from typing import Dict, Any, List, Tuple
 from pathlib import Path
-from core.robust_pdf_parser import RobustPDFParser
+from core.ai_pipeline.parsers.robust_pdf_parser import RobustPDFParser
 
 logger = logging.getLogger(__name__)
 

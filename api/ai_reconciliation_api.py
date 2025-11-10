@@ -7,8 +7,8 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from typing import List, Dict, Any
 import logging
 
-from core.ai_reconciliation_service import get_ai_reconciliation_service
-from core.auth_jwt import User, get_current_user, require_role, enforce_tenant_isolation
+from core.reconciliation.matching.ai_reconciliation_service import get_ai_reconciliation_service
+from core.auth.jwt import User, get_current_user, require_role, enforce_tenant_isolation
 
 logger = logging.getLogger(__name__)
 

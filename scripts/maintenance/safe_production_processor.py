@@ -7,7 +7,7 @@ import os
 import sys
 sys.path.append('.')
 
-from core.bank_file_parser import BankFileParser
+from core.reconciliation.bank.bank_file_parser import BankFileParser
 from core.extraction_validator import validate_pdf_extraction
 import sqlite3
 import logging
@@ -121,7 +121,7 @@ class ProductionPDFProcessor:
                 initial_balance = self._extract_initial_balance(pdf_path)
 
                 if initial_balance > 0:
-                    from core.bank_statements_models import BankTransaction, TransactionType, MovementKind
+                    from core.reconciliation.bank.bank_statements_models import BankTransaction, TransactionType, MovementKind
                     from datetime import date
 
                     # Create Balance Inicial transaction
@@ -151,7 +151,7 @@ class ProductionPDFProcessor:
     def _extract_initial_balance(self, pdf_path):
         """Extract initial balance from PDF text"""
         try:
-            from core.robust_pdf_parser import RobustPDFParser
+            from core.ai_pipeline.parsers.robust_pdf_parser import RobustPDFParser
             parser = RobustPDFParser()
             text = parser.extract_text(pdf_path)
 

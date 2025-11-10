@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from config.config import config
-from core.bank_statements_models import normalize_description
+from core.reconciliation.bank.bank_statements_models import normalize_description
 
 logger = logging.getLogger(__name__)
 

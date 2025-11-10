@@ -1,6 +1,6 @@
 import sqlite3
 
-from core.classification_feedback import ensure_feedback_table, record_feedback
+from core.ai_pipeline.classification.classification_feedback import ensure_feedback_table, record_feedback
 
 
 def test_record_feedback_persists_entry():

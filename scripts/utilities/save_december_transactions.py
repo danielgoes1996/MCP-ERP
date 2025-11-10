@@ -6,7 +6,7 @@ import os
 import sys
 sys.path.append('.')
 
-from core.bank_file_parser import BankFileParser
+from core.reconciliation.bank.bank_file_parser import BankFileParser
 import sqlite3
 
 def save_december_transactions():
