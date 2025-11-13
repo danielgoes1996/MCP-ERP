@@ -67,6 +67,7 @@ const navigation: NavItem[] = [
     children: [
       { name: 'Todas las Facturas', href: '/invoices', icon: Receipt, color: 'text-secondary-600' },
       { name: 'Subir Factura', href: '/invoices/upload', icon: Receipt, color: 'text-secondary-600' },
+      { name: 'Clasificación Contable', href: '/invoices/classification', icon: Brain, color: 'text-secondary-600' },
     ],
   },
   {
