@@ -134,7 +134,21 @@ interface InvoiceSession {
     fecha_emision: string | null;
     metodo_pago: string | null;
     tipo_comprobante: string | null;
-    sat_status: string | null;
+    sat_status: string | null;  // LLM-inferred status
+    uuid: string | null;
+    serie: string | null;
+    folio: string | null;
+  };
+  sat_validation?: {
+    status: string;  // Real SAT validation status
+    codigoEstatus: string | null;
+    esCancelable: boolean | null;
+    estado: string | null;
+    validacionEfos: string | null;
+    verifiedAt: string | null;
+    lastCheckAt: string | null;
+    error: string | null;
+    verificationUrl: string | null;
   };
 }
 
@@ -1166,19 +1180,35 @@ function InvoiceCard({
     return session.display_info?.metodo_pago || 'N/A';
   };
 
-  // Helper para obtener badge SAT simplificado
-  const getSatStatusBadge = (status: string) => {
+  // Helper para obtener badge SAT con validación real
+  const getSatStatusBadge = (session: InvoiceSession) => {
+    // Usar validación real del SAT si está disponible, sino usar inferencia del LLM
+    const realValidation = session.sat_validation;
+    const status = realValidation?.status === 'pending'
+      ? satStatus  // Usar LLM mientras se valida
+      : realValidation?.status || satStatus;  // Usar validación real si está disponible
+
     const badges: Record<string, { bg: string; text: string; border: string; label: string; icon: string }> = {
       vigente: { bg: 'bg-emerald-50 dark:bg-emerald-950/30', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-200/50 dark:border-emerald-900/50', label: 'Vigente', icon: '✓' },
       cancelado: { bg: 'bg-red-50 dark:bg-red-950/30', text: 'text-red-700 dark:text-red-400', border: 'border-red-200/50 dark:border-red-900/50', label: 'Cancelada', icon: '✕' },
       sustituido: { bg: 'bg-amber-50 dark:bg-amber-950/30', text: 'text-amber-700 dark:text-amber-400', border: 'border-amber-200/50 dark:border-amber-900/50', label: 'Sustituida', icon: '↻' },
+      pending: { bg: 'bg-blue-50 dark:bg-blue-950/30', text: 'text-blue-700 dark:text-blue-400', border: 'border-blue-200/50 dark:border-blue-900/50', label: 'Validando...', icon: '⏳' },
+      error: { bg: 'bg-orange-50 dark:bg-orange-950/30', text: 'text-orange-700 dark:text-orange-400', border: 'border-orange-200/50 dark:border-orange-900/50', label: 'Error', icon: '⚠' },
     };
 
     const badge = badges[status] || { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200', label: 'Desconocido', icon: '?' };
 
+    // Mostrar timestamp si está verificado
+    const verifiedTimestamp = realValidation?.verifiedAt
+      ? new Date(realValidation.verifiedAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+      : null;
+
     return (
-      <span className={cn('px-2 py-0.5 rounded-md text-xs font-medium border', badge.bg, badge.text, badge.border)}>
+      <span className={cn('px-2 py-0.5 rounded-md text-xs font-medium border', badge.bg, badge.text, badge.border)} title={realValidation?.verificationUrl || undefined}>
         {badge.icon} SAT: {badge.label}
+        {verifiedTimestamp && realValidation?.status !== 'pending' && (
+          <span className="ml-1 opacity-70">({verifiedTimestamp})</span>
+        )}
       </span>
     );
   };
@@ -1243,7 +1273,7 @@ function InvoiceCard({
                   {displayInfo.title}
                 </h3>
                 {getTypeBadge(invoiceType)}
-                {getSatStatusBadge(satStatus)}
+                {getSatStatusBadge(session)}
                 {session.status !== 'completed' && statusBadge}
               </div>
 

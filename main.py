@@ -424,6 +424,14 @@ try:
 except ImportError as e:
     logger.warning(f"Universal invoice engine API not available: {e}")
 
+# SAT Verification API
+try:
+    from api.sat_verification_api import router as sat_verification_router
+    app.include_router(sat_verification_router)
+    logger.info("SAT verification API loaded successfully")
+except ImportError as e:
+    logger.warning(f"SAT verification API not available: {e}")
+
 # Payment Accounts API
 try:
     from api.payment_accounts_api import router as payment_accounts_router

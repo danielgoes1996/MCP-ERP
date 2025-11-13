@@ -350,7 +350,16 @@ async def get_sessions_for_viewer_pro(
                 s.extraction_status,
                 s.created_at,
                 s.invoice_file_path,
-                s.extracted_data
+                s.extracted_data,
+                s.sat_validation_status,
+                s.sat_codigo_estatus,
+                s.sat_es_cancelable,
+                s.sat_estado,
+                s.sat_validacion_efos,
+                s.sat_verified_at,
+                s.sat_last_check_at,
+                s.sat_verification_error,
+                s.sat_verification_url
             FROM universal_invoice_sessions s
             WHERE s.company_id = %s
             AND s.extraction_status = 'completed'
@@ -445,7 +454,19 @@ async def get_sessions_for_viewer_pro(
                 "formaPago": data.get('forma_pago'),
                 "metodoPago": data.get('metodo_pago'),
                 "usoCFDI": data.get('uso_cfdi'),
-                "estatusSAT": data.get('sat_status', 'desconocido'),
+                "estatusSAT": data.get('sat_status', 'desconocido'),  # LLM-inferred status
+                # ✅ NEW: Real SAT validation status
+                "satValidation": {
+                    "status": session.get('sat_validation_status', 'pending'),
+                    "codigoEstatus": session.get('sat_codigo_estatus'),
+                    "esCancelable": session.get('sat_es_cancelable'),
+                    "estado": session.get('sat_estado'),
+                    "validacionEfos": session.get('sat_validacion_efos'),
+                    "verifiedAt": session.get('sat_verified_at').isoformat() if session.get('sat_verified_at') else None,
+                    "lastCheckAt": session.get('sat_last_check_at').isoformat() if session.get('sat_last_check_at') else None,
+                    "error": session.get('sat_verification_error'),
+                    "verificationUrl": session.get('sat_verification_url')
+                },
                 "emisorNombre": data.get('emisor', {}).get('nombre'),
                 "emisorRFC": data.get('emisor', {}).get('rfc'),
                 "emisorRegimenFiscal": data.get('emisor', {}).get('regimen_fiscal'),

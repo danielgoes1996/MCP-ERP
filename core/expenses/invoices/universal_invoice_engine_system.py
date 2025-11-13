@@ -1107,6 +1107,59 @@ class UniversalInvoiceEngineSystem:
 
             conn.commit()
 
+            # ✅ NEW: Trigger SAT validation after successful processing
+            # Launch SAT validation in background (non-blocking)
+            asyncio.create_task(self._trigger_sat_validation(session_id, result))
+
+    async def _trigger_sat_validation(self, session_id: str, result: Dict[str, Any]):
+        """
+        Trigger SAT validation after invoice processing completes
+
+        This runs in background and doesn't block the invoice processing flow.
+        If validation fails, it's logged but doesn't affect the processed invoice.
+        """
+        try:
+            # Check if we have required CFDI data for SAT validation
+            extracted_data = result.get('extracted_data', {})
+            uuid = extracted_data.get('uuid')
+
+            # Only trigger SAT validation if we have a UUID (i.e., it's a CFDI)
+            if not uuid:
+                logger.info(f"Session {session_id}: No UUID found, skipping SAT validation")
+                return
+
+            logger.info(f"Session {session_id}: Triggering SAT validation for UUID {uuid}")
+
+            # Import here to avoid circular dependency
+            from core.sat.sat_validation_service import validate_single_invoice
+            from core.db_postgresql import get_db_sync
+
+            # Get database connection
+            db = next(get_db_sync())
+
+            try:
+                # Validate against SAT (use_mock=False for production, True for testing)
+                use_mock = False  # TODO: Get from config
+                success, validation_info, error = validate_single_invoice(
+                    db=db,
+                    session_id=session_id,
+                    use_mock=use_mock,
+                    force_refresh=False
+                )
+
+                if success:
+                    sat_status = validation_info.get('status', 'unknown')
+                    logger.info(f"Session {session_id}: SAT validation successful - Status: {sat_status}")
+                else:
+                    logger.warning(f"Session {session_id}: SAT validation failed - {error}")
+
+            finally:
+                db.close()
+
+        except Exception as e:
+            # Log error but don't fail the invoice processing
+            logger.error(f"Session {session_id}: Error in background SAT validation: {e}")
+
     async def _get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Obtiene información de una sesión"""
         async with await self._get_db_connection() as conn:
