@@ -424,6 +424,14 @@ try:
 except ImportError as e:
     logger.warning(f"Universal invoice engine API not available: {e}")
 
+# Invoice Classification API
+try:
+    from api.invoice_classification_api import router as invoice_classification_router
+    app.include_router(invoice_classification_router)
+    logger.info("Invoice classification API loaded successfully")
+except ImportError as e:
+    logger.warning(f"Invoice classification API not available: {e}")
+
 # SAT Verification API
 try:
     from api.sat_verification_api import router as sat_verification_router

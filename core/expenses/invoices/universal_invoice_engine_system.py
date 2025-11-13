@@ -841,6 +841,7 @@ class UniversalInvoiceEngineSystem:
 
     async def process_invoice(self, session_id: str) -> Dict[str, Any]:
         """Procesa una factura completa con template matching y validation"""
+        logger.info(f"Session {session_id}: Starting process_invoice()")
         start_time = time.time()
 
         try:
@@ -884,6 +885,7 @@ class UniversalInvoiceEngineSystem:
             # 8. Preparar resultado final
             result = {
                 'session_id': session_id,
+                'company_id': session_info['company_id'],  # ✅ NEW: for classification
                 'status': 'completed',
                 'detected_format': parser_selection['format'],
                 'parser_used': parser_selection['parser'].parser_name,
@@ -1045,6 +1047,7 @@ class UniversalInvoiceEngineSystem:
     async def _save_processing_result(self, session_id: str, result: Dict[str, Any],
                                     template_match: TemplateMatch, validation_rules: List[ValidationRule]):
         """Guarda resultado de procesamiento en BD"""
+        logger.info(f"Session {session_id}: Entering _save_processing_result()")
         async with await self._get_db_connection() as conn:
             cursor = conn.cursor()
 
@@ -1069,13 +1072,14 @@ class UniversalInvoiceEngineSystem:
             ))
 
             # Guardar template match detallado
-            template_id = f"uit_{hashlib.md5(f'{session_id}{template_match.template_name}'.encode()).hexdigest()[:16]}"
+            template_id = f"uit_{hashlib.md5(f'{session_id}{template_match.template_name}{datetime.utcnow().isoformat()}'.encode()).hexdigest()[:16]}"
             cursor.execute("""
                 INSERT INTO universal_invoice_templates (
                     id, session_id, format_id, template_match, template_name,
                     match_score, matched_patterns, confidence_factors, matching_method,
                     is_selected, created_at
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO NOTHING
             """, (
                 template_id, session_id, 'default_format',
                 json.dumps(result['template_match']),  # ✅ CAMPO FALTANTE
@@ -1087,12 +1091,13 @@ class UniversalInvoiceEngineSystem:
 
             # Guardar validaciones aplicadas
             for rule in validation_rules:
-                validation_id = f"uiv_{hashlib.md5(f'{session_id}{rule.rule_name}'.encode()).hexdigest()[:16]}"
+                validation_id = f"uiv_{hashlib.md5(f'{session_id}{rule.rule_name}{datetime.utcnow().isoformat()}'.encode()).hexdigest()[:16]}"
                 cursor.execute("""
                     INSERT INTO universal_invoice_validations (
                         id, session_id, validation_rules, rule_set_name, rule_category,
                         rule_definition, validation_status, created_at
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (id) DO NOTHING
                 """, (
                     validation_id, session_id,
                     json.dumps({
@@ -1110,6 +1115,10 @@ class UniversalInvoiceEngineSystem:
             # ✅ NEW: Trigger SAT validation after successful processing
             # Launch SAT validation in background (non-blocking)
             asyncio.create_task(self._trigger_sat_validation(session_id, result))
+
+            # ✅ NEW: Trigger accounting classification (v1)
+            # DEBUG: Using await for testing instead of create_task
+            await self._classify_invoice_accounting(session_id, result)
 
     async def _trigger_sat_validation(self, session_id: str, result: Dict[str, Any]):
         """
@@ -1159,6 +1168,192 @@ class UniversalInvoiceEngineSystem:
         except Exception as e:
             # Log error but don't fail the invoice processing
             logger.error(f"Session {session_id}: Error in background SAT validation: {e}")
+
+    async def _classify_invoice_accounting(self, session_id: str, result: Dict[str, Any]):
+        """
+        Trigger accounting classification after invoice processing completes
+
+        This runs in background and doesn't block the invoice processing flow.
+        Uses LLM (Claude Haiku) to classify invoices against SAT catalog.
+
+        v1 Limitations:
+        - Only classifies CFDI type I (Ingreso) and E (Egreso)
+        - Only uses first concept if multiple concepts exist
+        - Only enabled for beta tenants (carreta_verde, pollenbeemx)
+        - No classification_trace in v1 (postponed to v2)
+        """
+        import time
+        import json
+
+        # Beta testers (v1)
+        BETA_TENANTS = {'carreta_verde', 'pollenbeemx'}
+
+        try:
+            classification_start = time.time()
+
+            # 1. Extract company_id and check if beta tenant
+            company_id = result.get('company_id')
+            if company_id not in BETA_TENANTS:
+                logger.info(f"Session {session_id}: AI classification not enabled for {company_id}")
+                return
+
+            # 2. Verify we have parsed_data (NOT extracted_data which is mostly null)
+            parsed_data = result.get('parsed_data')
+            if not parsed_data:
+                logger.warning(f"Session {session_id}: No parsed_data available, skipping classification")
+                return
+
+            # 3. Filter by tipo_comprobante (only I and E)
+            tipo_comprobante = parsed_data.get('tipo_comprobante')
+            if tipo_comprobante not in ['I', 'E']:
+                logger.info(f"Session {session_id}: Tipo {tipo_comprobante} does not require accounting classification")
+                return
+
+            # 4. Verify we have concepts
+            conceptos = parsed_data.get('conceptos', [])
+            if not conceptos:
+                logger.info(f"Session {session_id}: No concepts found, skipping classification")
+                # Save status as not_classified
+                await self._save_classification_status(session_id, 'not_classified', 'No concepts found')
+                return
+
+            # 5. Use first concept (v1 simplification)
+            concepto = conceptos[0]
+
+            logger.info(f"Session {session_id}: Starting accounting classification")
+
+            # 6. Prepare snapshot for LLM
+            from core.ai_pipeline.classification.expense_llm_classifier import ExpenseLLMClassifier
+            from core.accounting.account_catalog import retrieve_relevant_accounts
+
+            snapshot = {
+                "descripcion_original": concepto.get('descripcion', ''),
+                "clave_prod_serv": concepto.get('clave_prod_serv', ''),
+                "provider_name": parsed_data.get('emisor', {}).get('nombre', ''),
+                "provider_rfc": parsed_data.get('emisor', {}).get('rfc', ''),
+                "amount": float(concepto.get('importe', 0)),
+                "company_id": company_id,
+            }
+
+            # 7. Search SAT candidates using embeddings
+            description = snapshot['descripcion_original']
+
+            if not description:
+                logger.warning(f"Session {session_id}: Empty description, skipping classification")
+                await self._save_classification_status(session_id, 'not_classified', 'Empty description')
+                return
+
+            candidates = retrieve_relevant_accounts(
+                expense_payload=snapshot,
+                top_k=10
+            )
+
+            logger.info(f"Session {session_id}: Found {len(candidates)} SAT candidates")
+
+            if not candidates:
+                logger.warning(f"Session {session_id}: No SAT candidates found for '{description}'")
+                await self._save_classification_status(session_id, 'not_classified', 'No SAT candidates found')
+                return
+
+            # 8. Classify with LLM
+            classifier = ExpenseLLMClassifier()
+            classification_result = classifier.classify(snapshot, candidates)
+
+            if not classification_result.sat_account_code:
+                logger.warning(f"Session {session_id}: LLM returned no classification")
+                await self._save_classification_status(session_id, 'not_classified', 'LLM classification failed')
+                return
+
+            # 9. Calculate duration
+            classification_duration = time.time() - classification_start
+
+            logger.info(
+                f"Session {session_id}: Classified as {classification_result.sat_account_code} "
+                f"with confidence {classification_result.confidence_sat:.2%} in {classification_duration:.2f}s"
+            )
+
+            # 10. Save classification to database
+            async with await self._get_db_connection() as conn:
+                cursor = conn.cursor()
+
+                # Prepare accounting_classification JSON (v1 minimal)
+                accounting_classification = {
+                    "sat_account_code": classification_result.sat_account_code,
+                    "family_code": classification_result.family_code,
+                    "confidence_sat": classification_result.confidence_sat,
+                    "confidence_family": classification_result.confidence_family,
+                    "status": "pending_confirmation",
+                    "classified_at": datetime.utcnow().isoformat(),
+                    "confirmed_at": None,
+                    "confirmed_by": None,
+                    "corrected_at": None,
+                    "corrected_sat_code": None,
+                    "correction_notes": None,
+                    "explanation_short": classification_result.explanation_short,
+                }
+
+                # Prepare processing metrics
+                metrics = {
+                    "classification_duration_ms": classification_duration * 1000,
+                    "num_candidates": len(candidates),
+                    "used_llm": True,
+                    "confidence": classification_result.confidence_sat,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+
+                # Update universal_invoice_sessions
+                cursor.execute("""
+                    UPDATE universal_invoice_sessions
+                    SET
+                        accounting_classification = %s,
+                        processing_metrics = jsonb_set(
+                            COALESCE(processing_metrics, '{}'::jsonb),
+                            '{accounting_classification}',
+                            %s::jsonb
+                        )
+                    WHERE id = %s
+                """, (
+                    json.dumps(accounting_classification),
+                    json.dumps(metrics),
+                    session_id
+                ))
+
+                conn.commit()
+
+                logger.info(f"Session {session_id}: Classification saved successfully")
+
+        except Exception as e:
+            # Log error but don't fail the invoice processing
+            logger.error(f"Session {session_id}: Error in background accounting classification: {e}")
+            logger.error(f"Session {session_id}: Error details: {str(e)}", exc_info=True)
+
+            # Try to save error status
+            try:
+                await self._save_classification_status(session_id, 'not_classified', f'Error: {str(e)}')
+            except:
+                pass  # If this fails too, just log and continue
+
+    async def _save_classification_status(self, session_id: str, status: str, reason: str):
+        """Helper to save classification status when classification cannot be performed"""
+        try:
+            async with await self._get_db_connection() as conn:
+                cursor = conn.cursor()
+
+                accounting_classification = {
+                    "status": status,
+                    "classified_at": datetime.utcnow().isoformat(),
+                    "reason": reason
+                }
+
+                cursor.execute("""
+                    UPDATE universal_invoice_sessions
+                    SET accounting_classification = %s
+                    WHERE id = %s
+                """, (json.dumps(accounting_classification), session_id))
+
+                conn.commit()
+        except Exception as e:
+            logger.error(f"Session {session_id}: Error saving classification status: {e}")
 
     async def _get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Obtiene información de una sesión"""

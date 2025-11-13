@@ -32,6 +32,7 @@ class Config:
     DB_PATH = Path(os.getenv("DB_PATH", BASE_DIR / "unified_mcp_system.db"))  # Alias for UNIFIED_DB_PATH
     USE_UNIFIED_DB = os.getenv("USE_UNIFIED_DB", "true").lower() == "true"
     USE_POSTGRESQL = os.getenv("USE_POSTGRESQL", "false").lower() == "true"
+    USE_PG_VECTOR = os.getenv("USE_PG_VECTOR", "false").lower() == "true"
     POSTGRES_DSN = os.getenv("POSTGRES_DSN", "")
 
     # External system credentials (placeholders for now)

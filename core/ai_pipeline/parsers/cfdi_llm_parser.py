@@ -136,7 +136,19 @@ def build_cfdi_prompt(xml_content: str) -> str:
           "pagos": {
             "tipo": "PUE|PPD|NA",
             "numero_parcialidades": number | null
-          }
+          },
+          "conceptos": [
+            {
+              "clave_prod_serv": "string | null",      // Clave del catálogo de productos y servicios del SAT
+              "cantidad": number | null,
+              "clave_unidad": "string | null",          // Clave de unidad del SAT
+              "unidad": "string | null",                // Descripción de la unidad
+              "descripcion": "string | null",           // Descripción del producto o servicio
+              "valor_unitario": number | null,
+              "importe": number | null,
+              "descuento": number | null
+            }
+          ]
         }
 
         Reglas adicionales:
@@ -144,6 +156,7 @@ def build_cfdi_prompt(xml_content: str) -> str:
           Incluye solo los que apliquen.
         - "tipo_cambio" debe ser numérico (ej. 1.0) o null.
         - Si falta el complemento de timbre, coloca "desconocido" en "sat_status".
+        - Extrae TODOS los conceptos del CFDI en el array "conceptos". No omitas ninguno.
         - No agregues comentarios ni explicaciones fuera del JSON.
         """
     ).strip()
