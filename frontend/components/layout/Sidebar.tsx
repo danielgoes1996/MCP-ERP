@@ -10,6 +10,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
+import { useClassificationCount } from '@/hooks/useClassificationCount';
 import {
   LayoutDashboard,
   FileText,
@@ -134,6 +135,7 @@ const navigation: NavItem[] = [
 export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const { count: pendingClassifications } = useClassificationCount();
 
   const toggleExpanded = (name: string) => {
     setExpandedItems((prev) =>
@@ -254,7 +256,13 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                       )}
                     >
                       <child.icon className={cn('w-4 h-4', child.color)} />
-                      <span>{child.name}</span>
+                      <span className="flex-1">{child.name}</span>
+                      {/* Badge for pending classifications */}
+                      {child.href === '/invoices/classification' && pendingClassifications > 0 && (
+                        <span className="px-2 py-0.5 text-xs font-semibold bg-warning-100 text-warning-700 rounded-full">
+                          {pendingClassifications}
+                        </span>
+                      )}
                     </Link>
                   ))}
                 </div>
