@@ -18,6 +18,7 @@ from core.auth.jwt import (
     get_db_connection,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
+from core.email_service import email_service
 
 logger = logging.getLogger(__name__)
 
@@ -98,10 +99,10 @@ class RegisterRequest(BaseModel):
 # REGISTRATION ENDPOINT
 # =====================================================
 
-@router.post("/register", response_model=Token)
+@router.post("/register")
 async def register(request: RegisterRequest):
     """
-    Register a new user
+    Register a new user (requires email verification before login)
 
     Creates a new user account with email and password.
     Automatically creates a tenant if it's the first user from that domain.
@@ -188,39 +189,26 @@ async def register(request: RegisterRequest):
         user_id = user_row[0]
         conn.commit()
 
-        # TODO: Send verification email
-        verification_link = f"http://localhost:3004/verify-email?token={verification_token}"
-        logger.info(f"📧 Verification email would be sent to {request.email}")
-        logger.info(f"🔗 Verification link: {verification_link}")
-
-        # Create User object
-        user = User(
-            id=user_id,
-            username=request.email,
-            email=request.email,
+        # Send verification email
+        email_sent = email_service.send_verification_email(
+            to_email=request.email,
             full_name=request.full_name,
-            role='user',
-            tenant_id=tenant_id,
-            employee_id=None,
-            is_active=True
+            verification_token=verification_token
         )
 
-        # Generate access token
-        access_token = create_access_token(user)
+        if email_sent:
+            logger.info(f"✅ Verification email sent to {request.email}")
+        else:
+            logger.warning(f"⚠️  Could not send verification email to {request.email} (email not configured)")
 
         logger.info(f"✅ New user registered: {request.email} (tenant: {tenant_name})")
 
-        return Token(
-            access_token=access_token,
-            token_type="bearer",
-            expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            user=user,
-            tenant={
-                "id": tenant_id,
-                "name": tenant_name,
-                "description": None
-            }
-        )
+        # Don't auto-login - require email verification first
+        return {
+            "success": True,
+            "message": "Registration successful! Please check your email to verify your account.",
+            "email": request.email
+        }
 
     except HTTPException:
         raise
@@ -259,12 +247,12 @@ async def get_available_tenants(email: Optional[str] = None) -> List[TenantInfo]
         cursor = conn.cursor()
 
         if email:
-            # Filter tenants by user's email
+            # Filter tenants by user's email - PostgreSQL syntax with %s
             cursor.execute("""
                 SELECT DISTINCT t.id, t.name
                 FROM tenants t
                 INNER JOIN users u ON u.tenant_id = t.id
-                WHERE LOWER(u.email) = LOWER(?)
+                WHERE LOWER(u.email) = LOWER(%s)
                 ORDER BY t.name
             """, (email.strip(),))
         else:
@@ -277,9 +265,10 @@ async def get_available_tenants(email: Optional[str] = None) -> List[TenantInfo]
 
         tenants = []
         for row in cursor.fetchall():
+            # PostgreSQL returns tuples, not dict rows by default
             tenants.append(TenantInfo(
-                id=row['id'],
-                name=row['name'],
+                id=row[0],
+                name=row[1],
                 description=None
             ))
 
@@ -734,19 +723,21 @@ async def forgot_password(request: ForgotPasswordRequest):
         conn.commit()
         conn.close()
 
-        # TODO: Send email with reset link
-        # For now, just log the token (in production, send via email)
-        reset_link = f"http://localhost:3004/reset-password?token={reset_token}"
-        logger.info(f"🔐 Password reset requested for {user_email}")
-        logger.info(f"🔗 Reset link: {reset_link}")
-        logger.info(f"⏰ Token expires at: {expires_at}")
+        # Send password reset email
+        email_sent = email_service.send_password_reset_email(
+            to_email=user_email,
+            full_name=user_name,
+            reset_token=reset_token
+        )
+
+        if email_sent:
+            logger.info(f"✅ Password reset email sent to {user_email}")
+        else:
+            logger.warning(f"⚠️  Could not send password reset email to {user_email} (email not configured)")
 
         return {
             "success": True,
-            "message": "If the email exists, a password reset link has been sent",
-            # TODO: Remove this in production (only for testing)
-            "reset_link": reset_link,
-            "expires_at": expires_at.isoformat()
+            "message": "If the email exists, a password reset link has been sent"
         }
 
     except Exception as e:
@@ -1020,17 +1011,21 @@ async def resend_verification_email(request: ResendVerificationRequest):
         conn.commit()
         conn.close()
 
-        # TODO: Send verification email
-        verification_link = f"http://localhost:3004/verify-email?token={verification_token}"
-        logger.info(f"📧 Verification email resent to {user_email}")
-        logger.info(f"🔗 Verification link: {verification_link}")
+        # Send verification email
+        email_sent = email_service.send_verification_email(
+            to_email=user_email,
+            full_name=user_name,
+            verification_token=verification_token
+        )
+
+        if email_sent:
+            logger.info(f"✅ Verification email resent to {user_email}")
+        else:
+            logger.warning(f"⚠️  Could not resend verification email to {user_email} (email not configured)")
 
         return {
             "success": True,
-            "message": "If the email exists and is not verified, a new verification link has been sent",
-            # TODO: Remove this in production (only for testing)
-            "verification_link": verification_link,
-            "expires_at": verification_expires.isoformat()
+            "message": "If the email exists and is not verified, a new verification link has been sent"
         }
 
     except Exception as e:

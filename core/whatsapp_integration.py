@@ -69,11 +69,20 @@ class WhatsAppIntegration:
         Returns:
             Challenge string si la verificación es exitosa, None si falla
         """
+        # DEBUG: Log all parameters
+        logger.info(f"DEBUG verify_webhook called:")
+        logger.info(f"  - mode: '{mode}' (type: {type(mode).__name__})")
+        logger.info(f"  - token received: '{token}' (type: {type(token).__name__})")
+        logger.info(f"  - token expected: '{self.verify_token}' (type: {type(self.verify_token).__name__})")
+        logger.info(f"  - challenge: '{challenge}'")
+        logger.info(f"  - mode == 'subscribe': {mode == 'subscribe'}")
+        logger.info(f"  - token == self.verify_token: {token == self.verify_token}")
+
         if mode == "subscribe" and token == self.verify_token:
             logger.info("WhatsApp webhook verified successfully")
             return challenge
         else:
-            logger.warning("WhatsApp webhook verification failed")
+            logger.warning(f"WhatsApp webhook verification failed - mode={mode}, token_match={token == self.verify_token}")
             return None
 
     def verify_signature(self, payload: bytes, signature: str) -> bool:
@@ -132,59 +141,76 @@ class WhatsAppIntegration:
         """Procesar mensaje de texto individual"""
 
         try:
-            # Extraer información del mensaje
-            message_id = message.get('id')
-            from_number = message.get('from')
-            text = message.get('text', {}).get('body', '')
-            timestamp_str = message.get('timestamp')
-
-            # Verificar si el número está autorizado
-            if self.authorized_numbers and from_number not in self.authorized_numbers:
-                logger.info(f"Message from unauthorized number: {from_number}")
-                return None
-
-            # Convertir timestamp
-            timestamp = datetime.fromtimestamp(int(timestamp_str)) if timestamp_str else datetime.now()
-
-            # Metadatos del mensaje
-            metadata = {
-                'message_id': message_id,
-                'from_number': from_number,
-                'timestamp': timestamp.isoformat(),
-                'platform': 'whatsapp',
-                'contacts': context.get('contacts', []),
-                'profile_name': self._get_contact_name(context.get('contacts', []), from_number)
-            }
-
-            # Analizar intención de gasto
-            intent = self.intent_analyzer.analyze_intent(
-                text=text,
-                source='whatsapp',
-                metadata=metadata
+            return self.process_text_payload(
+                message_id=message.get('id'),
+                from_number=message.get('from'),
+                text=message.get('text', {}).get('body', ''),
+                timestamp=message.get('timestamp'),
+                contacts=context.get('contacts', []),
+                extra_metadata={'raw_context': context}
             )
-
-            # Si se detectó un gasto, procesarlo
-            if intent.is_expense and intent.confidence > 0.5:
-                expense_data = self._create_expense_from_intent(intent, metadata)
-
-                # Enviar confirmación al usuario
-                self._send_confirmation_message(from_number, intent, expense_data)
-
-                logger.info(f"Expense detected from WhatsApp: {expense_data.get('descripcion')}")
-                return expense_data
-            else:
-                # Enviar mensaje de no detección si la confianza es muy baja
-                if intent.confidence < 0.3:
-                    self._send_info_message(from_number,
-                        "No detecté información de gastos en tu mensaje. "
-                        "Puedes enviar algo como: 'Gasté $500 en gasolina en Pemex'")
-
-                logger.info(f"No expense detected in message from {from_number}: {intent.reasoning}")
-                return None
-
         except Exception as e:
             logger.error(f"Error processing WhatsApp text message: {e}")
             return None
+
+    def process_text_payload(
+        self,
+        *,
+        message_id: Optional[str],
+        from_number: str,
+        text: str,
+        timestamp: Optional[str] = None,
+        contacts: Optional[List[Dict[str, Any]]] = None,
+        extra_metadata: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Procesa cualquier texto (voz transcrita, OCR, etc.) como un gasto potencial"""
+
+        if not text or not text.strip():
+            logger.info("Mensaje vacío, se ignora para análisis de gastos")
+            return None
+
+        if self.authorized_numbers and from_number not in self.authorized_numbers:
+            logger.info(f"Message from unauthorized number: {from_number}")
+            return None
+
+        try:
+            timestamp_value = datetime.fromtimestamp(int(timestamp)) if timestamp else datetime.now()
+        except Exception:
+            timestamp_value = datetime.now()
+
+        metadata = {
+            'message_id': message_id or f"manual-{datetime.utcnow().timestamp()}",
+            'from_number': from_number,
+            'timestamp': timestamp_value.isoformat(),
+            'platform': 'whatsapp',
+            'contacts': contacts or [],
+            'profile_name': self._get_contact_name(contacts or [], from_number)
+        }
+
+        if extra_metadata:
+            metadata.update(extra_metadata)
+
+        intent = self.intent_analyzer.analyze_intent(
+            text=text,
+            source='whatsapp',
+            metadata=metadata
+        )
+
+        if intent.is_expense and intent.confidence > 0.5:
+            expense_data = self._create_expense_from_intent(intent, metadata)
+            self._send_confirmation_message(from_number, intent, expense_data)
+            logger.info(f"Expense detected from WhatsApp: {expense_data.get('descripcion')}")
+            return expense_data
+
+        if intent.confidence < 0.3:
+            self._send_info_message(
+                from_number,
+                "No detecté información de gastos en tu mensaje. "
+                "Puedes enviar algo como: 'Gasté $500 en gasolina en Pemex'"
+            )
+
+        logger.info(f"No expense detected in message from {from_number}: {intent.reasoning}")
+        return None
 
     def _get_contact_name(self, contacts: List[Dict], phone_number: str) -> str:
         """Obtener nombre del contacto"""
@@ -345,6 +371,14 @@ Monto total: ${total_amount:,.2f}
         message += "\n\n🔗 Revisa todos los detalles en el sistema de gestión de gastos."
 
         self._send_text_message(to_number, message)
+
+    def send_info_message(self, to_number: str, message: str):
+        """Wrapper público para enviar mensajes informativos"""
+        self._send_info_message(to_number, message)
+
+    def get_contact_display_name(self, contacts: List[Dict[str, Any]], phone_number: str) -> str:
+        """Expose contact name helper"""
+        return self._get_contact_name(contacts, phone_number)
 
     def get_webhook_info(self) -> Dict[str, Any]:
         """Obtener información para configurar el webhook"""

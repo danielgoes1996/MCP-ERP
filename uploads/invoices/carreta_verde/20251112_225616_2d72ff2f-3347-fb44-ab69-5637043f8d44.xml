@@ -1,0 +1,53 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<cfdi:Comprobante xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:cartaporte31="http://www.sat.gob.mx/CartaPorte31" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd http://www.sat.gob.mx/CartaPorte31 http://www.sat.gob.mx/sitio_internet/cfd/CartaPorte/CartaPorte31.xsd" Version="4.0" Serie="CQQ" Folio="0053357" Fecha="2025-02-12T15:35:14" Sello="gU1oJWxhM3dZN98bLz2JkKYPOxHzDZY6fhbTQKuwLctRHwGh9l8Duy7rE81Whkqxp7APXMJyUUH62FP18OfNMwO7imWXWQarvY8usaoTqdpmpWa+UxIpx43pO5BmWzsv5KGIo0gTuFajrXq6joPy8S88T/wmbjiKeHcv7ch8vghMe678fN/2Dtr8K4iKQqQ3c+dU06qUx+skavwNCHklk4QStpJyk2zgqK1i+aQGoAHxXt5cBrcaH9Mg471e74ehuOUU1n9NcIIOwFl8FNw2HDV6qtuqd+8pBBSQelQrBVfnE/iA9glzOP2VFoUaHhjB/fJ5OljmqRf/79C2v9ekxg==" FormaPago="03" NoCertificado="00001000000703437953" Certificado="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" CondicionesDePago="Por Cobrar" SubTotal="975.30" Moneda="MXN" Total="1092.34" TipoDeComprobante="I" Exportacion="01" MetodoPago="PUE" LugarExpedicion="76030" xmlns:cfdi="http://www.sat.gob.mx/cfd/4">
+  <cfdi:Emisor Rfc="TLM610720N93" Nombre="TRANSPORTES LEON-MEXICO" RegimenFiscal="601" />
+  <cfdi:Receptor Rfc="POL210218264" Nombre="POLLENBEEMX" DomicilioFiscalReceptor="76903" RegimenFiscalReceptor="601" UsoCFDI="G03" />
+  <cfdi:Conceptos>
+    <cfdi:Concepto ClaveProdServ="78101800" NoIdentificacion="0" Cantidad="1" ClaveUnidad="E48" Descripcion="Transporte de carga por carretera" ValorUnitario="975.30" Importe="975.30" ObjetoImp="02">
+      <cfdi:Impuestos>
+        <cfdi:Traslados>
+          <cfdi:Traslado Base="975.30" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="156.05" />
+        </cfdi:Traslados>
+        <cfdi:Retenciones>
+          <cfdi:Retencion Base="975.30" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.040000" Importe="39.01" />
+        </cfdi:Retenciones>
+      </cfdi:Impuestos>
+    </cfdi:Concepto>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosRetenidos="39.01" TotalImpuestosTrasladados="156.05">
+    <cfdi:Retenciones>
+      <cfdi:Retencion Impuesto="002" Importe="39.01" />
+    </cfdi:Retenciones>
+    <cfdi:Traslados>
+      <cfdi:Traslado Base="975.30" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="156.05" />
+    </cfdi:Traslados>
+  </cfdi:Impuestos>
+  <cfdi:Complemento>
+    <cartaporte31:CartaPorte Version="3.1" IdCCP="CCCc9598-8fbb-4cc3-a24f-2dd1342d61c8" TranspInternac="No" TotalDistRec="40">
+      <cartaporte31:Ubicaciones>
+        <cartaporte31:Ubicacion TipoUbicacion="Origen" IDUbicacion="OR000028" RFCRemitenteDestinatario="XAXX010101000" NombreRemitenteDestinatario="DISTRIBUIDORA PREZ  " FechaHoraSalidaLlegada="2025-02-12T15:35:14">
+          <cartaporte31:Domicilio Calle="GOBERNADOR JOSE CEBALLOS" NumeroExterior="132" Estado="CMX" Pais="MEX" CodigoPostal="11830" />
+        </cartaporte31:Ubicacion>
+        <cartaporte31:Ubicacion TipoUbicacion="Destino" IDUbicacion="DE000019" RFCRemitenteDestinatario="POL210218264" NombreRemitenteDestinatario="POLLENBEEMX" FechaHoraSalidaLlegada="2025-02-12T15:35:14" DistanciaRecorrida="40">
+          <cartaporte31:Domicilio Calle="BENITO REYNOSO" NumeroExterior="359" Estado="QUE" Pais="MEX" CodigoPostal="76903" />
+        </cartaporte31:Ubicacion>
+      </cartaporte31:Ubicaciones>
+      <cartaporte31:Mercancias PesoBrutoTotal="1200.000" UnidadPeso="XPX" PesoNetoTotal="1200.000" NumTotalMercancias="1">
+        <cartaporte31:Mercancia BienesTransp="24122000" Descripcion="Botellas" Cantidad="1" ClaveUnidad="XPX" Unidad="Pallet" Dimensiones="20/20/20cm" PesoEnKg="1200.000" Moneda="MXN">
+          <cartaporte31:CantidadTransporta Cantidad="1.000000" IDOrigen="OR000028" IDDestino="DE000019" />
+        </cartaporte31:Mercancia>
+        <cartaporte31:Autotransporte PermSCT="TPAF01" NumPermisoSCT="Autotransporte Federal de carga general">
+          <cartaporte31:IdentificacionVehicular ConfigVehicular="C2R2" PesoBrutoVehicular="28.00" PlacaVM="846DE9" AnioModeloVM="1993" />
+          <cartaporte31:Seguros AseguraRespCivil="SEGUROS INBURSA, S.A DE C.V." PolizaRespCivil="2011220382747" PrimaSeguro="0.00" />
+          <cartaporte31:Remolques>
+            <cartaporte31:Remolque SubTipoRem="CTR007" Placa="541wk6" />
+          </cartaporte31:Remolques>
+        </cartaporte31:Autotransporte>
+      </cartaporte31:Mercancias>
+      <cartaporte31:FiguraTransporte>
+        <cartaporte31:TiposFigura TipoFigura="01" RFCFigura="GAAA5803128C0" NumLicencia="DF204992" NombreFigura="ARMANDO GARCIA ALDERETE" />
+      </cartaporte31:FiguraTransporte>
+    </cartaporte31:CartaPorte>
+  <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" xsi:schemaLocation="http://www.sat.gob.mx/TimbreFiscalDigital http://www.sat.gob.mx/sitio_internet/cfd/TimbreFiscalDigital/TimbreFiscalDigitalv11.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Version="1.1" UUID="2D72FF2F-3347-FB44-AB69-5637043F8D44" FechaTimbrado="2025-02-12T15:35:18" RfcProvCertif="SCD110105654" SelloCFD="gU1oJWxhM3dZN98bLz2JkKYPOxHzDZY6fhbTQKuwLctRHwGh9l8Duy7rE81Whkqxp7APXMJyUUH62FP18OfNMwO7imWXWQarvY8usaoTqdpmpWa+UxIpx43pO5BmWzsv5KGIo0gTuFajrXq6joPy8S88T/wmbjiKeHcv7ch8vghMe678fN/2Dtr8K4iKQqQ3c+dU06qUx+skavwNCHklk4QStpJyk2zgqK1i+aQGoAHxXt5cBrcaH9Mg471e74ehuOUU1n9NcIIOwFl8FNw2HDV6qtuqd+8pBBSQelQrBVfnE/iA9glzOP2VFoUaHhjB/fJ5OljmqRf/79C2v9ekxg==" NoCertificadoSAT="00001000000702501858" SelloSAT="FSEdfGbnO9V4/xAis31lD+JLpzVkL1xlmefEE2m9iVLgz3q76l5RotzorfxtpFy4pNFyPP7Eh1r/SFnKgvae+ICpQ9pD4PWO6tYADp4TV8VB/zKB9aWk5gbzgOzfJErX6yKM6WvrluUVTYR23yN19n8tF7c9meoeRdYiKZtD0QPKD6uIR9jOZc8lNpZFuuzAz1aPdGDyscGhl6PEA1sI4fO0BOm3keHmFblKhdDXzcwAXyGIExlxaKLgeA+SSquUnQGIVTgX7LwIER0O6KqiD0n5m7vCmmAeeYWEdWUqLuptDyzZSEKw01hkcJaBDE4RaC7ujDJIAvA7vE0yWGPtWg==" />
+</cfdi:Complemento>
+</cfdi:Comprobante>

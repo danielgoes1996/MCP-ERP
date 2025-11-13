@@ -12,7 +12,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from typing import Dict, Any, List, Optional, Literal
+from typing import Dict, Any, List, Optional, Literal, Tuple
 import uvicorn
 import logging
 import tempfile
@@ -40,6 +40,8 @@ except ImportError:
 from core.shared.mcp_handler import handle_mcp_request
 from core.reconciliation.matching.bank_reconciliation import suggest_bank_matches
 from core.ai_pipeline.parsers.invoice_parser import parse_cfdi_xml, InvoiceParseError
+from core.payment_accounts_models import payment_account_service
+from modules.invoicing_agent.models import create_ticket, get_ticket, update_ticket
 
 # Import configuration first
 from config.config import config
@@ -299,6 +301,14 @@ try:
     logger.info("Invoicing agent module loaded successfully")
 except ImportError as e:
     logger.warning(f"Invoicing agent module not available: {e}")
+
+# WhatsApp webhook router
+try:
+    from api.whatsapp_webhook_api import router as whatsapp_webhook_router
+    app.include_router(whatsapp_webhook_router)
+    logger.info("WhatsApp webhook API loaded successfully")
+except ImportError as e:
+    logger.warning(f"WhatsApp webhook API not available: {e}")
 
 # TEMPORARILY DISABLED: Auth router conflicts with main auth endpoints
 # JWT Authentication System
@@ -640,6 +650,7 @@ def _build_expense_response(record: Dict[str, Any]) -> ExpenseResponse:
         movimientos_bancarios=movimientos,
         metadata=metadata or None,
         company_id=record.get("company_id", "default"),
+        ticket_id=record.get("ticket_id"),
         is_advance=bool(metadata.get("is_advance", False)),
         is_ppd=bool(metadata.get("is_ppd", False)),
         asset_class=metadata.get("asset_class"),
@@ -647,6 +658,119 @@ def _build_expense_response(record: Dict[str, Any]) -> ExpenseResponse:
         created_at=record.get("created_at", ""),
         updated_at=record.get("updated_at", ""),
     )
+
+
+def _validate_payment_account_for_user(
+    payment_account_id: Optional[int],
+    tenancy_context: TenancyContext,
+) -> None:
+    """Ensure the provided payment account exists and belongs to current user."""
+    if payment_account_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="payment_account_id es obligatorio para registrar gastos",
+        )
+
+    try:
+        payment_account_service.get_account(
+            payment_account_id,
+            tenancy_context.user_id,
+            tenancy_context.tenant_id,
+        )
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail="La cuenta de pago indicada no existe o no pertenece al usuario actual",
+        )
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.exception("Error validating payment account %s: %s", payment_account_id, exc)
+        raise HTTPException(
+            status_code=500,
+            detail="No se pudo validar la cuenta de pago proporcionada",
+        )
+
+
+def _build_virtual_ticket_raw_data(expense: ExpenseCreate) -> str:
+    """Compose a human-friendly summary to store inside a virtual ticket."""
+    provider_name = (expense.proveedor.nombre if expense.proveedor else None) or "Proveedor no especificado"
+    lines = [
+        f"Descripción: {expense.descripcion}",
+        f"Monto: ${expense.monto_total:,.2f} MXN",
+        f"Fecha: {expense.fecha_gasto}",
+        f"Categoría: {expense.categoria or 'sin categoría'}",
+        f"Proveedor: {provider_name}",
+        f"RFC: {expense.rfc or 'N/A'}",
+        f"Forma de pago: {expense.forma_pago or 'N/A'}",
+        f"Company ID: {expense.company_id}",
+    ]
+    return "\n".join(lines)
+
+
+def _ensure_ticket_binding(
+    expense: ExpenseCreate,
+    tenancy_context: TenancyContext,
+) -> Tuple[Optional[int], bool]:
+    """
+    Ensure every expense has a ticket associated.
+
+    Returns:
+        (ticket_id, created_flag)
+    """
+    if expense.ticket_id:
+        ticket = get_ticket(expense.ticket_id)
+        if not ticket:
+            raise HTTPException(
+                status_code=404,
+                detail=f"El ticket {expense.ticket_id} no existe",
+            )
+
+        ticket_company = ticket.get("company_id") or "default"
+        if ticket_company != expense.company_id:
+            raise HTTPException(
+                status_code=400,
+                detail="El ticket pertenece a otra empresa y no puede vincularse a este gasto",
+            )
+
+        linked_expense_id = ticket.get("linked_expense_id")
+        if linked_expense_id:
+            raise HTTPException(
+                status_code=400,
+                detail=f"El ticket {expense.ticket_id} ya está vinculado al gasto {linked_expense_id}",
+            )
+        return expense.ticket_id, False
+
+    raw_data = _build_virtual_ticket_raw_data(expense)
+    try:
+        ticket_id = create_ticket(
+            raw_data=raw_data,
+            tipo="virtual_expense",
+            user_id=tenancy_context.user_id,
+            company_id=expense.company_id,
+        )
+        logger.info("🎫 Ticket virtual %s creado para expense '%s'", ticket_id, expense.descripcion)
+        return ticket_id, True
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.exception("No se pudo crear ticket virtual: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail="No se pudo crear el ticket asociado al gasto",
+        )
+
+
+def _link_ticket_to_expense(ticket_id: Optional[int], expense_id: int) -> None:
+    """Persist bidirectional relationship between tickets and expenses."""
+    if not ticket_id:
+        return
+    try:
+        update_ticket(ticket_id, linked_expense_id=expense_id)
+        logger.info("🔗 Ticket %s vinculado a expense %s", ticket_id, expense_id)
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.warning(
+            "No se pudo vincular ticket %s con expense %s: %s",
+            ticket_id,
+            expense_id,
+            exc,
+        )
 
 
 def _parse_iso_date(value: Optional[str]) -> Optional[datetime]:
@@ -3748,6 +3872,15 @@ async def create_expense(
         # Nota: Las validaciones de monto, fecha y RFC ya están en el modelo Pydantic
         # y se ejecutan automáticamente antes de llegar aquí
 
+        if not expense.forma_pago:
+            raise HTTPException(
+                status_code=400,
+                detail="forma_pago es obligatorio para registrar un gasto",
+            )
+
+        _validate_payment_account_for_user(expense.payment_account_id, tenancy_context)
+        ticket_id, ticket_created = _ensure_ticket_binding(expense, tenancy_context)
+
         # Extraer nombre del proveedor
         provider_name = expense.proveedor.nombre if expense.proveedor else None
 
@@ -3770,6 +3903,15 @@ async def create_expense(
         if expense.movimientos_bancarios:
             metadata_extra['movimientos_bancarios'] = expense.movimientos_bancarios
 
+        if ticket_id:
+            metadata_extra.setdefault(
+                "ticket_context",
+                {
+                    "ticket_id": ticket_id,
+                    "created_automatically": ticket_created,
+                },
+            )
+
         metadata_extra.pop('company_id', None)
 
         expense_id = record_internal_expense(
@@ -3787,6 +3929,7 @@ async def create_expense(
             tax_total=expense.tax_info.get('total') if expense.tax_info else None,
             tax_metadata=expense.tax_info,
             payment_method=expense.forma_pago,
+            payment_account_id=expense.payment_account_id,
             paid_by=expense.paid_by,
             will_have_cfdi=expense.will_have_cfdi,
             bank_status=expense.estado_conciliacion,
@@ -3794,9 +3937,16 @@ async def create_expense(
             company_id=expense.company_id,
         )
 
+        if ticket_id:
+            _link_ticket_to_expense(ticket_id, expense_id)
+            db_update_expense_record(expense_id, {"ticket_id": ticket_id})
+
         record = fetch_expense_record(expense_id)
         if not record:
             raise ServiceError("Database", "No se pudo recuperar el gasto creado")
+
+        if ticket_created:
+            logger.info("📌 Ticket virtual %s vinculado al gasto %s", ticket_id, expense_id)
 
         # ✅ NUEVO: Hook de escalamiento automático
         from core.expenses.workflow.expense_escalation_hooks import post_expense_creation_hook
@@ -3812,6 +3962,7 @@ async def create_expense(
                 "categoria": expense.categoria,
                 "will_have_cfdi": expense.will_have_cfdi,
                 "company_id": expense.company_id,
+                "ticket_id": ticket_id,
             },
             user_id=getattr(tenancy_context, "user_id", None),
             company_id=expense.company_id,
@@ -5549,11 +5700,11 @@ except ImportError as e:
 
 if __name__ == "__main__":
     # Run the server when executed directly
-    logger.info(f"Starting MCP Server on localhost:8002")
+    logger.info(f"Starting MCP Server on localhost:8001")
     uvicorn.run(
         "main:app",
         host="localhost",
-        port=8002,
+        port=8001,
         reload=config.DEBUG,
         log_level=config.LOG_LEVEL.lower()
     )

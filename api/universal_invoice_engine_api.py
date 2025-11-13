@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Any
 import logging
 import os
 import tempfile
+import asyncio
 from datetime import datetime
 
 from core.expenses.invoices.universal_invoice_engine_system import (
@@ -37,6 +38,10 @@ from core.api_models import (
 router = APIRouter(prefix="/universal-invoice", tags=["Universal Invoice Engine"])
 logger = logging.getLogger(__name__)
 
+# Global semaphore to limit concurrent Anthropic API calls
+# This prevents hitting rate limits by processing max 3 invoices at a time
+_anthropic_semaphore = asyncio.Semaphore(3)
+
 @router.post("/sessions/")
 async def create_invoice_processing_session(
     request: UniversalInvoiceSessionCreateRequest
@@ -45,7 +50,7 @@ async def create_invoice_processing_session(
     Crea una nueva sesión de procesamiento universal de facturas
     Incluye template_match y validation_rules setup
     """
-    log_endpoint_entry("/universal-invoice/sessions/", "POST", request.dict())
+    log_endpoint_entry("/universal-invoice/sessions/", method="POST", request_data=request.dict())
 
     try:
         session_id = await universal_invoice_engine_system.create_processing_session(
@@ -75,6 +80,436 @@ async def create_invoice_processing_session(
         log_endpoint_error("/universal-invoice/sessions/", error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
 
+@router.post("/sessions/batch-upload/")
+async def batch_upload_and_process(
+    background_tasks: BackgroundTasks,
+    company_id: str,
+    user_id: Optional[str] = None,
+    files: List[UploadFile] = File(...)
+) -> Dict[str, Any]:
+    """
+    Sube múltiples archivos y los procesa en background
+    El procesamiento continúa incluso si el cliente se desconecta
+    """
+    log_endpoint_entry("/universal-invoice/sessions/batch-upload/",
+        method="POST",
+        company_id=company_id,
+        file_count=len(files)
+    )
+
+    try:
+        # Crear directorio permanente para facturas
+        upload_dir = os.path.join(os.getcwd(), "uploads", "invoices", company_id)
+        os.makedirs(upload_dir, exist_ok=True)
+
+        # Procesar todos los archivos y crear sesiones
+        session_ids = []
+        batch_id = f"batch_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+
+        for file in files:
+            # Validar tipo de archivo por content_type o extensión
+            allowed_types = ['application/pdf', 'application/xml', 'text/xml', 'image/jpeg', 'image/png', 'text/csv']
+            allowed_extensions = ['.pdf', '.xml', '.jpg', '.jpeg', '.png', '.csv']
+
+            file_ext = os.path.splitext(file.filename)[1].lower() if file.filename else ''
+
+            if file.content_type not in allowed_types and file_ext not in allowed_extensions:
+                logger.warning(f"Skipping unsupported file type: {file.filename} ({file.content_type}, ext: {file_ext})")
+                continue
+
+            # Guardar archivo permanente
+            safe_filename = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
+            file_path = os.path.join(upload_dir, safe_filename)
+
+            content = await file.read()
+            with open(file_path, 'wb') as f:
+                f.write(content)
+
+            # Crear sesión
+            session_id = await universal_invoice_engine_system.create_processing_session(
+                company_id=company_id,
+                file_path=file_path,
+                original_filename=file.filename or "uploaded_file",
+                user_id=user_id
+            )
+            session_ids.append(session_id)
+
+        # Programar procesamiento en background de TODAS las sesiones
+        # Esto continuará ejecutándose incluso si el cliente se desconecta
+        for session_id in session_ids:
+            background_tasks.add_task(_process_invoice_background, session_id)
+
+        response = {
+            "batch_id": batch_id,
+            "total_files": len(files),
+            "created_sessions": len(session_ids),
+            "session_ids": session_ids,
+            "status": "processing_in_background",
+            "message": "Los archivos se están procesando. Puedes salir de esta página y el procesamiento continuará.",
+            "created_at": datetime.utcnow().isoformat()
+        }
+
+        log_endpoint_success("/universal-invoice/sessions/batch-upload/", response)
+        return response
+
+    except Exception as e:
+        error_msg = f"Error in batch upload: {str(e)}"
+        log_endpoint_error("/universal-invoice/sessions/batch-upload/", error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
+@router.get("/sessions/batch-status/{batch_id}")
+async def get_batch_status(batch_id: str, company_id: str) -> Dict[str, Any]:
+    """
+    Obtiene el estado de un batch de procesamiento
+    """
+    try:
+        from core.shared.db_config import get_connection
+
+        conn = get_connection(dict_cursor=True)
+        cursor = conn.cursor()
+
+        # Obtener todas las sesiones creadas en el batch
+        # Nota: Necesitamos agregar batch_id a la tabla, por ahora usamos timestamp del batch_id
+        batch_timestamp = batch_id.replace("batch_", "")
+
+        cursor.execute("""
+            SELECT
+                id as session_id,
+                extraction_status,
+                original_filename
+            FROM universal_invoice_sessions
+            WHERE company_id = %s
+            AND created_at >= (NOW() - INTERVAL '1 hour')
+            ORDER BY created_at DESC
+        """, (company_id,))
+
+        sessions = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        # Contar estados
+        total = len(sessions)
+        completed = sum(1 for s in sessions if s['extraction_status'] == 'completed')
+        failed = sum(1 for s in sessions if s['extraction_status'] == 'failed')
+        pending = sum(1 for s in sessions if s['extraction_status'] == 'pending')
+
+        return {
+            "batch_id": batch_id,
+            "total_sessions": total,
+            "completed": completed,
+            "failed": failed,
+            "pending": pending,
+            "progress_percentage": (completed / total * 100) if total > 0 else 0,
+            "is_complete": pending == 0,
+            "sessions": sessions
+        }
+
+    except Exception as e:
+        error_msg = f"Error getting batch status: {str(e)}"
+        log_endpoint_error(f"/universal-invoice/sessions/batch-status/{batch_id}", error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
+@router.post("/sessions/reprocess-failed/")
+async def reprocess_failed_sessions(
+    background_tasks: BackgroundTasks,
+    company_id: str
+) -> Dict[str, Any]:
+    """
+    Reprocesa todas las sesiones que fallaron o tienen datos incompletos
+    Útil para facturas que fallaron por rate limits
+    """
+    log_endpoint_entry("/universal-invoice/sessions/reprocess-failed/",
+        method="POST",
+        company_id=company_id
+    )
+
+    try:
+        from core.shared.db_config import get_connection
+
+        conn = get_connection(dict_cursor=True)
+        cursor = conn.cursor()
+
+        # Encontrar sesiones con extraction_status='completed' pero con extracted_data vacío o incompleto
+        # O sesiones con status='failed'
+        cursor.execute("""
+            SELECT id, original_filename, extracted_data
+            FROM universal_invoice_sessions
+            WHERE company_id = %s
+            AND (
+                extraction_status = 'failed'
+                OR (
+                    extraction_status = 'completed'
+                    AND (
+                        extracted_data IS NULL
+                        OR extracted_data = '{}'::jsonb
+                        OR NOT (extracted_data ? 'tipo_comprobante')
+                        OR (SELECT COUNT(*) FROM jsonb_object_keys(extracted_data)) < 5
+                    )
+                )
+            )
+            ORDER BY created_at DESC
+        """, (company_id,))
+
+        failed_sessions = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        if not failed_sessions:
+            return {
+                "message": "No hay sesiones para reprocesar",
+                "total_sessions": 0,
+                "reprocessing": []
+            }
+
+        # Resetear el estado de estas sesiones a 'pending' para reprocesamiento
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        session_ids = [s['id'] for s in failed_sessions]
+
+        cursor.execute("""
+            UPDATE universal_invoice_sessions
+            SET extraction_status = 'pending',
+                error_message = NULL
+            WHERE id = ANY(%s)
+        """, (session_ids,))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        # Programar reprocesamiento en background con rate limiting
+        for session_id in session_ids:
+            background_tasks.add_task(_process_invoice_background, session_id)
+
+        response = {
+            "message": f"Reprocesando {len(session_ids)} sesiones que fallaron",
+            "total_sessions": len(session_ids),
+            "reprocessing": session_ids,
+            "status": "processing_in_background",
+            "note": "Las sesiones se están reprocesando con rate limiting. Consulta el estado en unos minutos."
+        }
+
+        log_endpoint_success("/universal-invoice/sessions/reprocess-failed/", response)
+        return response
+
+    except Exception as e:
+        error_msg = f"Error reprocessing failed sessions: {str(e)}"
+        log_endpoint_error("/universal-invoice/sessions/reprocess-failed/", error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
+@router.get("/sessions/viewer-pro/{tenant_id}")
+async def get_sessions_for_viewer_pro(
+    tenant_id: str,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    tipo: Optional[str] = None,
+    estatus: Optional[str] = None,
+    search: Optional[str] = None,
+    limit: int = 500,
+    offset: int = 0
+) -> Dict[str, Any]:
+    """
+    Endpoint optimizado para el visualizador Pro de CFDIs
+    Devuelve datos en formato flat con todos los campos pre-calculados
+
+    Parámetros:
+    - tenant_id: ID del tenant/empresa
+    - year: Filtro por año (opcional)
+    - month: Filtro por mes 1-12 (opcional)
+    - tipo: Filtro por tipo de comprobante I/E/T/N/P (opcional)
+    - estatus: Filtro por estatus SAT: vigente/cancelado/sustituido (opcional)
+    - search: Búsqueda por UUID, RFC, nombre, serie/folio (opcional)
+    - limit: Número máximo de registros (default 500)
+    - offset: Offset para paginación (default 0)
+    """
+    log_endpoint_entry(f"/universal-invoice/sessions/viewer-pro/{tenant_id}",
+        method="GET",
+        tenant_id=tenant_id,
+        year=year,
+        month=month,
+        tipo=tipo,
+        estatus=estatus
+    )
+
+    try:
+        from core.shared.db_config import get_connection
+
+        conn = get_connection(dict_cursor=True)
+        cursor = conn.cursor()
+
+        # Query optimizado con JOIN para obtener todo en una consulta
+        query = """
+            SELECT
+                s.id,
+                s.company_id,
+                s.original_filename,
+                s.extraction_status,
+                s.created_at,
+                s.invoice_file_path,
+                s.extracted_data
+            FROM universal_invoice_sessions s
+            WHERE s.company_id = %s
+            AND s.extraction_status = 'completed'
+            AND s.extracted_data IS NOT NULL
+            AND s.extracted_data != '{}'::jsonb
+        """
+        params = [tenant_id]
+
+        # Filtros dinámicos
+        if year:
+            query += " AND EXTRACT(YEAR FROM (s.extracted_data->>'fecha_emision')::date) = %s"
+            params.append(year)
+
+        if month:
+            query += " AND EXTRACT(MONTH FROM (s.extracted_data->>'fecha_emision')::date) = %s"
+            params.append(month)
+
+        if tipo:
+            query += " AND s.extracted_data->>'tipo_comprobante' = %s"
+            params.append(tipo)
+
+        if estatus:
+            query += " AND s.extracted_data->>'sat_status' = %s"
+            params.append(estatus)
+
+        if search:
+            search_pattern = f"%{search.lower()}%"
+            query += """ AND (
+                LOWER(s.extracted_data->>'uuid') LIKE %s OR
+                LOWER(s.extracted_data->'emisor'->>'nombre') LIKE %s OR
+                LOWER(s.extracted_data->'emisor'->>'rfc') LIKE %s OR
+                LOWER(s.extracted_data->'receptor'->>'nombre') LIKE %s OR
+                LOWER(s.extracted_data->'receptor'->>'rfc') LIKE %s OR
+                LOWER(s.extracted_data->>'serie') LIKE %s OR
+                LOWER(s.extracted_data->>'folio') LIKE %s
+            )"""
+            params.extend([search_pattern] * 7)
+
+        query += " ORDER BY s.created_at DESC LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
+
+        cursor.execute(query, params)
+        sessions = cursor.fetchall()
+
+        # Transformar a formato flat para el visualizador
+        documents = []
+        for session in sessions:
+            data = session['extracted_data'] or {}
+
+            # Calcular impuestos trasladados y retenidos
+            impuestos = data.get('impuestos', {})
+            traslados = impuestos.get('traslados', []) or []
+            retenciones = impuestos.get('retenciones', []) or []
+
+            impuestos_trasladados = sum(t.get('importe', 0) for t in traslados)
+            impuestos_retenidos = sum(r.get('importe', 0) for r in retenciones)
+
+            # Extraer complementos (de conceptos o estructura específica)
+            complementos = []
+            # TODO: Agregar lógica para extraer complementos del XML
+            # Por ahora dejamos array vacío
+
+            # Validar sello (por defecto true si tiene UUID)
+            sello_verificado = bool(data.get('uuid'))
+
+            # Relacionados (por ahora vacío, agregar después)
+            relacionados = []
+
+            # Leer XML si existe el archivo
+            xml_content = ""
+            try:
+                if session.get('invoice_file_path') and os.path.exists(session['invoice_file_path']):
+                    with open(session['invoice_file_path'], 'r', encoding='utf-8') as f:
+                        xml_content = f.read()
+            except Exception as e:
+                logger.warning(f"Could not read XML file for session {session['id']}: {e}")
+
+            # Documento en formato flat
+            doc = {
+                "id": session['id'],
+                "uuid": data.get('uuid'),
+                "serie": data.get('serie'),
+                "folio": data.get('folio'),
+                "fechaEmision": data.get('fecha_emision'),
+                "fechaTimbrado": data.get('fecha_timbrado'),
+                "tipo": data.get('tipo_comprobante'),
+                "moneda": data.get('moneda', 'MXN'),
+                "tipoCambio": data.get('tipo_cambio'),
+                "subtotal": data.get('subtotal', 0),
+                "descuento": data.get('descuento'),
+                "total": data.get('total', 0),
+                "formaPago": data.get('forma_pago'),
+                "metodoPago": data.get('metodo_pago'),
+                "usoCFDI": data.get('uso_cfdi'),
+                "estatusSAT": data.get('sat_status', 'desconocido'),
+                "emisorNombre": data.get('emisor', {}).get('nombre'),
+                "emisorRFC": data.get('emisor', {}).get('rfc'),
+                "emisorRegimenFiscal": data.get('emisor', {}).get('regimen_fiscal'),
+                "receptorNombre": data.get('receptor', {}).get('nombre'),
+                "receptorRFC": data.get('receptor', {}).get('rfc'),
+                "receptorUsoCFDI": data.get('receptor', {}).get('uso_cfdi'),
+                "receptorDomicilioFiscal": data.get('receptor', {}).get('domicilio_fiscal'),
+                "impuestosTrasladados": impuestos_trasladados,
+                "impuestosRetenidos": impuestos_retenidos,
+                "impuestos": {
+                    "trasladados": traslados,
+                    "retenidos": retenciones
+                },
+                "conceptos": data.get('conceptos', []),
+                "taxBadges": data.get('tax_badges', []),
+                "complementos": complementos,
+                "selloVerificado": sello_verificado,
+                "relacionados": relacionados,
+                "xml": xml_content if xml_content else "",
+                "notas": "",
+                "pagos": data.get('pagos', {}),
+            }
+
+            documents.append(doc)
+
+        # Contar total para paginación
+        count_query = """
+            SELECT COUNT(*) as total
+            FROM universal_invoice_sessions s
+            WHERE s.company_id = %s
+            AND s.extraction_status = 'completed'
+            AND s.extracted_data IS NOT NULL
+            AND s.extracted_data != '{}'::jsonb
+        """
+        count_params = [tenant_id]
+
+        cursor.execute(count_query, count_params)
+        total_count = cursor.fetchone()['total']
+
+        cursor.close()
+        conn.close()
+
+        response = {
+            "success": True,
+            "documents": documents,
+            "total_count": total_count,
+            "limit": limit,
+            "offset": offset,
+            "has_more": (offset + len(documents)) < total_count,
+        }
+
+        log_endpoint_success(f"/universal-invoice/sessions/viewer-pro/{tenant_id}", {
+            "document_count": len(documents),
+            "total_count": total_count
+        })
+
+        return response
+
+    except Exception as e:
+        error_msg = f"Error fetching sessions for viewer pro: {str(e)}"
+        log_endpoint_error(f"/universal-invoice/sessions/viewer-pro/{tenant_id}", error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
 @router.post("/sessions/upload/")
 async def upload_and_create_session(
     company_id: str,
@@ -82,13 +517,15 @@ async def upload_and_create_session(
     file: UploadFile = File(...)
 ) -> UniversalInvoiceSessionResponse:
     """
-    Sube archivo y crea sesión de procesamiento
+    Sube archivo y crea sesión de procesamiento (single file)
+    Para múltiples archivos usa /sessions/batch-upload/
     """
-    log_endpoint_entry("/universal-invoice/sessions/upload/", "POST", {
-        "company_id": company_id,
-        "filename": file.filename,
-        "content_type": file.content_type
-    })
+    log_endpoint_entry("/universal-invoice/sessions/upload/",
+        method="POST",
+        company_id=company_id,
+        filename=file.filename,
+        content_type=file.content_type
+    )
 
     try:
         # Validar tipo de archivo
@@ -96,16 +533,22 @@ async def upload_and_create_session(
         if file.content_type not in allowed_types:
             raise HTTPException(status_code=400, detail=f"Unsupported file type: {file.content_type}")
 
-        # Guardar archivo temporal
-        with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{file.filename}") as temp_file:
-            content = await file.read()
-            temp_file.write(content)
-            temp_file_path = temp_file.name
+        # Crear directorio permanente para facturas si no existe
+        upload_dir = os.path.join(os.getcwd(), "uploads", "invoices", company_id)
+        os.makedirs(upload_dir, exist_ok=True)
+
+        # Guardar archivo permanente con nombre único
+        safe_filename = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
+        file_path = os.path.join(upload_dir, safe_filename)
+
+        content = await file.read()
+        with open(file_path, 'wb') as f:
+            f.write(content)
 
         # Crear sesión
         session_id = await universal_invoice_engine_system.create_processing_session(
             company_id=company_id,
-            file_path=temp_file_path,
+            file_path=file_path,
             original_filename=file.filename or "uploaded_file",
             user_id=user_id
         )
@@ -143,10 +586,11 @@ async def process_universal_invoice(
     Procesa factura con template matching y validation rules completas
     Retorna template_match y validation_rules aplicadas
     """
-    log_endpoint_entry(f"/universal-invoice/sessions/{session_id}/process", "POST", {
-        "session_id": session_id,
-        "async_processing": request.async_processing if request else True
-    })
+    log_endpoint_entry(f"/universal-invoice/sessions/{session_id}/process",
+        method="POST",
+        session_id=session_id,
+        async_processing=request.async_processing if request else True
+    )
 
     try:
         # Validar que la sesión existe
@@ -159,28 +603,34 @@ async def process_universal_invoice(
             background_tasks.add_task(_process_invoice_background, session_id)
 
             response = {
-                "session_id": session_id,
-                "status": "processing_started",
-                "processing_mode": "async",
-                "message": "Invoice processing started in background",
-                "check_status_url": f"/universal-invoice/sessions/{session_id}/status",
-                "estimated_completion_time": _estimate_completion_time()
+                "success": True,
+                "invoice_data": {
+                    "session_id": session_id,
+                    "status": "processing_started",
+                    "processing_mode": "async",
+                    "message": "Invoice processing started in background",
+                    "check_status_url": f"/universal-invoice/sessions/{session_id}/status",
+                    "estimated_completion_time": _estimate_completion_time()
+                }
             }
         else:
             # Procesar sincrónicamente
             result = await universal_invoice_engine_system.process_invoice(session_id)
 
             response = {
-                "session_id": session_id,
-                "status": result["status"],
-                "processing_mode": "sync",
-                "detected_format": result["detected_format"],
-                "parser_used": result["parser_used"],
-                "template_match": result["template_match"],        # ✅ CAMPO FALTANTE
-                "validation_rules": result["validation_rules"],    # ✅ CAMPO FALTANTE
-                "extraction_confidence": result["extraction_confidence"],
-                "overall_quality_score": result["overall_quality_score"],
-                "processing_metrics": result["processing_metrics"]
+                "success": True,
+                "invoice_data": {
+                    "session_id": session_id,
+                    "status": result["status"],
+                    "processing_mode": "sync",
+                    "detected_format": result["detected_format"],
+                    "parser_used": result["parser_used"],
+                    "template_match": result["template_match"],        # ✅ CAMPO FALTANTE
+                    "validation_rules": result["validation_rules"],    # ✅ CAMPO FALTANTE
+                    "extraction_confidence": result["extraction_confidence"],
+                    "overall_quality_score": result["overall_quality_score"],
+                    "processing_metrics": result["processing_metrics"]
+                }
             }
 
         log_endpoint_success(f"/universal-invoice/sessions/{session_id}/process", response)
@@ -193,12 +643,254 @@ async def process_universal_invoice(
         log_endpoint_error(f"/universal-invoice/sessions/{session_id}/process", error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
 
+@router.get("/sessions/company/{company_id}")
+async def list_company_sessions(
+    company_id: str,
+    status: Optional[str] = None,
+    limit: Optional[int] = 100,
+    offset: Optional[int] = 0
+) -> Dict[str, Any]:
+    """
+    Lista todas las sesiones de facturas para una empresa
+    Incluye paginación y filtrado por estado
+    """
+    log_endpoint_entry(f"/universal-invoice/sessions/company/{company_id}", method="GET", company_id=company_id)
+
+    try:
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        from core.shared.db_config import get_connection
+
+        conn = get_connection(dict_cursor=True)
+        cursor = conn.cursor()
+
+        # Query base
+        query = """
+            SELECT
+                id, company_id, user_id, original_filename,
+                status, created_at, updated_at,
+                detected_format, parser_used,
+                extraction_status, extraction_confidence,
+                validation_score, overall_quality_score,
+                parsed_data, template_match, validation_results,
+                error_message
+            FROM universal_invoice_sessions
+            WHERE company_id = %s
+        """
+        params = [company_id]
+
+        # Filtro por estado
+        if status:
+            query += " AND status = %s"
+            params.append(status)
+
+        query += " ORDER BY created_at DESC LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
+
+        cursor.execute(query, params)
+        sessions = cursor.fetchall()
+
+        # Contar total de sesiones
+        count_query = "SELECT COUNT(*) as total FROM universal_invoice_sessions WHERE company_id = %s"
+        count_params = [company_id]
+        if status:
+            count_query += " AND status = %s"
+            count_params.append(status)
+
+        cursor.execute(count_query, count_params)
+        total_count = cursor.fetchone()['total']
+
+        cursor.close()
+        conn.close()
+
+        # Formatear respuesta
+        sessions_list = []
+        for session in sessions:
+            # Extraer información básica del parsed_data para mostrar en la lista
+            display_info = {}
+            if session['parsed_data']:
+                parsed = session['parsed_data']
+                display_info = {
+                    "emisor_nombre": parsed.get('emisor', {}).get('nombre'),
+                    "emisor_rfc": parsed.get('emisor', {}).get('rfc'),
+                    "receptor_rfc": parsed.get('receptor', {}).get('rfc'),
+                    "total": parsed.get('total'),
+                    "moneda": parsed.get('moneda', 'MXN'),
+                    "fecha_emision": parsed.get('fecha_emision'),
+                    "metodo_pago": parsed.get('metodo_pago'),
+                    "tipo_comprobante": parsed.get('tipo_comprobante'),
+                    "sat_status": parsed.get('sat_status', 'desconocido'),
+                }
+
+            sessions_list.append({
+                "session_id": session['id'],
+                "company_id": session['company_id'],
+                "user_id": session['user_id'],
+                "original_filename": session['original_filename'],
+                "status": session['status'],
+                "extraction_status": session['extraction_status'],
+                "detected_format": session['detected_format'],
+                "parser_used": session['parser_used'],
+                "extraction_confidence": session['extraction_confidence'],
+                "validation_score": session['validation_score'],
+                "overall_quality_score": session['overall_quality_score'],
+                "has_parsed_data": session['parsed_data'] is not None,
+                "has_template_match": session['template_match'] is not None,
+                "has_validation_results": session['validation_results'] is not None,
+                "error_message": session['error_message'],
+                "created_at": session['created_at'].isoformat() if session['created_at'] else None,
+                "updated_at": session['updated_at'].isoformat() if session['updated_at'] else None,
+                "display_info": display_info,  # ✅ Información básica para la lista
+            })
+
+        response = {
+            "success": True,
+            "sessions": sessions_list,
+            "total_count": total_count,
+            "limit": limit,
+            "offset": offset,
+            "has_more": (offset + limit) < total_count
+        }
+
+        log_endpoint_success(f"/universal-invoice/sessions/company/{company_id}", response)
+        return response
+
+    except Exception as e:
+        error_msg = f"Error listing company sessions: {str(e)}"
+        log_endpoint_error(f"/universal-invoice/sessions/company/{company_id}", error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+@router.get("/sessions/tenant/{tenant_id}")
+async def list_tenant_sessions(
+    tenant_id: int,
+    status: Optional[str] = None,
+    limit: Optional[int] = 100,
+    offset: Optional[int] = 0
+) -> Dict[str, Any]:
+    """
+    Lista todas las sesiones de facturas para un tenant específico
+    Filtra por tenant_id en lugar de company_id
+    """
+    log_endpoint_entry(f"/universal-invoice/sessions/tenant/{tenant_id}", method="GET", tenant_id=tenant_id)
+
+    try:
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        from core.shared.db_config import get_connection
+
+        conn = get_connection(dict_cursor=True)
+        cursor = conn.cursor()
+
+        # Query base - filtrar por tenant_id
+        query = """
+            SELECT
+                uis.id, uis.company_id, uis.user_id, uis.original_filename,
+                uis.status, uis.created_at, uis.updated_at,
+                uis.detected_format, uis.parser_used,
+                uis.extraction_status, uis.extraction_confidence,
+                uis.validation_score, uis.overall_quality_score,
+                uis.parsed_data, uis.template_match, uis.validation_results,
+                uis.error_message
+            FROM universal_invoice_sessions uis
+            WHERE uis.user_id IN (
+                SELECT CAST(id AS TEXT) FROM users WHERE tenant_id = %s
+            )
+        """
+        params = [tenant_id]
+
+        # Filtro por estado
+        if status:
+            query += " AND uis.status = %s"
+            params.append(status)
+
+        query += " ORDER BY uis.created_at DESC LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
+
+        cursor.execute(query, params)
+        sessions = cursor.fetchall()
+
+        # Contar total de sesiones
+        count_query = """
+            SELECT COUNT(*) as total
+            FROM universal_invoice_sessions uis
+            WHERE uis.user_id IN (
+                SELECT CAST(id AS TEXT) FROM users WHERE tenant_id = %s
+            )
+        """
+        count_params = [tenant_id]
+        if status:
+            count_query += " AND uis.status = %s"
+            count_params.append(status)
+
+        cursor.execute(count_query, count_params)
+        total_count = cursor.fetchone()['total']
+
+        cursor.close()
+        conn.close()
+
+        # Formatear respuesta
+        sessions_list = []
+        for session in sessions:
+            # Extraer información básica del parsed_data para mostrar en la lista
+            display_info = {}
+            if session['parsed_data']:
+                parsed = session['parsed_data']
+                display_info = {
+                    "emisor_nombre": parsed.get('emisor', {}).get('nombre'),
+                    "emisor_rfc": parsed.get('emisor', {}).get('rfc'),
+                    "receptor_rfc": parsed.get('receptor', {}).get('rfc'),
+                    "total": parsed.get('total'),
+                    "moneda": parsed.get('moneda', 'MXN'),
+                    "fecha_emision": parsed.get('fecha_emision'),
+                    "metodo_pago": parsed.get('metodo_pago'),
+                    "tipo_comprobante": parsed.get('tipo_comprobante'),
+                    "sat_status": parsed.get('sat_status', 'desconocido'),
+                }
+
+            sessions_list.append({
+                "session_id": session['id'],
+                "company_id": session['company_id'],
+                "user_id": session['user_id'],
+                "original_filename": session['original_filename'],
+                "status": session['status'],
+                "extraction_status": session['extraction_status'],
+                "detected_format": session['detected_format'],
+                "parser_used": session['parser_used'],
+                "extraction_confidence": session['extraction_confidence'],
+                "validation_score": session['validation_score'],
+                "overall_quality_score": session['overall_quality_score'],
+                "has_parsed_data": session['parsed_data'] is not None,
+                "has_template_match": session['template_match'] is not None,
+                "has_validation_results": session['validation_results'] is not None,
+                "error_message": session['error_message'],
+                "created_at": session['created_at'].isoformat() if session['created_at'] else None,
+                "updated_at": session['updated_at'].isoformat() if session['updated_at'] else None,
+                "display_info": display_info,
+            })
+
+        response = {
+            "success": True,
+            "sessions": sessions_list,
+            "total_count": total_count,
+            "limit": limit,
+            "offset": offset,
+            "has_more": (offset + limit) < total_count
+        }
+
+        log_endpoint_success(f"/universal-invoice/sessions/tenant/{tenant_id}", response)
+        return response
+
+    except Exception as e:
+        error_msg = f"Error listing tenant sessions: {str(e)}"
+        log_endpoint_error(f"/universal-invoice/sessions/tenant/{tenant_id}", error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
 @router.get("/sessions/{session_id}/status")
 async def get_invoice_processing_status(session_id: str) -> UniversalInvoiceStatusResponse:
     """
     Obtiene estado completo con template_match y validation_rules
     """
-    log_endpoint_entry(f"/universal-invoice/sessions/{session_id}/status", "GET", {"session_id": session_id})
+    log_endpoint_entry(f"/universal-invoice/sessions/{session_id}/status", method="GET", session_id=session_id)
 
     try:
         status_data = await universal_invoice_engine_system.get_session_status(session_id)
@@ -237,7 +929,7 @@ async def get_session_template_match(session_id: str) -> UniversalInvoiceTemplat
     Obtiene detalles de template matching para una sesión
     Incluye template_match completo con patterns y confidence factors
     """
-    log_endpoint_entry(f"/universal-invoice/sessions/{session_id}/template-match", "GET", {"session_id": session_id})
+    log_endpoint_entry(f"/universal-invoice/sessions/{session_id}/template-match", method="GET", session_id=session_id)
 
     try:
         status_data = await universal_invoice_engine_system.get_session_status(session_id)
@@ -276,7 +968,7 @@ async def get_session_validation_results(session_id: str) -> UniversalInvoiceVal
     Obtiene resultados detallados de validación
     Incluye validation_rules aplicadas y resultados por regla
     """
-    log_endpoint_entry(f"/universal-invoice/sessions/{session_id}/validation", "GET", {"session_id": session_id})
+    log_endpoint_entry(f"/universal-invoice/sessions/{session_id}/validation", method="GET", session_id=session_id)
 
     try:
         status_data = await universal_invoice_engine_system.get_session_status(session_id)
@@ -313,11 +1005,11 @@ async def get_session_validation_results(session_id: str) -> UniversalInvoiceVal
         raise HTTPException(status_code=500, detail=error_msg)
 
 @router.get("/sessions/{session_id}/extracted-data")
-async def get_extracted_data(session_id: str) -> UniversalInvoiceDataResponse:
+async def get_extracted_data(session_id: str):
     """
     Obtiene datos extraídos y normalizados
     """
-    log_endpoint_entry(f"/universal-invoice/sessions/{session_id}/extracted-data", "GET", {"session_id": session_id})
+    log_endpoint_entry(f"/universal-invoice/sessions/{session_id}/extracted-data", method="GET", session_id=session_id)
 
     try:
         status_data = await universal_invoice_engine_system.get_session_status(session_id)
@@ -325,20 +1017,25 @@ async def get_extracted_data(session_id: str) -> UniversalInvoiceDataResponse:
         if 'error' in status_data:
             raise HTTPException(status_code=404, detail="Session not found")
 
-        if status_data["status"] != "completed":
+        # Check extraction_status instead of status (status can be "pending" while extraction is "completed")
+        extraction_status = status_data.get("extraction_status", status_data.get("status"))
+        if extraction_status not in ["completed", "success"]:
             raise HTTPException(status_code=400, detail="Processing not completed yet")
 
-        # En implementación real, obtener de tabla de extracciones
+        # Obtener datos reales de la BD
+        parsed_data = status_data.get("parsed_data", {})
+        extracted_data = status_data.get("extracted_data", {})
+
         response = {
             "session_id": session_id,
             "extraction_status": status_data["status"],
-            "extracted_data": {},  # Datos extraídos de la BD
-            "normalized_data": {},  # Datos normalizados
-            "confidence_scores": {},  # Scores por campo
+            "extracted_data": parsed_data,  # Datos completos del CFDI
+            "normalized_data": extracted_data,  # Datos normalizados
+            "confidence_scores": {},  # TODO: Obtener de BD si está disponible
             "missing_fields": [],
             "uncertain_fields": [],
             "data_quality_score": status_data.get("overall_quality_score", 0.0),
-            "field_analysis": _analyze_extracted_fields({})
+            "field_analysis": _analyze_extracted_fields(parsed_data)
         }
 
         log_endpoint_success(f"/universal-invoice/sessions/{session_id}/extracted-data", response)
@@ -356,7 +1053,7 @@ async def list_available_parsers() -> UniversalInvoiceParsersResponse:
     """
     Lista parsers disponibles con sus capacidades
     """
-    log_endpoint_entry("/universal-invoice/parsers/", "GET", {})
+    log_endpoint_entry("/universal-invoice/parsers/", method="GET")
 
     try:
         parsers_info = {}
@@ -398,7 +1095,7 @@ async def list_company_formats(company_id: str) -> UniversalInvoiceFormatsRespon
     Lista formatos configurados para una empresa
     Incluye template_match patterns y validation_rules configuradas
     """
-    log_endpoint_entry(f"/universal-invoice/formats/{company_id}", "GET", {"company_id": company_id})
+    log_endpoint_entry(f"/universal-invoice/formats/{company_id}", method="GET", company_id=company_id)
 
     try:
         # En implementación real, obtener de BD
@@ -431,7 +1128,7 @@ async def create_company_format(
     """
     Crea nuevo formato con template patterns y validation rules
     """
-    log_endpoint_entry(f"/universal-invoice/formats/{company_id}", "POST", request.dict())
+    log_endpoint_entry(f"/universal-invoice/formats/{company_id}", method="POST", request_data=request.dict())
 
     try:
         # Validar datos del formato
@@ -468,7 +1165,7 @@ async def cancel_invoice_processing(session_id: str) -> UniversalInvoiceCancelRe
     """
     Cancela procesamiento de factura
     """
-    log_endpoint_entry(f"/universal-invoice/sessions/{session_id}", "DELETE", {"session_id": session_id})
+    log_endpoint_entry(f"/universal-invoice/sessions/{session_id}", method="DELETE", session_id=session_id)
 
     try:
         # Validar que la sesión existe
@@ -503,12 +1200,21 @@ async def cancel_invoice_processing(session_id: str) -> UniversalInvoiceCancelRe
 # Funciones auxiliares
 
 async def _process_invoice_background(session_id: str):
-    """Procesa factura en background"""
-    try:
-        result = await universal_invoice_engine_system.process_invoice(session_id)
-        logger.info(f"Background invoice processing completed for session {session_id}")
-    except Exception as e:
-        logger.error(f"Background invoice processing failed for session {session_id}: {e}")
+    """Procesa factura en background con rate limiting usando semaphore"""
+    # Use semaphore to limit concurrent API calls
+    # This ensures only 3 invoices are processed simultaneously, preventing rate limits
+    async with _anthropic_semaphore:
+        try:
+            logger.info(f"Starting background processing for session {session_id} (acquired semaphore)")
+            result = await universal_invoice_engine_system.process_invoice(session_id)
+            logger.info(f"Background invoice processing completed for session {session_id}")
+
+            # Add a small delay after processing to spread out API calls
+            await asyncio.sleep(1)
+        except Exception as e:
+            logger.error(f"Background invoice processing failed for session {session_id}: {e}")
+            # Still add delay on failure to avoid rapid retries hitting rate limits
+            await asyncio.sleep(1)
 
 def _estimate_processing_time(file_path: str) -> int:
     """Estima tiempo de procesamiento basado en archivo"""

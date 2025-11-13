@@ -169,6 +169,7 @@ def list_users() -> dict:
 
 
 def get_available_tenants(email: Optional[str] = None) -> List[dict]:
+    """Get available tenants, optionally filtered by user email - PostgreSQL version"""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
@@ -178,13 +179,14 @@ def get_available_tenants(email: Optional[str] = None) -> List[dict]:
                 SELECT DISTINCT t.id, t.name
                 FROM tenants t
                 JOIN users u ON u.tenant_id = t.id
-                WHERE LOWER(u.email) = LOWER(?)
+                WHERE LOWER(u.email) = LOWER(%s)
                 ORDER BY t.name
                 """,
                 (email.strip(),),
             )
             rows = cursor.fetchall()
             if not rows:
+                # If no tenants found for this email, return all tenants
                 cursor.execute(
                     """
                     SELECT id, name
@@ -203,10 +205,18 @@ def get_available_tenants(email: Optional[str] = None) -> List[dict]:
             )
             rows = cursor.fetchall()
 
+        # PostgreSQL returns tuples, not dict rows by default
         return [
-            {"id": row["id"], "name": row["name"], "description": None}
+            {"id": row[0], "name": row[1], "description": None}
             for row in rows
         ]
+    except Exception as e:
+        import logging
+        logging.error(f"Error fetching tenants: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error fetching available tenants"
+        )
     finally:
         conn.close()
 

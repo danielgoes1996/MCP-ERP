@@ -184,6 +184,7 @@ def list_tickets(
     *,
     company_id: str = "default",
     estado: Optional[str] = None,
+    user_id: Optional[int] = None,
     limit: int = 100
 ) -> List[Dict[str, Any]]:
     """Listar tickets con filtros opcionales."""
@@ -193,6 +194,10 @@ def list_tickets(
     if estado:
         conditions.append("t.estado = ?")
         params.append(estado)
+
+    if user_id is not None:
+        conditions.append("t.user_id = ?")
+        params.append(user_id)
 
     query = f"""
         SELECT t.*, m.nombre as merchant_name
@@ -272,6 +277,7 @@ def update_ticket(
     llm_analysis: Optional[Dict[str, Any]] = None,
     raw_data: Optional[str] = None,
     extracted_text: Optional[str] = None,
+    linked_expense_id: Optional[int] = None,
 ) -> Optional[Dict[str, Any]]:
     """Actualizar un ticket."""
     updates = []
@@ -312,6 +318,10 @@ def update_ticket(
     if extracted_text is not None:
         updates.append("extracted_text = ?")
         params.append(extracted_text)
+
+    if linked_expense_id is not None:
+        updates.append("linked_expense_id = ?")
+        params.append(linked_expense_id)
 
     if not updates:
         return get_ticket(ticket_id)

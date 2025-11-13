@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import textwrap
+import time
 from typing import Any, Dict, Optional
 
 import requests
@@ -101,6 +102,7 @@ def build_cfdi_prompt(xml_content: str) -> str:
           "serie": "string | null",              // Serie del comprobante
           "folio": "string | null",              // Folio del comprobante
           "fecha_emision": "YYYY-MM-DD",
+          "fecha_timbrado": "YYYY-MM-DD HH:mm:ss | null",  // Fecha de certificación del timbre
           "tipo_comprobante": "I|E|P|T|N",
           "moneda": "string",                   // Ej. MXN
           "tipo_cambio": number | null,          // 1.0 si no aplica
@@ -155,8 +157,12 @@ def extract_cfdi_metadata(
     api_key: Optional[str] = None,
     model: Optional[str] = None,
     timeout: int = 60,
+    max_retries: int = 3,
 ) -> Dict[str, Any]:
-    """Call Claude Haiku to extract fiscal metadata from a CFDI XML string."""
+    """Call Claude Haiku to extract fiscal metadata from a CFDI XML string.
+
+    Includes automatic retry logic for rate limit (429) and overload (529) errors.
+    """
 
     api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
@@ -183,40 +189,76 @@ def extract_cfdi_metadata(
         ],
     }
 
-    try:
-        response = requests.post(
-            ANTHROPIC_MESSAGES_URL,
-            headers=headers,
-            json=payload,
-            timeout=timeout,
-        )
-    except requests.RequestException as exc:
-        raise CFDILLMError(f"Error contacting Anthropic API: {exc}") from exc
+    # Retry logic with exponential backoff
+    last_exception = None
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(
+                ANTHROPIC_MESSAGES_URL,
+                headers=headers,
+                json=payload,
+                timeout=timeout,
+            )
+        except requests.RequestException as exc:
+            last_exception = exc
+            logger.warning(f"Attempt {attempt + 1}/{max_retries} - Error contacting Anthropic API: {exc}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)  # Exponential backoff: 1s, 2s, 4s
+                continue
+            raise CFDILLMError(f"Error contacting Anthropic API: {exc}") from exc
 
-    if response.status_code >= 400:
-        raise CFDILLMError(
-            f"Anthropic API returned {response.status_code}: {response.text[:400]}"
-        )
+        # Handle rate limit (429) and overload (529) errors with retry
+        if response.status_code in [429, 529]:
+            error_type = "rate limit" if response.status_code == 429 else "overload"
 
-    data = response.json()
-    content = data.get("content", [])
-    if not content:
-        raise CFDILLMError("Anthropic response missing content block")
+            # Calculate retry delay
+            if attempt < max_retries - 1:
+                # Exponential backoff: 10s, 30s, 60s for rate limits
+                retry_delay = min(10 * (3 ** attempt), 60)
+                logger.warning(
+                    f"Attempt {attempt + 1}/{max_retries} - Anthropic API {error_type} error ({response.status_code}). "
+                    f"Retrying in {retry_delay} seconds..."
+                )
+                time.sleep(retry_delay)
+                continue
+            else:
+                raise CFDILLMError(
+                    f"Anthropic API {error_type} error after {max_retries} attempts: {response.text[:400]}"
+                )
 
-    text_blocks = [block.get("text", "") for block in content if isinstance(block, dict)]
-    raw_text = "\n".join(filter(None, text_blocks))
+        # Handle other 4xx/5xx errors (no retry)
+        if response.status_code >= 400:
+            raise CFDILLMError(
+                f"Anthropic API returned {response.status_code}: {response.text[:400]}"
+            )
 
-    try:
-        json_payload = _clean_json_response(raw_text)
-        parsed = json.loads(json_payload)
-    except Exception as exc:  # noqa: BLE001 - provide context
-        logger.warning("Failed to parse LLM JSON response: %s", exc)
-        raise CFDILLMError("Invalid JSON returned by LLM") from exc
+        # Success - parse the response
+        try:
+            data = response.json()
+            content = data.get("content", [])
+            if not content:
+                raise CFDILLMError("Anthropic response missing content block")
 
-    if isinstance(parsed, dict):
-        parsed.setdefault("model_used", model or DEFAULT_MODEL)
+            text_blocks = [block.get("text", "") for block in content if isinstance(block, dict)]
+            raw_text = "\n".join(filter(None, text_blocks))
 
-    return parsed
+            json_payload = _clean_json_response(raw_text)
+            parsed = json.loads(json_payload)
+
+            if isinstance(parsed, dict):
+                parsed.setdefault("model_used", model or DEFAULT_MODEL)
+
+            logger.info(f"Successfully extracted CFDI metadata on attempt {attempt + 1}")
+            return parsed
+
+        except Exception as exc:  # noqa: BLE001 - provide context
+            logger.warning("Failed to parse LLM JSON response: %s", exc)
+            raise CFDILLMError("Invalid JSON returned by LLM") from exc
+
+    # Should never reach here, but just in case
+    if last_exception:
+        raise CFDILLMError(f"Failed after {max_retries} attempts") from last_exception
+    raise CFDILLMError(f"Failed after {max_retries} attempts")
 
 
 __all__ = [

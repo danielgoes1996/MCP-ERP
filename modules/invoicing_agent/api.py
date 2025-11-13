@@ -164,12 +164,14 @@ async def upload_ticket(
         analyzed_text = raw_data
         analysis_result = None
 
+        # Importar módulos necesarios para procesamiento asíncrono
+        import asyncio
+        import threading
+
         # Si es imagen, iniciar procesamiento automático asíncrono
         if tipo == "imagen":
             logger.info(f"Ticket {ticket_id} es imagen - iniciando procesamiento automático asíncrono")
             # Programar procesamiento automático de la imagen
-            import asyncio
-            import threading
 
             async def process_image_async():
                 try:

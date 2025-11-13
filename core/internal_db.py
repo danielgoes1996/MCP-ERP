@@ -1610,6 +1610,7 @@ def update_expense_record(expense_id: int, updates: Dict[str, Any]) -> Optional[
         "account_code",
         "metadata",
         "company_id",
+        "ticket_id",
         "is_advance",
         "is_ppd",
         "asset_class",

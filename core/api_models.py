@@ -56,6 +56,7 @@ class ExpenseResponse(BaseModel):
     movimientos_bancarios: Optional[List[Dict[str, Any]]] = None
     metadata: Optional[Dict[str, Any]] = None
     company_id: str = "default"
+    ticket_id: Optional[int] = None
     is_advance: bool = False
     is_ppd: bool = False
     asset_class: Optional[str] = None
@@ -295,6 +296,7 @@ class ExpenseCreate(BaseModel):
 
     # Metadata adicional
     metadata: Optional[Dict[str, Any]] = Field(None, description="Metadata adicional")
+    ticket_id: Optional[int] = Field(None, description="ID de ticket existente vinculado al gasto")
     company_id: str = Field("default", description="ID de la empresa")
 
     # Validadores
@@ -344,6 +346,15 @@ class ExpenseCreate(BaseModel):
         """Normaliza la categoría."""
         if value:
             return value.strip().lower()
+        return value
+
+    @validator('ticket_id')
+    def validate_ticket_id(cls, value: Optional[int]) -> Optional[int]:
+        """Valida que el ticket_id (si existe) sea un entero positivo."""
+        if value is None:
+            return None
+        if value <= 0:
+            raise ValueError('ticket_id debe ser un entero positivo')
         return value
 
     class Config:
@@ -574,7 +585,8 @@ class HybridProcessorProcessResponse(BaseModel):
 
 class UniversalInvoiceProcessRequest(BaseModel):
     """Request to process invoice universally."""
-    invoice_data: Dict[str, Any]
+    invoice_data: Optional[Dict[str, Any]] = None
+    async_processing: bool = True
     processing_options: Optional[Dict[str, Any]] = None
 
 

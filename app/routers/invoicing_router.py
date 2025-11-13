@@ -64,11 +64,13 @@ async def list_tickets(
     status: Optional[str] = Query(None, description="Filter by status"),
     merchant: Optional[str] = Query(None, description="Filter by merchant"),
     company_id: str = Query("default", description="Company identifier"),
+    user_id: Optional[int] = Query(None, description="Filter by user ID"),
 ) -> Dict[str, Any]:
     try:
         tickets = list_tickets_model(
             company_id=company_id,
             estado=status,
+            user_id=user_id,
             limit=page_size,
         )
         return {
@@ -78,6 +80,7 @@ async def list_tickets(
             "filters": {
                 "company_id": company_id,
                 "estado": status,
+                "user_id": user_id,
                 "limit": page_size,
                 "page": page,
             },

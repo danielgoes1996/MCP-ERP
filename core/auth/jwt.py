@@ -57,7 +57,7 @@ class Token(BaseModel):
 # =====================================================
 
 def get_db_connection():
-    """Get PostgreSQL database connection"""
+    """Get database connection - PostgreSQL only"""
     import psycopg2
     import psycopg2.extras
     import os

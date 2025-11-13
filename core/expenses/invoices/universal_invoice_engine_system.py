@@ -14,7 +14,9 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Any, Union, Tuple
 from enum import Enum
 from dataclasses import dataclass
-import sqlite3
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from core.shared.db_config import POSTGRES_CONFIG
 from datetime import datetime, timedelta
 import mimetypes
 import base64
@@ -198,28 +200,52 @@ class UniversalInvoiceParser:
         )
 
     async def _parse_xml(self, file_path: str, template_hints: Optional[Dict[str, Any]]) -> ExtractionResult:
-        """Parse XML invoices"""
-        await asyncio.sleep(0.15)
+        """Parse XML invoices - specifically CFDI"""
+        try:
+            # Importar el parser de CFDI que ya funciona
+            from core.ai_pipeline.parsers.cfdi_llm_parser import extract_cfdi_metadata
 
-        raw_data = {
-            "invoice_id": "XML-INV-001",
-            "issue_date": "2024-01-15",
-            "supplier": "XML Supplier Inc.",
-            "amount": 2000.00,
-            "tax_amount": 400.00,
-            "currency_code": "EUR"
-        }
+            # Leer el archivo XML
+            with open(file_path, 'r', encoding='utf-8') as f:
+                xml_content = f.read()
 
-        confidence_scores = {field: 0.98 for field in raw_data.keys()}
+            # Extraer metadata con Claude Haiku
+            raw_data = extract_cfdi_metadata(xml_content)
 
-        return ExtractionResult(
-            raw_data=raw_data,
-            normalized_data=self._normalize_data(raw_data),
-            confidence_scores=confidence_scores,
-            extracted_fields=raw_data,
-            missing_fields=[],
-            uncertain_fields=[]
-        )
+            # Calcular confidence scores basados en los campos extraídos
+            confidence_scores = {}
+            for field, value in raw_data.items():
+                if value and value != "null":
+                    confidence_scores[field] = 0.95
+                else:
+                    confidence_scores[field] = 0.5
+
+            # Identificar campos faltantes
+            required_fields = ["uuid", "rfc_emisor", "nombre_emisor", "total", "fecha_emision"]
+            missing_fields = [f for f in required_fields if not raw_data.get(f)]
+
+            # Identificar campos inciertos (con valores nulos o vacíos)
+            uncertain_fields = [k for k, v in raw_data.items() if not v or v == "null"]
+
+            return ExtractionResult(
+                raw_data=raw_data,
+                normalized_data=self._normalize_data(raw_data),
+                confidence_scores=confidence_scores,
+                extracted_fields=raw_data,
+                missing_fields=missing_fields,
+                uncertain_fields=uncertain_fields
+            )
+        except Exception as e:
+            logger.error(f"Error parsing CFDI XML: {e}")
+            # Fallback a datos vacíos en caso de error
+            return ExtractionResult(
+                raw_data={},
+                normalized_data={},
+                confidence_scores={},
+                extracted_fields={},
+                missing_fields=["all_fields"],
+                uncertain_fields=[]
+            )
 
     async def _parse_image(self, file_path: str, template_hints: Optional[Dict[str, Any]]) -> ExtractionResult:
         """Parse image invoices using OCR"""
@@ -797,13 +823,13 @@ class UniversalInvoiceEngineSystem:
         # Calcular hash del archivo (simulado)
         file_hash = hashlib.md5(f"{file_path}{time.time()}".encode()).hexdigest()
 
-        async with self._get_db_connection() as conn:
+        async with await self._get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO universal_invoice_sessions (
                     id, company_id, user_id, invoice_file_path, original_filename,
                     file_hash, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (
                 session_id, company_id, user_id, file_path, original_filename,
                 file_hash, datetime.utcnow()
@@ -883,6 +909,7 @@ class UniversalInvoiceEngineSystem:
                     'validation_score': validation_result['validation_score']
                 },
                 'extracted_data': extraction_result.normalized_data,
+                'parsed_data': extraction_result.raw_data,  # Full CFDI data from parser
                 'extraction_confidence': sum(extraction_result.confidence_scores.values()) / len(extraction_result.confidence_scores) if extraction_result.confidence_scores else 0.0,
                 'overall_quality_score': overall_quality,
                 'processing_metrics': {
@@ -939,11 +966,11 @@ class UniversalInvoiceEngineSystem:
 
     async def _get_available_templates(self, company_id: str) -> List[Dict[str, Any]]:
         """Obtiene templates disponibles para una empresa"""
-        async with self._get_db_connection() as conn:
+        async with await self._get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT * FROM universal_invoice_formats
-                WHERE company_id = ? AND is_active = 1
+                WHERE company_id = %s AND is_active = true
                 ORDER BY priority DESC, usage_count DESC
             """, (company_id,))
 
@@ -968,11 +995,11 @@ class UniversalInvoiceEngineSystem:
         rules = self.validation_engine.default_rules.copy()
 
         # Obtener reglas específicas de BD
-        async with self._get_db_connection() as conn:
+        async with await self._get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT * FROM universal_invoice_formats
-                WHERE company_id = ? AND format_name = ?
+                WHERE company_id = %s AND format_name = %s
             """, (company_id, template_match.template_name))
 
             row = cursor.fetchone()
@@ -1018,22 +1045,24 @@ class UniversalInvoiceEngineSystem:
     async def _save_processing_result(self, session_id: str, result: Dict[str, Any],
                                     template_match: TemplateMatch, validation_rules: List[ValidationRule]):
         """Guarda resultado de procesamiento en BD"""
-        async with self._get_db_connection() as conn:
+        async with await self._get_db_connection() as conn:
             cursor = conn.cursor()
 
             # Actualizar sesión principal
             cursor.execute("""
                 UPDATE universal_invoice_sessions
-                SET detected_format = ?, parser_used = ?, template_match = ?,
-                    validation_rules = ?, extraction_status = ?, extracted_data = ?,
-                    extraction_confidence = ?, validation_score = ?, overall_quality_score = ?,
-                    processing_time_ms = ?, completed_at = ?, updated_at = ?
-                WHERE id = ?
+                SET detected_format = %s, parser_used = %s, template_match = %s,
+                    validation_rules = %s, extraction_status = %s, extracted_data = %s,
+                    parsed_data = %s, extraction_confidence = %s, validation_score = %s,
+                    overall_quality_score = %s, processing_time_ms = %s, completed_at = %s,
+                    updated_at = %s
+                WHERE id = %s
             """, (
                 result['detected_format'], result['parser_used'],
                 json.dumps(result['template_match']),  # ✅ CAMPO FALTANTE
                 json.dumps(result['validation_rules']),  # ✅ CAMPO FALTANTE
                 'completed', json.dumps(result['extracted_data']),
+                json.dumps(result['parsed_data']),  # Full CFDI data
                 result['extraction_confidence'], result['validation_rules']['validation_score'],
                 result['overall_quality_score'], result['processing_metrics']['total_time_ms'],
                 datetime.utcnow(), datetime.utcnow(), session_id
@@ -1046,7 +1075,7 @@ class UniversalInvoiceEngineSystem:
                     id, session_id, format_id, template_match, template_name,
                     match_score, matched_patterns, confidence_factors, matching_method,
                     is_selected, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 template_id, session_id, 'default_format',
                 json.dumps(result['template_match']),  # ✅ CAMPO FALTANTE
@@ -1063,7 +1092,7 @@ class UniversalInvoiceEngineSystem:
                     INSERT INTO universal_invoice_validations (
                         id, session_id, validation_rules, rule_set_name, rule_category,
                         rule_definition, validation_status, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     validation_id, session_id,
                     json.dumps({
@@ -1080,85 +1109,88 @@ class UniversalInvoiceEngineSystem:
 
     async def _get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Obtiene información de una sesión"""
-        async with self._get_db_connection() as conn:
+        async with await self._get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT id, company_id, user_id, invoice_file_path, original_filename
-                FROM universal_invoice_sessions WHERE id = ?
+                FROM universal_invoice_sessions WHERE id = %s
             """, (session_id,))
 
             row = cursor.fetchone()
             if not row:
                 return None
 
+            # Using RealDictCursor, row is a dictionary
             return {
-                'id': row[0],
-                'company_id': row[1],
-                'user_id': row[2],
-                'invoice_file_path': row[3],
-                'original_filename': row[4]
+                'id': row['id'],
+                'company_id': row['company_id'],
+                'user_id': row['user_id'],
+                'invoice_file_path': row['invoice_file_path'],
+                'original_filename': row['original_filename']
             }
 
     async def _update_session_status(self, session_id: str, status: ExtractionStatus, error: str = None):
         """Actualiza el estado de una sesión"""
-        async with self._get_db_connection() as conn:
+        async with await self._get_db_connection() as conn:
             cursor = conn.cursor()
             if error:
                 cursor.execute("""
                     UPDATE universal_invoice_sessions
-                    SET extraction_status = ?, validation_errors = ?, updated_at = ?
-                    WHERE id = ?
+                    SET extraction_status = %s, validation_errors = %s, updated_at = %s
+                    WHERE id = %s
                 """, (status.value, json.dumps([error]), datetime.utcnow(), session_id))
             else:
                 cursor.execute("""
                     UPDATE universal_invoice_sessions
-                    SET extraction_status = ?, updated_at = ?
-                    WHERE id = ?
+                    SET extraction_status = %s, updated_at = %s
+                    WHERE id = %s
                 """, (status.value, datetime.utcnow(), session_id))
             conn.commit()
 
     async def get_session_status(self, session_id: str) -> Dict[str, Any]:
         """Obtiene el estado de una sesión"""
-        async with self._get_db_connection() as conn:
+        async with await self._get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT * FROM universal_invoice_sessions WHERE id = ?
+                SELECT * FROM universal_invoice_sessions WHERE id = %s
             """, (session_id,))
 
             row = cursor.fetchone()
             if not row:
                 return {'error': 'Session not found'}
 
+            # Using RealDictCursor, row is a dictionary
             return {
                 'session_id': session_id,
-                'status': row[10],  # extraction_status
-                'detected_format': row[7],
-                'parser_used': row[9],
-                'template_match': json.loads(row[4] or '{}'),  # ✅ CAMPO FALTANTE
-                'validation_rules': json.loads(row[5] or '{}'),  # ✅ CAMPO FALTANTE
-                'extraction_confidence': row[12],
-                'validation_score': row[13],
-                'overall_quality_score': row[14],
-                'created_at': row[17],
-                'updated_at': row[18]
+                'status': row.get('status', 'pending'),
+                'extraction_status': row.get('extraction_status', 'pending'),
+                'template_match': row.get('template_match') or {},
+                'validation_results': row.get('validation_results') or {},
+                'parsed_data': row.get('parsed_data') or {},
+                'extracted_data': row.get('extracted_data') or {},
+                'error_message': row.get('error_message'),
+                'created_at': row.get('created_at'),
+                'updated_at': row.get('updated_at'),
+                'original_filename': row.get('original_filename'),
+                'file_hash': row.get('file_hash'),
+                'overall_quality_score': row.get('overall_quality_score', 0.0)
             }
 
     async def _get_db_connection(self):
-        """Obtiene conexión a la base de datos"""
+        """Obtiene conexión a PostgreSQL"""
         class AsyncConnection:
-            def __init__(self, db_path):
-                self.db_path = db_path
+            def __init__(self):
                 self.conn = None
 
             async def __aenter__(self):
-                self.conn = sqlite3.connect(self.db_path)
+                self.conn = psycopg2.connect(**POSTGRES_CONFIG, cursor_factory=RealDictCursor)
                 return self.conn
 
             async def __aexit__(self, exc_type, exc_val, exc_tb):
                 if self.conn:
                     self.conn.close()
 
-        return AsyncConnection(self.db_path)
+        return AsyncConnection()
 
 # Instancia singleton
 universal_invoice_engine_system = UniversalInvoiceEngineSystem()
