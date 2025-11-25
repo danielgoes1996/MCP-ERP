@@ -17,11 +17,12 @@ from pathlib import Path
 import zipfile
 import io
 import asyncio
+import json
 
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from core.sat.sat_soap_client import SATSOAPClient, SATSOAPClientMock
+from core.sat.sat_cfdiclient import SATCfdiClient, SATCfdiClientMock
 from core.sat.nom151_evidence import NOM151EvidenceGenerator
 from core.sat.credential_loader import CredentialLoader
 from core.expenses.invoices.bulk_invoice_processor import BulkInvoiceProcessor
@@ -53,7 +54,7 @@ class SATDescargaService:
         self.use_mock = use_mock
         self.evidence_gen = NOM151EvidenceGenerator()
 
-    def _get_sat_client(self, company_id: int) -> SATSOAPClient:
+    def _get_sat_client(self, company_id: int) -> SATCfdiClient:
         """
         Obtiene cliente SAT con credenciales cargadas desde URIs
 
@@ -63,13 +64,13 @@ class SATDescargaService:
             company_id: ID de la compañía
 
         Returns:
-            Cliente SAT configurado
+            Cliente SAT configurado (usando cfdiclient)
 
         Raises:
             ValueError: Si no se encuentran credenciales
         """
         if self.use_mock:
-            return SATSOAPClientMock()
+            return SATCfdiClientMock()
 
         # Obtener credenciales de la BD
         result = self.db.execute(
@@ -107,61 +108,19 @@ class SATDescargaService:
             }
 
         # Cargar credenciales usando CredentialLoader
-        # Soporta file://, inline:, vault: URIs
+        # cfdiclient necesita los bytes DER directamente (más simple)
         try:
-            cer_bytes, key_bytes, password = CredentialLoader.load_efirma_credentials(
+            cer_der, key_der, password = CredentialLoader.load_efirma_credentials(
                 cer_uri=cred_dict['vault_cer_path'],
                 key_uri=cred_dict['vault_key_path'],
                 password_uri=cred_dict['vault_password_path']
             )
 
-            # Convertir certificado DER a PEM si es necesario
-            from cryptography import x509
-            from cryptography.hazmat.primitives import serialization
-            from cryptography.hazmat.backends import default_backend
-
-            # Intentar cargar como DER primero (formato .cer)
-            try:
-                cert = x509.load_der_x509_certificate(cer_bytes, default_backend())
-                cert_pem = cert.public_bytes(serialization.Encoding.PEM).decode('utf-8')
-            except:
-                # Si falla, asumir que ya es PEM
-                cert_pem = cer_bytes.decode('utf-8')
-
-            # Intentar cargar llave como DER primero (formato .key)
-            key_password_final = password  # Por defecto usar el password original
-            try:
-                # Intentar primero CON password
-                try:
-                    key = serialization.load_der_private_key(
-                        key_bytes,
-                        password=password.encode() if password else None,
-                        backend=default_backend()
-                    )
-                except:
-                    # Si falla, intentar SIN password (llave no encriptada)
-                    key = serialization.load_der_private_key(
-                        key_bytes,
-                        password=None,
-                        backend=default_backend()
-                    )
-                    key_password_final = None  # Llave no está encriptada
-
-                # Convertir a PEM sin encriptación
-                key_pem = key.private_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PrivateFormat.PKCS8,
-                    encryption_algorithm=serialization.NoEncryption()
-                ).decode('utf-8')
-                key_password_final = None  # Después de convertir a PEM sin encriptación, no se necesita password
-            except:
-                # Si falla, asumir que ya es PEM
-                key_pem = key_bytes.decode('utf-8')
-
-            return SATSOAPClient(
-                certificate_pem=cert_pem,
-                private_key_pem=key_pem,
-                private_key_password=key_password_final
+            # cfdiclient usa los bytes DER directamente - no hay que convertir a PEM
+            return SATCfdiClient(
+                cer_der=cer_der,
+                key_der=key_der,
+                password=password
             )
         except Exception as e:
             raise ValueError(f"Error cargando credenciales para company_id={company_id}: {e}")
@@ -175,6 +134,7 @@ class SATDescargaService:
         rfc_emisor: Optional[str] = None,
         rfc_receptor: Optional[str] = None,
         tipo_comprobante: Optional[str] = None,
+        estado_comprobante: Optional[str] = "Vigente",
         user_id: Optional[int] = None
     ) -> Tuple[bool, Optional[int], Optional[str]]:
         """
@@ -188,11 +148,18 @@ class SATDescargaService:
             rfc_emisor: Filtrar por RFC emisor (opcional)
             rfc_receptor: Filtrar por RFC receptor (opcional)
             tipo_comprobante: Filtrar por tipo (I, E, P, etc.) (opcional)
+            estado_comprobante: "Vigente", "Cancelado" o None para todos (opcional)
             user_id: ID del usuario que solicita
 
         Returns:
             (success, request_id, error_message)
         """
+        import logging
+        import traceback
+        logger = logging.getLogger(__name__)
+        logger.setLevel(logging.DEBUG)
+
+        logger.info(f"[SAT_DEBUG] solicitar_descarga START company_id={company_id}")
         try:
             # Obtener RFC de la compañía
             company_result = self.db.execute(
@@ -217,11 +184,20 @@ class SATDescargaService:
                 return False, None, "Compañía sin RFC configurado"
 
             rfc_solicitante = company_dict['rfc']
+            logger.info(f"[SAT_DEBUG] RFC solicitante: {rfc_solicitante}")
 
             # Obtener cliente SAT
-            sat_client = self._get_sat_client(company_id)
+            logger.info(f"[SAT_DEBUG] Obteniendo cliente SAT... use_mock={self.use_mock}")
+            try:
+                sat_client = self._get_sat_client(company_id)
+                logger.info(f"[SAT_DEBUG] Cliente SAT obtenido: {type(sat_client).__name__}")
+            except Exception as e:
+                logger.error(f"[SAT_DEBUG] Error obteniendo cliente SAT: {type(e).__name__}: {e}")
+                logger.error(traceback.format_exc())
+                return False, None, f"Error obteniendo cliente SAT: {type(e).__name__}: {str(e)}"
 
             # Solicitar descarga
+            logger.info(f"[SAT_DEBUG] Llamando sat_client.solicitar_descarga() estado={estado_comprobante}...")
             success, request_uuid, error = sat_client.solicitar_descarga(
                 rfc_solicitante=rfc_solicitante,
                 fecha_inicial=fecha_inicial,
@@ -229,8 +205,10 @@ class SATDescargaService:
                 tipo_solicitud=tipo_solicitud,
                 rfc_emisor=rfc_emisor,
                 rfc_receptor=rfc_receptor,
-                tipo_comprobante=tipo_comprobante
+                tipo_comprobante=tipo_comprobante,
+                estado_comprobante=estado_comprobante
             )
+            logger.info(f"[SAT] Solicitud al SAT: success={success}, uuid={request_uuid}")
 
             if not success:
                 # Log error
@@ -292,7 +270,7 @@ class SATDescargaService:
                     'request_uuid': request_uuid,
                     'requested_at': datetime.utcnow(),
                     'expires_at': datetime.utcnow() + timedelta(days=7),
-                    'evidence': self.evidence_gen.generate_request_evidence(
+                    'evidence': json.dumps(self.evidence_gen.generate_request_evidence(
                         rfc_solicitante=rfc_solicitante,
                         tipo_solicitud=tipo_solicitud,
                         fecha_inicial=fecha_inicial,
@@ -304,13 +282,23 @@ class SATDescargaService:
                             'rfc_receptor': rfc_receptor,
                             'tipo_comprobante': tipo_comprobante
                         }
-                    ),
+                    ), default=str),
                     'user_id': user_id
                 }
             )
 
-            request_id = result.fetchone()['request_id']
+            row = result.fetchone()
+            # Convertir a diccionario si es necesario (compatibilidad con Row/Tuple)
+            if hasattr(row, '_mapping'):
+                request_id = dict(row._mapping)['request_id']
+            elif isinstance(row, dict):
+                request_id = row['request_id']
+            else:
+                # Es una tupla - RETURNING devuelve solo una columna (request_id)
+                request_id = row[0]
+
             self.db.commit()
+            logger.info(f"[SAT] Solicitud guardada en BD: request_id={request_id}")
 
             # Log success
             self._log_operation(
@@ -325,6 +313,7 @@ class SATDescargaService:
             return True, request_id, None
 
         except Exception as e:
+            logger.error(f"[SAT] Error en solicitar_descarga: {type(e).__name__}: {e}")
             self.db.rollback()
             return False, None, f"Error al solicitar descarga: {str(e)}"
 
@@ -368,18 +357,32 @@ class SATDescargaService:
             if not request:
                 return False, None, "Solicitud no encontrada"
 
-            # Obtener cliente SAT
-            sat_client = self._get_sat_client(request['company_id'])
+            # Convertir a diccionario si es necesario (compatibilidad con Row/Tuple)
+            if hasattr(request, '_mapping'):
+                request_dict = dict(request._mapping)
+            elif isinstance(request, dict):
+                request_dict = request
+            else:
+                # Es una tupla - mapear por índice (company_id, rfc, request_uuid, request_status)
+                request_dict = {
+                    'company_id': request[0],
+                    'rfc': request[1],
+                    'request_uuid': request[2],
+                    'request_status': request[3]
+                }
 
-            # Verificar en SAT
+            # Obtener cliente SAT
+            sat_client = self._get_sat_client(request_dict['company_id'])
+
+            # Verificar en SAT (convertir UUID a string para cfdiclient)
             success, status_info, error = sat_client.verificar_solicitud(
-                rfc_solicitante=request['rfc'],
-                request_uuid=request['request_uuid']
+                rfc_solicitante=request_dict['rfc'],
+                request_uuid=str(request_dict['request_uuid'])
             )
 
             if not success:
                 self._log_operation(
-                    company_id=request['company_id'],
+                    company_id=request_dict['company_id'],
                     request_id=request_id,
                     operation='verificar',
                     status='error',
@@ -433,7 +436,7 @@ class SATDescargaService:
                         """),
                         {
                             'request_id': request_id,
-                            'company_id': request['company_id'],
+                            'company_id': request_dict['company_id'],
                             'package_uuid': package_uuid,
                             'available_at': datetime.utcnow()
                         }
@@ -443,7 +446,7 @@ class SATDescargaService:
 
             # Log success
             self._log_operation(
-                company_id=request['company_id'],
+                company_id=request_dict['company_id'],
                 request_id=request_id,
                 operation='verificar',
                 status='success',
@@ -456,6 +459,29 @@ class SATDescargaService:
         except Exception as e:
             self.db.rollback()
             return False, None, f"Error al verificar solicitud: {str(e)}"
+
+    def descargar_paquete(
+        self,
+        company_id: int,
+        rfc_solicitante: str,
+        package_uuid: str
+    ) -> Tuple[bool, Optional[bytes], Optional[str]]:
+        """
+        Descarga un paquete ZIP del SAT
+
+        Args:
+            company_id: ID de la compañía
+            rfc_solicitante: RFC del solicitante
+            package_uuid: UUID del paquete a descargar
+
+        Returns:
+            (success, zip_bytes, error_message)
+        """
+        try:
+            client = self._get_sat_client(company_id)
+            return client.descargar_paquete(rfc_solicitante, package_uuid)
+        except Exception as e:
+            return False, None, f"Error al descargar paquete: {str(e)}"
 
     async def descargar_y_procesar_paquete(
         self,
@@ -498,8 +524,22 @@ class SATDescargaService:
             if not package:
                 return False, None, "Paquete no encontrado"
 
+            # Convertir a diccionario si es necesario (compatibilidad con Row/Tuple)
+            if hasattr(package, '_mapping'):
+                package_dict = dict(package._mapping)
+            elif isinstance(package, dict):
+                package_dict = package
+            else:
+                # Es una tupla - mapear por índice (package_id, package_uuid, company_id, rfc)
+                package_dict = {
+                    'package_id': package[0],
+                    'package_uuid': package[1],
+                    'company_id': package[2],
+                    'rfc': package[3]
+                }
+
             # Obtener cliente SAT
-            sat_client = self._get_sat_client(package['company_id'])
+            sat_client = self._get_sat_client(package_dict['company_id'])
 
             # Actualizar status a downloading
             self.db.execute(
@@ -514,8 +554,8 @@ class SATDescargaService:
 
             # Descargar paquete
             success, zip_bytes, error = sat_client.descargar_paquete(
-                rfc_solicitante=package['rfc'],
-                package_uuid=package['package_uuid']
+                rfc_solicitante=package_dict['rfc'],
+                package_uuid=package_dict['package_uuid']
             )
 
             if not success:
@@ -530,7 +570,7 @@ class SATDescargaService:
                 self.db.commit()
 
                 self._log_operation(
-                    company_id=package['company_id'],
+                    company_id=package_dict['company_id'],
                     operation='descargar',
                     status='error',
                     message=error,
@@ -543,8 +583,8 @@ class SATDescargaService:
 
             # Guardar evidencia de descarga
             download_evidence = self.evidence_gen.generate_download_evidence(
-                rfc_solicitante=package['rfc'],
-                package_uuid=package['package_uuid'],
+                rfc_solicitante=package_dict['rfc'],
+                package_uuid=package_dict['package_uuid'],
                 zip_content=zip_bytes,
                 xml_count=len(xml_files),
                 sat_response={'mensaje': 'Descarga exitosa'}
@@ -605,7 +645,7 @@ class SATDescargaService:
 
             # Log success
             self._log_operation(
-                company_id=package['company_id'],
+                company_id=package_dict['company_id'],
                 operation='procesar',
                 status='success',
                 message=f"Procesados {len(xml_files)} XMLs: {processing_result['inserted']} insertados",

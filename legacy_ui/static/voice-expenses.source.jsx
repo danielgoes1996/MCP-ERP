@@ -4484,22 +4484,38 @@ const MISSION_DETAILS = {
                         console.log('Expense Router no disponible, usando endpoint directo de Odoo:', routerError.message);
                     }
 
-                    // Fallback al endpoint directo de Odoo
-                    response = await fetch('/simple_expense', {
+                    // Fallback al endpoint moderno /expenses
+                    const modernExpenseData = {
+                        descripcion: enrichedDescription,
+                        monto_total: getFieldValue('monto_total') || 0,
+                        fecha_gasto: getFieldValue('fecha_gasto') || new Date().toISOString().split('T')[0],
+                        forma_pago: paymentMode || 'efectivo',
+                        paid_by: getFieldValue('paid_by') || (paymentMode === 'company_account' ? 'company' : 'employee'),
+                        will_have_cfdi: getFieldValue('will_have_cfdi') || false,
+                        rfc: getFieldValue('rfc'),
+                        proveedor: getFieldValue('proveedor.nombre') ? {
+                            nombre: getFieldValue('proveedor.nombre')
+                        } : null,
+                        categoria: getFieldValue('categoria') || 'otros',
+                        company_id: resolvedCompanyId || 'default_company',
+                        workflow_status: 'draft',
+                        estado_factura: 'pendiente'
+                    };
+
+                    console.log('Enviando datos al endpoint moderno:', modernExpenseData);
+
+                    response = await fetch('/expenses', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify(odooData)
+                        body: JSON.stringify(modernExpenseData)
                     });
 
                     const result = await response.json();
 
-                    if (result.success) {
-                        // Guardar también en nuestra base de datos local (skip duplicate check ya que ya se hizo)
-                        const savedExpense = await saveExpenseToDatabase(expenseData, true);
-
-                        alert('¡Gasto enviado a Odoo y guardado localmente exitosamente!');
+                    if (response.ok && result.id) {
+                        alert(`¡Gasto creado exitosamente! ID: ${result.id}`);
                         // Limpiar formulario
                         setFormData({});
                         setInvoiceParsing({ status: 'idle' });
@@ -4507,7 +4523,7 @@ const MISSION_DETAILS = {
                         setCurrentSummary('');
                         setSummaryConfidence(0);
                     } else {
-                        throw new Error(result.error || 'Error desconocido');
+                        throw new Error(result.detail || result.error || 'Error desconocido');
                     }
                 } catch (error) {
                     console.error('Error enviando a Odoo:', error);

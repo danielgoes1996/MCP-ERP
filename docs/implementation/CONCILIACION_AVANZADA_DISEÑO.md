@@ -111,7 +111,7 @@ ALTER TABLE bank_movements ADD COLUMN amount_unallocated REAL;
 {
   "movement_id": 10235,
   "movement_amount": 5000,
-  "expenses": [
+  "manual_expenses": [
     {
       "expense_id": 10244,
       "amount": 2500,

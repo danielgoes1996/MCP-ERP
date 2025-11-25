@@ -385,7 +385,7 @@ class ExpenseRollbackSystem:
 
         # Verificar aprobaciones
         approval_query = """
-        SELECT COUNT(*) as count FROM expenses
+        SELECT COUNT(*) as count FROM manual_expenses
         WHERE id = ANY($1) AND approval_status = 'approved'
         """
         result = await self.db.fetch_one(approval_query, target_records)
@@ -484,7 +484,7 @@ class ExpenseRollbackSystem:
         try:
             # Verificar que los registros todavía existen
             existing_count = await self.db.fetch_one(
-                "SELECT COUNT(*) as count FROM expenses WHERE id = ANY($1)",
+                "SELECT COUNT(*) as count FROM manual_expenses WHERE id = ANY($1)",
                 plan.target_records
             )
 
@@ -715,7 +715,7 @@ class ExpenseRollbackSystem:
             # Verificar que los campos se restauraron correctamente
             # (Implementación simplificada)
             restored_count = await self.db.fetch_one(
-                "SELECT COUNT(*) as count FROM expenses WHERE id = ANY($1)",
+                "SELECT COUNT(*) as count FROM manual_expenses WHERE id = ANY($1)",
                 plan.target_records
             )
 

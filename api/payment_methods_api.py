@@ -93,7 +93,7 @@ async def get_payment_summary(
                 COUNT(*) as cantidad,
                 SUM(total) as total_monto,
                 AVG(total) as promedio
-            FROM expenses
+            FROM manual_expenses
             WHERE {where_sql} AND metodo_pago IS NOT NULL
             GROUP BY metodo_pago
             ORDER BY cantidad DESC;
@@ -126,7 +126,7 @@ async def get_payment_summary(
                 COUNT(*) as cantidad,
                 SUM(total) as total_monto,
                 AVG(total) as promedio
-            FROM expenses
+            FROM manual_expenses
             WHERE {where_sql} AND forma_pago IS NOT NULL
             GROUP BY forma_pago
             ORDER BY cantidad DESC;
@@ -165,7 +165,7 @@ async def get_payment_summary(
                 COUNT(CASE WHEN metodo_pago = 'PPD' THEN 1 END) as ppd_count,
                 SUM(CASE WHEN metodo_pago = 'PUE' THEN total ELSE 0 END) as pue_monto,
                 SUM(CASE WHEN metodo_pago = 'PPD' THEN total ELSE 0 END) as ppd_monto
-            FROM expenses
+            FROM manual_expenses
             WHERE {where_sql};
         """, params)
 
@@ -226,7 +226,7 @@ async def get_ppd_pending(
                 metodo_pago,
                 forma_pago,
                 sat_status
-            FROM expenses
+            FROM manual_expenses
             WHERE company_id = %s
             AND metodo_pago = 'PPD'
             AND sat_status = 'vigente'
@@ -281,7 +281,7 @@ async def get_by_method(
                 metodo_pago,
                 forma_pago,
                 sat_status
-            FROM expenses
+            FROM manual_expenses
             WHERE company_id = %s
             AND metodo_pago = %s
             ORDER BY fecha DESC
@@ -342,7 +342,7 @@ async def get_cash_flow_analysis(
                 SUM(total) as total_general,
                 COUNT(CASE WHEN metodo_pago = 'PUE' THEN 1 END) as facturas_pue,
                 COUNT(CASE WHEN metodo_pago = 'PPD' THEN 1 END) as facturas_ppd
-            FROM expenses
+            FROM manual_expenses
             WHERE {where_sql};
         """, params)
 

@@ -10,6 +10,7 @@ import os
 import tempfile
 import asyncio
 from datetime import datetime
+import xml.etree.ElementTree as ET
 
 from core.expenses.invoices.universal_invoice_engine_system import (
     universal_invoice_engine_system,
@@ -80,6 +81,36 @@ async def create_invoice_processing_session(
         log_endpoint_error("/universal-invoice/sessions/", error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
 
+def _extract_uuid_from_xml(file_path: str) -> Optional[str]:
+    """Helper function to extract UUID from CFDI XML"""
+    try:
+        tree = ET.parse(file_path)
+        root = tree.getroot()
+
+        # XML namespaces common in CFDI
+        namespaces = {
+            'cfdi': 'http://www.sat.gob.mx/cfd/4',
+            'cfdi3': 'http://www.sat.gob.mx/cfd/3'
+        }
+
+        # Try CFDI 4.0
+        for ns in ['cfdi', 'cfdi3']:
+            uuid = root.get('{' + namespaces.get(ns, '') + '}UUID')
+            if uuid:
+                return uuid.upper()
+
+            # Also try TimbreFiscalDigital
+            for tfd in root.iter('{http://www.sat.gob.mx/TimbreFiscalDigital}TimbreFiscalDigital'):
+                uuid = tfd.get('UUID')
+                if uuid:
+                    return uuid.upper()
+
+        return None
+    except Exception as e:
+        logger.warning(f"Could not extract UUID from {file_path}: {e}")
+        return None
+
+
 @router.post("/sessions/batch-upload/")
 async def batch_upload_and_process(
     background_tasks: BackgroundTasks,
@@ -90,6 +121,8 @@ async def batch_upload_and_process(
     """
     Sube múltiples archivos y los procesa en background
     El procesamiento continúa incluso si el cliente se desconecta
+
+    IMPORTANTE: Detecta y omite facturas duplicadas basándose en UUID
     """
     log_endpoint_entry("/universal-invoice/sessions/batch-upload/",
         method="POST",
@@ -98,12 +131,16 @@ async def batch_upload_and_process(
     )
 
     try:
+        from core.shared.db_config import get_connection
+
         # Crear directorio permanente para facturas
         upload_dir = os.path.join(os.getcwd(), "uploads", "invoices", company_id)
         os.makedirs(upload_dir, exist_ok=True)
 
         # Procesar todos los archivos y crear sesiones
         session_ids = []
+        duplicates = []
+        skipped_non_xml = []
         batch_id = f"batch_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
 
         for file in files:
@@ -115,6 +152,7 @@ async def batch_upload_and_process(
 
             if file.content_type not in allowed_types and file_ext not in allowed_extensions:
                 logger.warning(f"Skipping unsupported file type: {file.filename} ({file.content_type}, ext: {file_ext})")
+                skipped_non_xml.append(file.filename)
                 continue
 
             # Guardar archivo permanente
@@ -125,7 +163,46 @@ async def batch_upload_and_process(
             with open(file_path, 'wb') as f:
                 f.write(content)
 
-            # Crear sesión
+            # DUPLICATE DETECTION: Extract UUID from XML files
+            invoice_uuid = None
+            if file_ext == '.xml':
+                invoice_uuid = _extract_uuid_from_xml(file_path)
+
+                if invoice_uuid:
+                    # Check if invoice with same UUID already exists
+                    conn = get_connection(dict_cursor=True)
+                    cursor = conn.cursor()
+
+                    cursor.execute("""
+                        SELECT id, original_filename, created_at
+                        FROM sat_invoices
+                        WHERE company_id = %s
+                        AND extracted_data->>'uuid' = %s
+                        LIMIT 1
+                    """, (company_id, invoice_uuid))
+
+                    existing = cursor.fetchone()
+                    cursor.close()
+                    conn.close()
+
+                    if existing:
+                        logger.warning(
+                            f"DUPLICATE DETECTED: {file.filename} (UUID: {invoice_uuid[:20]}...) "
+                            f"already exists as {existing['original_filename']} "
+                            f"(session: {existing['id']}, created: {existing['created_at']})"
+                        )
+                        duplicates.append({
+                            'filename': file.filename,
+                            'uuid': invoice_uuid,
+                            'existing_session_id': existing['id'],
+                            'existing_filename': existing['original_filename'],
+                            'existing_created_at': str(existing['created_at'])
+                        })
+                        # Skip creating session for duplicate
+                        os.remove(file_path)  # Clean up the file we just saved
+                        continue
+
+            # Crear sesión only if not duplicate
             session_id = await universal_invoice_engine_system.create_processing_session(
                 company_id=company_id,
                 file_path=file_path,
@@ -134,8 +211,8 @@ async def batch_upload_and_process(
             )
             session_ids.append(session_id)
 
-        # Programar procesamiento en background de TODAS las sesiones
-        # Esto continuará ejecutándose incluso si el cliente se desconecta
+        # Programar procesamiento en background de TODAS las sesiones usando FastAPI BackgroundTasks
+        # BackgroundTasks garantiza que las tareas se ejecuten después de enviar la respuesta HTTP
         for session_id in session_ids:
             background_tasks.add_task(_process_invoice_background, session_id)
 
@@ -143,11 +220,26 @@ async def batch_upload_and_process(
             "batch_id": batch_id,
             "total_files": len(files),
             "created_sessions": len(session_ids),
+            "duplicates_skipped": len(duplicates),
+            "non_xml_skipped": len(skipped_non_xml),
             "session_ids": session_ids,
+            "duplicates": duplicates,
+            "skipped_files": skipped_non_xml,
             "status": "processing_in_background",
-            "message": "Los archivos se están procesando. Puedes salir de esta página y el procesamiento continuará.",
+            "message": (
+                f"Procesamiento iniciado. "
+                f"{len(session_ids)} facturas nuevas, "
+                f"{len(duplicates)} duplicados omitidos. "
+                f"Puedes salir de esta página y el procesamiento continuará."
+            ),
             "created_at": datetime.utcnow().isoformat()
         }
+
+        if duplicates:
+            logger.info(
+                f"Duplicate detection: Skipped {len(duplicates)} duplicate invoices for company {company_id}. "
+                f"UUIDs: {[d['uuid'][:20] + '...' for d in duplicates]}"
+            )
 
         log_endpoint_success("/universal-invoice/sessions/batch-upload/", response)
         return response
@@ -178,7 +270,7 @@ async def get_batch_status(batch_id: str, company_id: str) -> Dict[str, Any]:
                 id as session_id,
                 extraction_status,
                 original_filename
-            FROM universal_invoice_sessions
+            FROM sat_invoices
             WHERE company_id = %s
             AND created_at >= (NOW() - INTERVAL '1 hour')
             ORDER BY created_at DESC
@@ -235,7 +327,7 @@ async def reprocess_failed_sessions(
         # O sesiones con status='failed'
         cursor.execute("""
             SELECT id, original_filename, extracted_data
-            FROM universal_invoice_sessions
+            FROM sat_invoices
             WHERE company_id = %s
             AND (
                 extraction_status = 'failed'
@@ -270,7 +362,7 @@ async def reprocess_failed_sessions(
         session_ids = [s['id'] for s in failed_sessions]
 
         cursor.execute("""
-            UPDATE universal_invoice_sessions
+            UPDATE sat_invoices
             SET extraction_status = 'pending',
                 error_message = NULL
             WHERE id = ANY(%s)
@@ -280,7 +372,8 @@ async def reprocess_failed_sessions(
         cursor.close()
         conn.close()
 
-        # Programar reprocesamiento en background con rate limiting
+        # Programar reprocesamiento en background usando FastAPI BackgroundTasks
+        # BackgroundTasks garantiza que las tareas se ejecuten después de enviar la respuesta HTTP
         for session_id in session_ids:
             background_tasks.add_task(_process_invoice_background, session_id)
 
@@ -360,7 +453,7 @@ async def get_sessions_for_viewer_pro(
                 s.sat_last_check_at,
                 s.sat_verification_error,
                 s.sat_verification_url
-            FROM universal_invoice_sessions s
+            FROM sat_invoices s
             WHERE s.company_id = %s
             AND s.extraction_status = 'completed'
             AND s.extracted_data IS NOT NULL
@@ -495,7 +588,7 @@ async def get_sessions_for_viewer_pro(
         # Contar total para paginación
         count_query = """
             SELECT COUNT(*) as total
-            FROM universal_invoice_sessions s
+            FROM sat_invoices s
             WHERE s.company_id = %s
             AND s.extraction_status = 'completed'
             AND s.extracted_data IS NOT NULL
@@ -694,8 +787,8 @@ async def list_company_sessions(
                 extraction_status, extraction_confidence,
                 validation_score, overall_quality_score,
                 parsed_data, template_match, validation_results,
-                error_message
-            FROM universal_invoice_sessions
+                error_message, sat_validation_status
+            FROM sat_invoices
             WHERE company_id = %s
         """
         params = [company_id]
@@ -712,7 +805,7 @@ async def list_company_sessions(
         sessions = cursor.fetchall()
 
         # Contar total de sesiones
-        count_query = "SELECT COUNT(*) as total FROM universal_invoice_sessions WHERE company_id = %s"
+        count_query = "SELECT COUNT(*) as total FROM sat_invoices WHERE company_id = %s"
         count_params = [company_id]
         if status:
             count_query += " AND status = %s"
@@ -742,6 +835,12 @@ async def list_company_sessions(
                     "tipo_comprobante": parsed.get('tipo_comprobante'),
                     "sat_status": parsed.get('sat_status', 'desconocido'),
                 }
+
+            # 🔧 FIX: Sync sat_status from sat_validation_status if available
+            if session.get('sat_validation_status') and session['sat_validation_status'] != 'pending':
+                if not display_info:
+                    display_info = {}
+                display_info['sat_status'] = session['sat_validation_status']
 
             sessions_list.append({
                 "session_id": session['id'],
@@ -811,8 +910,8 @@ async def list_tenant_sessions(
                 uis.extraction_status, uis.extraction_confidence,
                 uis.validation_score, uis.overall_quality_score,
                 uis.parsed_data, uis.template_match, uis.validation_results,
-                uis.error_message
-            FROM universal_invoice_sessions uis
+                uis.error_message, uis.sat_validation_status
+            FROM sat_invoices uis
             WHERE uis.user_id IN (
                 SELECT CAST(id AS TEXT) FROM users WHERE tenant_id = %s
             )
@@ -833,7 +932,7 @@ async def list_tenant_sessions(
         # Contar total de sesiones
         count_query = """
             SELECT COUNT(*) as total
-            FROM universal_invoice_sessions uis
+            FROM sat_invoices uis
             WHERE uis.user_id IN (
                 SELECT CAST(id AS TEXT) FROM users WHERE tenant_id = %s
             )
@@ -867,6 +966,12 @@ async def list_tenant_sessions(
                     "tipo_comprobante": parsed.get('tipo_comprobante'),
                     "sat_status": parsed.get('sat_status', 'desconocido'),
                 }
+
+            # 🔧 FIX: Sync sat_status from sat_validation_status if available
+            if session.get('sat_validation_status') and session['sat_validation_status'] != 'pending':
+                if not display_info:
+                    display_info = {}
+                display_info['sat_status'] = session['sat_validation_status']
 
             sessions_list.append({
                 "session_id": session['id'],
@@ -1230,12 +1335,147 @@ async def _process_invoice_background(session_id: str):
             result = await universal_invoice_engine_system.process_invoice(session_id)
             logger.info(f"Background invoice processing completed for session {session_id}")
 
+            # 🔥 NEW: Auto-trigger classification after successful parsing
+            if result.get('status') == 'completed' and result.get('parsed_data'):
+                await _trigger_classification(session_id, result)
+                # 🔥 NEW: Auto-trigger SAT validation after classification
+                await _trigger_sat_validation(session_id, result)
+
             # Add a small delay after processing to spread out API calls
             await asyncio.sleep(1)
         except Exception as e:
             logger.error(f"Background invoice processing failed for session {session_id}: {e}")
             # Still add delay on failure to avoid rapid retries hitting rate limits
             await asyncio.sleep(1)
+
+
+async def _trigger_classification(session_id: str, processing_result: Dict[str, Any]):
+    """
+    Auto-trigger classification after invoice parsing completes.
+
+    🔥 NEW: Uses hierarchical classification system (3-phase LLM classification)
+    """
+    try:
+        # 🔥 IMPORTANT: Use hierarchical classification system instead of legacy
+        from core.expenses.invoices.universal_invoice_engine_system import UniversalInvoiceEngineSystem
+
+        company_id_str = processing_result.get('company_id')
+        parsed_data = processing_result.get('parsed_data')
+
+        if not company_id_str or not parsed_data:
+            logger.warning(f"Session {session_id}: Missing company_id or parsed_data, skipping classification")
+            return
+
+        logger.info(f"Session {session_id}: Triggering HIERARCHICAL auto-classification (company_id={company_id_str})")
+
+        # Call hierarchical classification (3-phase: Family → Subfamily → Specific)
+        engine = UniversalInvoiceEngineSystem()
+        classification_result = await engine.classify_invoice_hierarchical(
+            session_id=session_id,
+            company_id=company_id_str
+        )
+
+        if not classification_result:
+            logger.warning(f"Session {session_id}: Hierarchical classification returned None")
+            return
+
+        logger.info(
+            f"Session {session_id}: ✅ Hierarchical classification completed - "
+            f"SAT code: {classification_result.get('sat_account_code')} "
+            f"(Phase 1: {classification_result.get('metadata', {}).get('hierarchical_phase1', {}).get('familia_codigo')})"
+        )
+
+    except Exception as e:
+        logger.error(f"Session {session_id}: Hierarchical auto-classification failed: {e}", exc_info=True)
+
+
+async def _trigger_sat_validation(session_id: str, processing_result: Dict[str, Any]):
+    """
+    Auto-trigger SAT validation after invoice parsing completes.
+
+    This validates the invoice against SAT web services to check if it's vigente/cancelado.
+    """
+    try:
+        from core.sat.sat_validation_service import validate_single_invoice
+        from core.auth.jwt import get_db_connection
+
+        parsed_data = processing_result.get('parsed_data')
+        if not parsed_data:
+            logger.warning(f"Session {session_id}: No parsed_data, skipping SAT validation")
+            return
+
+        # Extraer UUID del CFDI
+        uuid = parsed_data.get('uuid') or parsed_data.get('UUID')
+        if not uuid:
+            logger.warning(f"Session {session_id}: No UUID found in parsed_data, skipping SAT validation")
+            return
+
+        logger.info(f"Session {session_id}: Triggering SAT validation for UUID {uuid}")
+
+        # Obtener sesión de SQLAlchemy
+        from core.database import SessionLocal
+        db = SessionLocal()
+
+        try:
+            # Llamar servicio de validación SAT
+            success, validation_info, error = validate_single_invoice(
+                db=db,
+                session_id=session_id,
+                force_refresh=False,  # No forzar revalidación
+                use_mock=False  # Usar servicio real del SAT
+            )
+
+            if success and validation_info:
+                logger.info(
+                    f"Session {session_id}: SAT validation completed - "
+                    f"Status: {validation_info.get('status', 'unknown')}"
+                )
+
+                # 🔥 FIX: Update display_info.sat_status so frontend shows correct status
+                from core.shared.db_config import get_connection
+                import json
+
+                conn = get_connection(dict_cursor=True)
+                cursor = conn.cursor()
+
+                # Get current display_info
+                cursor.execute("""
+                    SELECT display_info
+                    FROM sat_invoices
+                    WHERE id = %s
+                """, (session_id,))
+
+                row = cursor.fetchone()
+                display_info = row['display_info'] if row and row['display_info'] else {}
+
+                # Update sat_status in display_info
+                sat_status = validation_info.get('status', 'desconocido')
+                display_info['sat_status'] = sat_status
+
+                # Save back to database
+                cursor.execute("""
+                    UPDATE sat_invoices
+                    SET display_info = %s,
+                        updated_at = now()
+                    WHERE id = %s
+                """, (json.dumps(display_info), session_id))
+
+                conn.commit()
+                cursor.close()
+                conn.close()
+
+                logger.info(f"Session {session_id}: Updated display_info.sat_status = {sat_status}")
+
+            elif error:
+                logger.warning(f"Session {session_id}: SAT validation error: {error}")
+            else:
+                logger.warning(f"Session {session_id}: SAT validation returned no result")
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error(f"Session {session_id}: SAT validation failed: {e}", exc_info=True)
+
 
 def _estimate_processing_time(file_path: str) -> int:
     """Estima tiempo de procesamiento basado en archivo"""

@@ -180,7 +180,7 @@ CREATE TABLE users (
 );
 
 -- Enhanced expenses table with all audit fields
-CREATE TABLE expenses (
+CREATE TABLE manual_expenses (
     id SERIAL PRIMARY KEY,
     descripcion TEXT NOT NULL,
     monto_total DECIMAL(10,2) NOT NULL CHECK (monto_total > 0),
@@ -543,7 +543,7 @@ class SQLiteToPostgreSQLMigrator:
 
     async def _migrate_expenses(self, sqlite_conn, postgres_pool):
         """Migrate expenses with enhanced fields"""
-        cursor = sqlite_conn.execute("SELECT * FROM expenses")
+        cursor = sqlite_conn.execute("SELECT * FROM manual_expenses")
         expenses = cursor.fetchall()
 
         async with postgres_pool.acquire() as pg_conn:
@@ -578,7 +578,7 @@ class SQLiteToPostgreSQLMigrator:
 
                     # Insert into PostgreSQL
                     await pg_conn.execute("""
-                        INSERT INTO expenses (
+                        INSERT INTO manual_expenses (
                             id, descripcion, monto_total, fecha_gasto, proveedor, categoria,
                             metodo_pago, moneda, deducible, centro_costo, proyecto, tags,
                             metadata, completion_status, field_completeness, duplicate_risk_level,
@@ -605,7 +605,7 @@ class SQLiteToPostgreSQLMigrator:
         """Update PostgreSQL sequences to match migrated data"""
         async with postgres_pool.acquire() as conn:
             # Update sequences for all tables
-            tables = ['companies', 'users', 'expenses', 'invoices', 'bank_movements',
+            tables = ['companies', 'users', 'manual_expenses', 'invoices', 'bank_movements',
                      'automation_sessions', 'workers', 'system_health', 'user_preferences']
 
             for table in tables:
@@ -617,7 +617,7 @@ class SQLiteToPostgreSQLMigrator:
         """Verify migration integrity"""
         # Count records in both databases
         sqlite_counts = {}
-        tables = ['expenses', 'invoices', 'bank_movements']
+        tables = ['manual_expenses', 'invoices', 'bank_movements']
 
         for table in tables:
             cursor = sqlite_conn.execute(f"SELECT COUNT(*) FROM {table}")
@@ -716,7 +716,7 @@ WHERE NOT blocked_locks.granted;
 -- Performance monitoring
 SELECT schemaname,tablename,attname,n_distinct,correlation
 FROM pg_stats
-WHERE tablename IN ('expenses', 'invoices', 'bank_movements')
+WHERE tablename IN ('manual_expenses', 'invoices', 'bank_movements')
 ORDER BY schemaname, tablename, attname;
 ```
 
@@ -836,7 +836,7 @@ class TestMigrationIntegrity:
     async def test_expense_count_integrity(self):
         """Test expense count matches between systems"""
         count = await pg_adapter.fetch_one(
-            "SELECT COUNT(*) as count FROM expenses"
+            "SELECT COUNT(*) as count FROM manual_expenses"
         )
         assert count["count"] > 0
 
@@ -846,7 +846,7 @@ class TestMigrationIntegrity:
         # Test foreign key relationships
         orphaned_invoices = await pg_adapter.fetch_one("""
             SELECT COUNT(*) as count FROM invoices i
-            LEFT JOIN expenses e ON i.expense_id = e.id
+            LEFT JOIN manual_expenses e ON i.expense_id = e.id
             WHERE e.id IS NULL
         """)
         assert orphaned_invoices["count"] == 0
@@ -855,7 +855,7 @@ class TestMigrationIntegrity:
     async def test_json_fields(self):
         """Test JSON field integrity"""
         expenses_with_tags = await pg_adapter.fetch_all("""
-            SELECT id, tags FROM expenses
+            SELECT id, tags FROM manual_expenses
             WHERE tags IS NOT NULL AND jsonb_array_length(tags) > 0
             LIMIT 10
         """)
@@ -870,7 +870,7 @@ class TestMigrationIntegrity:
 
         start_time = time.time()
         results = await pg_adapter.fetch_all("""
-            SELECT * FROM expenses
+            SELECT * FROM manual_expenses
             WHERE company_id = $1
             ORDER BY created_at DESC
             LIMIT 100

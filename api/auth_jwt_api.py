@@ -84,6 +84,7 @@ class TenantInfo(BaseModel):
     """Tenant information response"""
     id: int
     name: str
+    company_id: Optional[int] = None
     description: Optional[str] = None
 
 
@@ -249,7 +250,7 @@ async def get_available_tenants(email: Optional[str] = None) -> List[TenantInfo]
         if email:
             # Filter tenants by user's email - PostgreSQL syntax with %s
             cursor.execute("""
-                SELECT DISTINCT t.id, t.name
+                SELECT DISTINCT t.id, t.name, t.company_id
                 FROM tenants t
                 INNER JOIN users u ON u.tenant_id = t.id
                 WHERE LOWER(u.email) = LOWER(%s)
@@ -258,7 +259,7 @@ async def get_available_tenants(email: Optional[str] = None) -> List[TenantInfo]
         else:
             # Return all tenants if no email provided
             cursor.execute("""
-                SELECT id, name
+                SELECT id, name, company_id
                 FROM tenants
                 ORDER BY name
             """)
@@ -269,6 +270,7 @@ async def get_available_tenants(email: Optional[str] = None) -> List[TenantInfo]
             tenants.append(TenantInfo(
                 id=row[0],
                 name=row[1],
+                company_id=row[2] if len(row) > 2 else None,
                 description=None
             ))
 
@@ -294,7 +296,7 @@ async def login(
     tenant_id: Optional[int] = Form(None)
 ) -> Token:
     """
-    Login with username, password, and tenant selection
+    Login with username, password, and optional tenant selection
 
     **Authentication:**
     - Accepts username or email
@@ -303,8 +305,8 @@ async def login(
     - Refresh token expires in 7 days
 
     **Multi-Tenancy:**
-    - tenant_id is required for multi-tenant access
-    - User must have access to selected tenant
+    - tenant_id is optional - if not provided, uses user's default tenant
+    - If provided, user must have access to selected tenant
 
     **Account Security:**
     - Locks account after 5 failed attempts (30 minutes)
@@ -313,7 +315,7 @@ async def login(
     **Request (application/x-www-form-urlencoded):**
     - username: Username or email
     - password: User password
-    - tenant_id: Selected tenant ID (required)
+    - tenant_id: Selected tenant ID (optional - auto-selected if not provided)
 
     **Response:**
     - access_token: JWT token for authentication
@@ -328,14 +330,7 @@ async def login(
     from datetime import datetime, timedelta
 
     try:
-        # Validate tenant_id provided
-        if tenant_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="tenant_id is required for login"
-            )
-
-        # Authenticate user
+        # Authenticate user first
         user = authenticate_user(username, password)
 
         if not user:
@@ -346,14 +341,20 @@ async def login(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        # If tenant_id not provided, use user's default tenant
+        if tenant_id is None:
+            tenant_id = user.tenant_id
+            logger.info(f"Auto-selected tenant_id={tenant_id} for user {username}")
+
         # 🏢 Validate user has access to tenant
         conn = get_db_connection()
         cursor = conn.cursor()
 
         cursor.execute("""
-            SELECT t.id, t.name
+            SELECT t.id, t.name, c.id
             FROM tenants t
             INNER JOIN users u ON u.tenant_id = t.id
+            LEFT JOIN companies c ON c.tenant_id = t.id
             WHERE u.id = %s AND t.id = %s
         """, (user.id, tenant_id))
 
@@ -370,7 +371,8 @@ async def login(
         tenant_info = TenantInfo(
             id=tenant_row[0],
             name=tenant_row[1],
-            description=None
+            description=None,
+            company_id=tenant_row[2]  # Include company_id from companies table
         )
 
         # Update user with selected tenant_id
@@ -418,6 +420,7 @@ async def login(
             tenant={
                 "id": tenant_info.id,
                 "name": tenant_info.name,
+                "company_id": tenant_info.company_id,  # Include company_id for frontend
                 "description": tenant_info.description
             }
         )

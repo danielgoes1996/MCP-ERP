@@ -5,7 +5,7 @@
 BEGIN;
 
 -- Tabla principal para sesiones de procesamiento universal de facturas
-CREATE TABLE IF NOT EXISTS universal_invoice_sessions (
+CREATE TABLE IF NOT EXISTS sat_invoices (
     id TEXT PRIMARY KEY DEFAULT ('uis_' || lower(hex(randomblob(16)))),
     company_id TEXT NOT NULL,
     user_id TEXT,
@@ -131,7 +131,7 @@ CREATE TABLE IF NOT EXISTS universal_invoice_templates (
     -- Timestamps
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-    FOREIGN KEY (session_id) REFERENCES universal_invoice_sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (session_id) REFERENCES sat_invoices(id) ON DELETE CASCADE,
     FOREIGN KEY (format_id) REFERENCES universal_invoice_formats(id) ON DELETE CASCADE
 );
 
@@ -166,7 +166,7 @@ CREATE TABLE IF NOT EXISTS universal_invoice_validations (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     executed_at TIMESTAMP,
 
-    FOREIGN KEY (session_id) REFERENCES universal_invoice_sessions(id) ON DELETE CASCADE
+    FOREIGN KEY (session_id) REFERENCES sat_invoices(id) ON DELETE CASCADE
 );
 
 -- Tabla para parsers disponibles
@@ -292,14 +292,14 @@ CREATE TABLE IF NOT EXISTS universal_invoice_extractions (
     -- Timestamps
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-    FOREIGN KEY (session_id) REFERENCES universal_invoice_sessions(id) ON DELETE CASCADE
+    FOREIGN KEY (session_id) REFERENCES sat_invoices(id) ON DELETE CASCADE
 );
 
 -- Índices optimizados para performance
-CREATE INDEX IF NOT EXISTS idx_universal_invoice_sessions_company ON universal_invoice_sessions(company_id);
-CREATE INDEX IF NOT EXISTS idx_universal_invoice_sessions_status ON universal_invoice_sessions(extraction_status);
-CREATE INDEX IF NOT EXISTS idx_universal_invoice_sessions_format ON universal_invoice_sessions(detected_format);
-CREATE INDEX IF NOT EXISTS idx_universal_invoice_sessions_created ON universal_invoice_sessions(created_at);
+CREATE INDEX IF NOT EXISTS idx_universal_invoice_sessions_company ON sat_invoices(company_id);
+CREATE INDEX IF NOT EXISTS idx_universal_invoice_sessions_status ON sat_invoices(extraction_status);
+CREATE INDEX IF NOT EXISTS idx_universal_invoice_sessions_format ON sat_invoices(detected_format);
+CREATE INDEX IF NOT EXISTS idx_universal_invoice_sessions_created ON sat_invoices(created_at);
 
 CREATE INDEX IF NOT EXISTS idx_universal_invoice_formats_company ON universal_invoice_formats(company_id);
 CREATE INDEX IF NOT EXISTS idx_universal_invoice_formats_type ON universal_invoice_formats(format_type);
@@ -327,10 +327,10 @@ CREATE INDEX IF NOT EXISTS idx_universal_invoice_extractions_parser ON universal
 
 -- Triggers para mantener updated_at actualizado
 CREATE TRIGGER IF NOT EXISTS update_universal_invoice_sessions_updated_at
-    AFTER UPDATE ON universal_invoice_sessions
+    AFTER UPDATE ON sat_invoices
     FOR EACH ROW
     BEGIN
-        UPDATE universal_invoice_sessions
+        UPDATE sat_invoices
         SET updated_at = CURRENT_TIMESTAMP
         WHERE id = NEW.id;
     END;
@@ -355,7 +355,7 @@ CREATE TRIGGER IF NOT EXISTS update_universal_invoice_parsers_updated_at
 
 -- Trigger para actualizar statistics cuando se completa una sesión
 CREATE TRIGGER IF NOT EXISTS update_universal_invoice_analytics_on_completion
-    AFTER UPDATE OF extraction_status ON universal_invoice_sessions
+    AFTER UPDATE OF extraction_status ON sat_invoices
     FOR EACH ROW
     WHEN NEW.extraction_status = 'completed' AND OLD.extraction_status != 'completed'
     BEGIN
@@ -438,7 +438,7 @@ CREATE TRIGGER IF NOT EXISTS update_parser_statistics_on_use
             last_used = CURRENT_TIMESTAMP
         WHERE parser_name = NEW.parser_used
           AND company_id = (
-              SELECT company_id FROM universal_invoice_sessions
+              SELECT company_id FROM sat_invoices
               WHERE id = NEW.session_id
           );
     END;

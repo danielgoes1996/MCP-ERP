@@ -325,6 +325,9 @@ Puedes revisar y editar este gasto en el sistema."""
             logger.error("requests library not available for WhatsApp API")
             return
 
+        # Normalizar número: solo dígitos, sin +
+        normalized_number = ''.join(filter(str.isdigit, to_number))
+
         url = f"{self.base_url}/messages"
         headers = {
             'Authorization': f'Bearer {self.access_token}',
@@ -333,7 +336,7 @@ Puedes revisar y editar este gasto en el sistema."""
 
         data = {
             'messaging_product': 'whatsapp',
-            'to': to_number,
+            'to': normalized_number,
             'type': 'text',
             'text': {
                 'body': message

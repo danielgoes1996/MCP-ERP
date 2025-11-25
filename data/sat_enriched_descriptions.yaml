@@ -1,0 +1,153 @@
+# Descripciones enriquecidas del catálogo SAT
+# Formato: code: "descripción enriquecida con sinónimos, ejemplos y contexto"
+
+# ============================================================================
+# FAMILIA 100 - ACTIVO
+# ============================================================================
+
+"115.01":
+  description: "Inventario general de mercancías para venta. Incluye productos terminados listos para comercializar, mercancía en stock, artículos en almacén, stock disponible para venta inmediata."
+
+"115.02":
+  description: "Materia prima y materiales para producción. Incluye insumos de fabricación, materiales de empaque, envases, etiquetas, materiales de producción, componentes para manufactura, materias primas sin procesar."
+
+"115.03":
+  description: "Producción en proceso. Incluye trabajo en curso, productos semi-terminados, producción parcialmente completada, inventario en proceso de manufactura."
+
+"115.04":
+  description: "Productos terminados. Incluye bienes manufacturados listos para venta, artículos completados, producción finalizada en almacén."
+
+"115.05":
+  description: "Mercancías en tránsito. Incluye productos en camino, envíos pendientes de recepción, importaciones en proceso, mercancía en aduanas, pedidos en logística."
+
+"120.01":
+  description: "Anticipo a proveedores nacional (solo para PPD - Pago en Parcialidades). Incluye pagos anticipados a vendedores nacionales, adelantos a suppliers, depósitos a cuenta de compras futuras. NO aplica para facturas PUE."
+
+"120.02":
+  description: "Anticipo a proveedores extranjero (solo para PPD - Pago en Parcialidades). Incluye pagos anticipados a vendedores internacionales, adelantos en importaciones, depósitos para compras del exterior. NO aplica para facturas PUE."
+
+"164.01":
+  description: "Troqueles, moldes, matrices y herramental. Incluye herramientas industriales reutilizables, moldes de inyección, troqueles de corte, matrices de producción, herramental de manufactura, equipos especializados de producción."
+
+"171.01":
+  description: "Depreciación acumulada de edificios. Cuenta complementaria de activo que registra el desgaste acumulado de inmuebles, construcciones, naves industriales, oficinas propias."
+
+"171.12":
+  description: "Depreciación acumulada de troqueles, moldes, matrices y herramental. Cuenta complementaria de activo que registra el desgaste de herramientas industriales especializadas."
+
+# ============================================================================
+# FAMILIA 600 - GASTOS (GENERAL)
+# ============================================================================
+
+"601.76":
+  description: "Patentes y marcas. Incluye gastos de registro de propiedad intelectual, renovación de marcas comerciales, licencias de patentes, derechos de autor, trademarks, regalías por uso de patentes."
+
+"601.83":
+  description: "Gastos de instalación de software y sistemas. Incluye implementación de ERP, configuración de software empresarial, instalación de sistemas como Odoo, SAP, servidores, licencias de software, suscripciones SaaS, hosting, cloud computing, Amazon AWS, Google Cloud, Microsoft Azure."
+
+# ============================================================================
+# FAMILIA 602 - GASTOS DE VENTA
+# ============================================================================
+
+"602.01":
+  description: "Sueldos y salarios del personal de ventas. Incluye nómina de vendedores, comisiones de agentes de venta, salarios de equipo comercial."
+
+"602.84":
+  description: "Fletes y acarreos de ventas. Incluye transporte de mercancías, envíos a clientes, logística de distribución, paquetería, courier (DHL, FedEx, UPS), servicios de entrega, mensajería, almacenamiento en bodegas, fulfillment, Amazon FBA, tarifas de almacenamiento, storage fees."
+
+"602.85":
+  description: "Gastos de transporte de ventas. Incluye movilidad del equipo de ventas, viáticos de vendedores, gasolina para vehículos comerciales, transporte de productos a clientes."
+
+# ============================================================================
+# FAMILIA 603 - GASTOS DE ADMINISTRACIÓN
+# ============================================================================
+
+"603.01":
+  description: "Sueldos y salarios del personal administrativo. Incluye nómina de oficina, salarios de gerencia, compensaciones del equipo administrativo."
+
+"603.84":
+  description: "Fletes y acarreos administrativos. Incluye transporte de documentos, mensajería administrativa, envíos de oficina, paquetería corporativa."
+
+"603.85":
+  description: "Gastos de transporte administrativo. Incluye movilidad del personal administrativo, viáticos, gasolina, combustibles, mantenimiento vehicular, servicios de transporte."
+
+"603.86":
+  description: "Viáticos y gastos de viaje del personal administrativo. Incluye hospedaje, alimentación en viajes de trabajo, pasajes aéreos, taxis, transporte local."
+
+"603.87":
+  description: "Gastos de mantenimiento de edificios administrativos. Incluye reparaciones de oficinas, limpieza, jardinería, pintura, plomería, electricidad, mantenimiento general."
+
+"603.88":
+  description: "Combustibles y lubricantes administrativos. Incluye gasolina para vehículos de oficina, diesel, aceites, lubricantes, aditivos, mantenimiento vehicular básico."
+
+"603.89":
+  description: "Consumibles de oficina y papelería. Incluye material de oficina, plumas, papel, folders, consumibles de impresión, toners, cartuchos, artículos de escritorio."
+
+"603.90":
+  description: "Energía eléctrica de áreas administrativas. Incluye luz de oficinas, consumo eléctrico, CFE, servicios de energía."
+
+"603.91":
+  description: "Teléfono e internet. Incluye telefonía fija, celular, datos móviles, internet empresarial, servicios de telecomunicaciones, Telmex, Totalplay, Megacable, planes de telefonía."
+
+"603.92":
+  description: "Servicios de comunicación y conectividad. Incluye servicios de internet, telefonía IP, videoconferencias, Zoom, Teams, servicios cloud de comunicación."
+
+"603.93":
+  description: "Honorarios profesionales y consultoría. Incluye servicios de contadores, abogados, consultores, auditoría externa, asesoría fiscal, asesoría legal, servicios profesionales especializados."
+
+"603.94":
+  description: "Servicios contables y fiscales. Incluye preparación de declaraciones, trámites fiscales, dictámenes contables, servicios de contador externo."
+
+"603.95":
+  description: "Servicios de tecnología de información. Incluye soporte técnico, mantenimiento de sistemas, administración de servidores, servicios de IT, help desk."
+
+"603.96":
+  description: "Comisiones bancarias y financieras. Incluye comisiones por transferencias, manejo de cuenta, tarjetas de crédito/débito, comisiones de terminal punto de venta (TPV), comisiones por recargas, fees bancarios, cargos por servicios financieros."
+
+"603.97":
+  description: "Gastos de publicidad y marketing. Incluye anuncios, campañas publicitarias, Google Ads, Facebook Ads, redes sociales, promoción, branding."
+
+"603.98":
+  description: "Gastos de capacitación y desarrollo del personal administrativo. Incluye cursos, seminarios, talleres, entrenamiento, certificaciones profesionales."
+
+# ============================================================================
+# FAMILIA 604 - GASTOS FINANCIEROS
+# ============================================================================
+
+"604.01":
+  description: "Intereses bancarios pagados. Incluye intereses por créditos, préstamos, líneas de crédito, financiamientos, intereses moratorios."
+
+"604.02":
+  description: "Comisiones bancarias financieras. Incluye comisiones por créditos, apertura de préstamos, mantenimiento de líneas de crédito, comisiones por servicios de financiamiento."
+
+# ============================================================================
+# FAMILIAS ADICIONALES COMUNES
+# ============================================================================
+
+"501.01":
+  description: "Costo de ventas de mercancías. Incluye costo de productos vendidos, costo de mercancía enajenada, inventario vendido valorado a costo."
+
+"105.01":
+  description: "Clientes nacionales. Incluye cuentas por cobrar a clientes del país, facturas pendientes de pago de compradores nacionales, ventas a crédito."
+
+"201.01":
+  description: "Proveedores nacionales. Incluye cuentas por pagar a suppliers del país, facturas de compras pendientes de pago, pasivos con vendedores nacionales."
+
+"216.01":
+  description: "IVA pendiente de pago. Incluye impuesto al valor agregado por pagar al SAT, IVA trasladado, IVA por enterar."
+
+"118.01":
+  description: "IVA acreditable. Incluye impuesto al valor agregado pagado en compras, IVA a favor, IVA por recuperar, crédito fiscal de IVA."
+
+# ============================================================================
+# CUENTAS ESPECÍFICAS DE SOFTWARE/TECNOLOGÍA
+# ============================================================================
+
+"601.84":
+  description: "Fletes y acarreos de gastos generales. Similar a 602.84 pero para operaciones generales no directamente relacionadas con ventas."
+
+"118.02":
+  description: "IVA por acreditar de inversiones. IVA pagado en la adquisición de activos fijos, equipo, maquinaria, construcciones."
+
+"216.03":
+  description: "IVA por pagar de importaciones. IVA generado por importaciones de mercancías o servicios del extranjero."

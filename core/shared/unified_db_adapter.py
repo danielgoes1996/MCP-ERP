@@ -1106,7 +1106,7 @@ class UnifiedDBAdapter:
             return {
                 'tenant': dict(tenant),
                 'statistics': {
-                    'expenses': stats[0] or 0,
+                    'manual_expenses': stats[0] or 0,
                     'bank_movements': stats[1] or 0,
                     'automation_jobs': stats[2] or 0,
                     'tickets': stats[3] or 0,

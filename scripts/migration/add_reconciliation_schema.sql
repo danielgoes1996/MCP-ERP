@@ -24,7 +24,7 @@ BEGIN
     FOREIGN KEY (reconciled_invoice_id)
     REFERENCES expense_invoices(id)
     ON DELETE SET NULL;
-  ELSIF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'expenses') THEN
+  ELSIF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'manual_expenses') THEN
     ALTER TABLE bank_transactions
     ADD CONSTRAINT fk_bank_transactions_expense
     FOREIGN KEY (reconciled_invoice_id)

@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/Button';
 
 interface PendingClassificationCardProps {
   invoice: PendingInvoice;
-  onConfirm: (sessionId: string) => void;
+  onConfirm: (sessionId: string, alternativeCode?: string) => void;
   onCorrect: (sessionId: string) => void;
   loading?: boolean;
 }
@@ -57,12 +57,27 @@ export function PendingClassificationCard({
   loading = false,
 }: PendingClassificationCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showAlternatives, setShowAlternatives] = useState(false);
+  const [selectedAlternative, setSelectedAlternative] = useState<string | null>(null);
 
   const confidencePercent = Math.round(invoice.confidence * 100);
   const badgeClass = getConfidenceBadgeClass(invoice.confidence);
+  const hasAlternatives = invoice.alternative_candidates && invoice.alternative_candidates.length > 0;
 
   return (
     <Card className="p-6 hover:shadow-lg transition-shadow">
+      {/* Source Badge */}
+      {invoice.source === 'sat_auto_sync' && (
+        <div className="mb-3 flex items-center gap-2">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-300">
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+            </svg>
+            Descargada automáticamente del SAT
+          </span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
@@ -133,24 +148,114 @@ export function PendingClassificationCard({
         )}
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex gap-3">
-        <Button
-          onClick={() => onConfirm(invoice.session_id)}
-          disabled={loading}
-          className="flex-1 bg-success-600 hover:bg-success-700 text-white"
-        >
-          {loading ? 'Procesando...' : 'Confirmar Clasificación'}
-        </Button>
+      {/* Alternative Candidates Section */}
+      {hasAlternatives && (
+        <div className="mb-4">
+          <button
+            onClick={() => setShowAlternatives(!showAlternatives)}
+            className="w-full flex items-center justify-between p-3 bg-neutral-50 rounded-lg hover:bg-neutral-100 transition-colors"
+          >
+            <span className="text-sm font-semibold text-neutral-700">
+              Ver clasificaciones alternativas ({invoice.alternative_candidates!.length})
+            </span>
+            <svg
+              className={`w-5 h-5 text-neutral-600 transition-transform ${showAlternatives ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
 
-        <Button
-          onClick={() => onCorrect(invoice.session_id)}
-          disabled={loading}
-          variant="outline"
-          className="flex-1 border-warning-600 text-warning-700 hover:bg-warning-50"
-        >
-          Corregir
-        </Button>
+          {showAlternatives && (
+            <div className="mt-2 p-4 bg-neutral-50 rounded-lg border border-neutral-200 space-y-3">
+              <p className="text-xs text-neutral-600 mb-3">
+                Otras opciones sugeridas por el sistema. Elige una si es más apropiada:
+              </p>
+
+              {invoice.alternative_candidates!.map((candidate, index) => (
+                <div
+                  key={candidate.code}
+                  className={`p-3 rounded-lg border transition-all ${
+                    selectedAlternative === candidate.code
+                      ? 'bg-primary-50 border-primary-400 shadow-sm'
+                      : 'bg-white border-neutral-200 hover:border-primary-300'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-lg font-bold text-neutral-800">
+                          {candidate.code}
+                        </span>
+                        <span className="text-xs text-neutral-500">
+                          (Familia {candidate.family_code})
+                        </span>
+                        <span className="text-xs px-2 py-0.5 bg-neutral-200 text-neutral-700 rounded">
+                          {Math.round(candidate.score * 100)}% match
+                        </span>
+                      </div>
+                      <p className="text-sm text-neutral-700 font-medium mb-1">
+                        {candidate.name}
+                      </p>
+                      {candidate.description && (
+                        <p className="text-xs text-neutral-600">
+                          {candidate.description}
+                        </p>
+                      )}
+                    </div>
+
+                    <Button
+                      onClick={() => {
+                        setSelectedAlternative(candidate.code);
+                      }}
+                      variant={selectedAlternative === candidate.code ? 'primary' : 'outline'}
+                      className={`ml-3 ${
+                        selectedAlternative === candidate.code
+                          ? 'bg-primary-600 text-white'
+                          : 'border-primary-600 text-primary-700 hover:bg-primary-50'
+                      }`}
+                      disabled={loading}
+                    >
+                      {selectedAlternative === candidate.code ? 'Seleccionada' : 'Elegir'}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex flex-col gap-3">
+        {selectedAlternative && (
+          <div className="p-3 bg-primary-50 border border-primary-300 rounded-lg">
+            <p className="text-sm text-primary-800 font-medium">
+              Confirmarás con clasificación alternativa: <span className="font-bold">{selectedAlternative}</span>
+            </p>
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <Button
+            onClick={() => onConfirm(invoice.session_id, selectedAlternative || undefined)}
+            disabled={loading}
+            className="flex-1 bg-success-600 hover:bg-success-700 text-white"
+          >
+            {loading ? 'Procesando...' : selectedAlternative ? 'Confirmar Alternativa' : 'Confirmar Clasificación'}
+          </Button>
+
+          <Button
+            onClick={() => onCorrect(invoice.session_id)}
+            disabled={loading}
+            variant="outline"
+            className="flex-1 border-warning-600 text-warning-700 hover:bg-warning-50"
+          >
+            Corregir Manualmente
+          </Button>
+        </div>
       </div>
     </Card>
   );

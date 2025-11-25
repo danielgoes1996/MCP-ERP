@@ -44,7 +44,7 @@ def main():
         result = db.query("""
             SELECT column_name, data_type, character_maximum_length
             FROM information_schema.columns
-            WHERE table_name = 'expenses'
+            WHERE table_name = 'manual_expenses'
             AND column_name IN ('metodo_pago', 'forma_pago')
             ORDER BY column_name
         """)
@@ -64,7 +64,7 @@ def main():
         indexes = db.query("""
             SELECT indexname
             FROM pg_indexes
-            WHERE tablename = 'expenses'
+            WHERE tablename = 'manual_expenses'
             AND indexname LIKE '%metodo%' OR indexname LIKE '%forma%'
         """)
 

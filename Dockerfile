@@ -69,5 +69,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Exponer puerto
 EXPOSE 8000
 
-# Comando por defecto usando uvicorn con workers
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--log-level", "info"]
+# Comando por defecto usando uvicorn con single worker (required for scheduler)
+# Note: Scheduler requires lifespan to run, which doesn't work well with multiple workers
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "info"]

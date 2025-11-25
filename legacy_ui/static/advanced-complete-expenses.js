@@ -864,7 +864,7 @@ const AdvancedCompleteExpenses = () => {
             className: 'grid grid-cols-2 md:grid-cols-4 gap-4'
         }, [
             React.createElement('div', {
-                key: 'expenses',
+                key: 'manual_expenses',
                 className: 'bg-white border border-gray-200 rounded-lg p-4 text-center'
             }, [
                 React.createElement('p', {

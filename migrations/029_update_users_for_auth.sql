@@ -70,15 +70,15 @@ DELETE FROM permissions;  -- Clear any existing
 
 INSERT INTO permissions (role, resource, action, scope, description) VALUES
     -- Employee
-    ('employee', 'expenses', 'read', 'own', 'View own expenses'),
-    ('employee', 'expenses', 'create', 'own', 'Create own expenses'),
-    ('employee', 'expenses', 'update', 'own', 'Update own expenses'),
+    ('employee', 'manual_expenses', 'read', 'own', 'View own expenses'),
+    ('employee', 'manual_expenses', 'create', 'own', 'Create own expenses'),
+    ('employee', 'manual_expenses', 'update', 'own', 'Update own expenses'),
     ('employee', 'employee_advances', 'read', 'own', 'View own advances'),
     ('employee', 'employee_advances', 'create', 'own', 'Create own advances'),
 
     -- Accountant
-    ('accountant', 'expenses', 'read', 'all', 'View all expenses'),
-    ('accountant', 'expenses', 'update', 'all', 'Update any expense'),
+    ('accountant', 'manual_expenses', 'read', 'all', 'View all expenses'),
+    ('accountant', 'manual_expenses', 'update', 'all', 'Update any expense'),
     ('accountant', 'employee_advances', 'read', 'all', 'View all advances'),
     ('accountant', 'employee_advances', 'update', 'all', 'Process reimbursements'),
     ('accountant', 'employee_advances', 'create', 'all', 'Create advances'),

@@ -374,13 +374,14 @@ def upsert_embeddings(
 ) -> None:
     """Insert or update embeddings inside PostgreSQL."""
     insert_sql = """
-        INSERT INTO sat_account_embeddings (code, name, description, embedding, search_vector, created_at)
-        VALUES (%s, %s, %s, %s::vector, to_tsvector('spanish'::regconfig, %s), NOW())
+        INSERT INTO sat_account_embeddings (code, name, description, embedding, search_vector, family_hint, created_at)
+        VALUES (%s, %s, %s, %s::vector, to_tsvector('spanish'::regconfig, %s), %s, NOW())
         ON CONFLICT (code) DO UPDATE
         SET name = EXCLUDED.name,
             description = EXCLUDED.description,
             embedding = EXCLUDED.embedding,
             search_vector = EXCLUDED.search_vector,
+            family_hint = EXCLUDED.family_hint,
             created_at = NOW();
     """
 
@@ -400,7 +401,9 @@ def upsert_embeddings(
                 ],
             )
         )
-        payload.append((account.code, account.name, account.description, format_vector(vector), search_text))
+        # Extract family hint from code (first 3 digits for level 1, or extract from dotted codes)
+        family_hint = account.code.split('.')[0] if '.' in account.code else account.code[:3]
+        payload.append((account.code, account.name, account.description, format_vector(vector), search_text, family_hint))
 
     logger.info("Upserting %d embeddings into PostgreSQL", len(payload))
     with psycopg2.connect(dsn) as conn:

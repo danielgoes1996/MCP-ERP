@@ -298,7 +298,7 @@ async def get_categorias_sat_summary(
                     SUM(e.iva) as iva,
                     SUM(CASE WHEN e.cfdi_uuid IS NOT NULL THEN 1 ELSE 0 END) as con_cfdi,
                     SUM(CASE WHEN e.categoria_needs_review = 1 THEN 1 ELSE 0 END) as con_revision
-                FROM expenses e
+                FROM manual_expenses e
                 WHERE e.tenant_id = ?
                 AND strftime('%Y-%m', e.fecha_gasto) = ?
                 AND e.estado != 'cancelado'

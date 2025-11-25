@@ -72,11 +72,17 @@ async def whatsapp_webhook(request: Request) -> JSONResponse:
         logger.error(f"Invalid WhatsApp payload: {exc}")
         raise HTTPException(status_code=400, detail="Invalid JSON payload") from exc
 
+    # DEBUG: Log full webhook payload
+    logger.info(f"📩 Webhook received: {json.dumps(payload, indent=2)}")
+
     processed_results: List[Dict[str, Any]] = []
 
     for entry in payload.get("entry", []):
         for change in entry.get("changes", []):
-            if change.get("field") != "messages":
+            field_type = change.get("field")
+            logger.info(f"📋 Webhook field type: {field_type}")
+            if field_type != "messages":
+                logger.info(f"⏭️ Skipping non-message webhook: {field_type}")
                 continue
 
             value = change.get("value", {})
@@ -117,10 +123,12 @@ async def _process_single_message(
     logger.info(f"Processing WhatsApp message {message_id} type={message_type}")
 
     if message_type == "text":
+        message_text = message.get("text", {}).get("body", "")
+        logger.warning(f"WHATSAPP MESSAGE FROM {from_number}: {message_text}")
         expense = integration.process_text_payload(
             message_id=message_id,
             from_number=from_number,
-            text=message.get("text", {}).get("body", ""),
+            text=message_text,
             timestamp=timestamp,
             contacts=contacts,
             extra_metadata={"raw_context": message},

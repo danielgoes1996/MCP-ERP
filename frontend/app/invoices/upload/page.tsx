@@ -55,15 +55,86 @@ export default function InvoiceUploadPage() {
   // Get user and tenant from auth context
   const { user, tenant } = useAuthStore();
 
-  // Calculate overall progress
+  // Restore batch progress on page load (fix for refresh keeping progress)
+  useEffect(() => {
+    const restoreBatchProgress = async () => {
+      const batchId = localStorage.getItem('last_batch_id');
+      const savedCompanyId = localStorage.getItem('last_batch_company_id');
+
+      // Only restore if we have a batch ID and it matches current company
+      if (!batchId || !tenant?.company_id || savedCompanyId !== tenant.company_id) {
+        // No batch to restore, clear state
+        setUploadedFiles([]);
+        setIsProcessing(false);
+        setOverallProgress(0);
+        return;
+      }
+
+      try {
+        // Check if this batch is still processing
+        const statusResponse = await fetch(
+          `http://localhost:8001/universal-invoice/sessions/batch-status/${batchId}?company_id=${tenant.company_id}`
+        );
+
+        if (!statusResponse.ok) {
+          // Batch no longer exists or error, clear localStorage
+          localStorage.removeItem('last_batch_id');
+          localStorage.removeItem('last_batch_company_id');
+          return;
+        }
+
+        const statusData = await statusResponse.json();
+
+        // If batch is 100% complete, don't restore (let user start fresh)
+        if (statusData.progress_percentage >= 100) {
+          localStorage.removeItem('last_batch_id');
+          localStorage.removeItem('last_batch_company_id');
+          return;
+        }
+
+        // Batch is still in progress! Restore the UI state
+        console.log(`[Restore Batch] Recuperando progreso del batch ${batchId}: ${statusData.completed}/${statusData.total_sessions}`);
+
+        // Recreate the file list from the batch sessions
+        const restoredFiles = statusData.sessions.map((session: any) => ({
+          id: session.session_id || session.id,
+          file: { name: session.original_filename },
+          status: session.extraction_status === 'completed' ? 'completed' :
+                  session.extraction_status === 'failed' ? 'error' : 'processing',
+          progress: session.extraction_status === 'completed' ? 100 :
+                    session.extraction_status === 'failed' ? 0 :
+                    30 + (statusData.progress_percentage * 0.7),
+          uploadProgress: 100,
+          uploadedAt: session.created_at,
+        }));
+
+        setUploadedFiles(restoredFiles);
+        setIsProcessing(statusData.progress_percentage < 100);
+        setOverallProgress(statusData.progress_percentage);
+
+        console.log(`[Restore Batch] ✅ Progreso restaurado: ${restoredFiles.length} archivos`);
+
+      } catch (error) {
+        console.error('[Restore Batch] Error al restaurar progreso:', error);
+        // On error, just clear state
+        setUploadedFiles([]);
+        setIsProcessing(false);
+        setOverallProgress(0);
+      }
+    };
+
+    restoreBatchProgress();
+  }, [tenant?.company_id]); // Re-run when company changes
+
+  // Calculate overall progress based on completed files only
   useEffect(() => {
     if (uploadedFiles.length === 0) {
       setOverallProgress(0);
       return;
     }
-    const totalProgress = uploadedFiles.reduce((sum, file) => sum + file.progress, 0);
-    const avgProgress = totalProgress / uploadedFiles.length;
-    setOverallProgress(avgProgress);
+    const completedCount = uploadedFiles.filter(f => f.status === 'completed').length;
+    const overallProgress = (completedCount / uploadedFiles.length) * 100;
+    setOverallProgress(overallProgress);
   }, [uploadedFiles]);
 
   // Handle drag and drop
@@ -604,7 +675,7 @@ export default function InvoiceUploadPage() {
                         Procesando archivos...
                       </span>
                       <span className="text-sm font-bold text-[#11446e]">
-                        {Math.round((overallProgress / 100) * uploadedFiles.length)} de {uploadedFiles.length}
+                        {uploadedFiles.filter(f => f.status === 'completed').length} de {uploadedFiles.length}
                       </span>
                     </div>
                     <Progress value={overallProgress} max={100} />

@@ -704,7 +704,7 @@ Authorization: Bearer eyJhbGc...
 {
   "movement_id": 8181,
   "movement_amount": 5000.0,
-  "expenses": [
+  "manual_expenses": [
     {"expense_id": 101, "amount": 2500.0, "notes": "Mantenimiento"},
     {"expense_id": 102, "amount": 1500.0, "notes": "Reparación"},
     {"expense_id": 103, "amount": 1000.0, "notes": "Material"}
@@ -752,7 +752,7 @@ GET /bank_reconciliation/ai/suggestions?min_confidence=85
       "amount": 2551.25,
       "date": "2025-01-16"
     },
-    "expenses": [
+    "manual_expenses": [
       {"id": 10244, "description": "Gasolina", "amount": 850.50},
       {"id": 10245, "description": "Peajes", "amount": 200.75},
       {"id": 10246, "description": "Comida", "amount": 1500.00}
@@ -1566,7 +1566,7 @@ Backend:
   POST /bank_reconciliation/split/one-to-many
   {
     "movement_id": 8182,
-    "expenses": [
+    "manual_expenses": [
       {"expense_id": 10245, "amount": 2500},
       {"expense_id": 10246, "amount": 1500},
       {"expense_id": 10247, "amount": 1000}
@@ -1857,7 +1857,7 @@ def suggest_one_to_many_splits(self, limit=10):
                 suggestions.append({
                     'type': 'one_to_many',
                     'movement': movement,
-                    'expenses': combo,
+                    'manual_expenses': combo,
                     'confidence_score': score
                 })
 

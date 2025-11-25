@@ -197,11 +197,16 @@ class SATSOAPClient:
         Returns:
             (success, token, error_message)
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("[SAT_SOAP] autenticar() START")
+
         cert_file_path = None
         key_file_path = None
 
         try:
             # Crear archivos temporales para WS-Security
+            logger.info("[SAT_SOAP] Creando archivos temporales...")
             cert_file = tempfile.NamedTemporaryFile(mode='w', suffix='.pem', delete=False)
             key_file = tempfile.NamedTemporaryFile(mode='w', suffix='.pem', delete=False)
 
@@ -212,12 +217,15 @@ class SATSOAPClient:
             key_file.write(self.private_key_pem)
             key_file.close()
             key_file_path = key_file.name
+            logger.info(f"[SAT_SOAP] Archivos creados: cert={cert_file_path}, key={key_file_path}")
 
             # Crear WS-Security signature
             # Usamos SATSignature que NO verifica la firma de respuesta del SAT
             # (el SAT a veces tiene problemas con sus propias firmas de respuesta)
             # El SAT requiere algoritmos específicos: RSA-SHA1 y SHA1
+            logger.info("[SAT_SOAP] Importando xmlsec...")
             import xmlsec
+            logger.info("[SAT_SOAP] xmlsec importado correctamente")
 
             if self.private_key_password:
                 wsse = SATSignature(

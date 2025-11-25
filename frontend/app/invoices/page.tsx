@@ -33,6 +33,9 @@ import {
 import { cn } from '@/lib/utils/cn';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/auth/useAuthStore';
+import { InlineClassificationControl, type ClassificationData } from '@/components/classification/InlineClassificationControl';
+import { getClassificationDetail, confirmClassification, correctClassification } from '@/services/classificationService';
+import { ClassificationCorrectionModal } from '@/components/classification/ClassificationCorrectionModal';
 
 // Catálogos del SAT
 const FORMA_PAGO_SAT: Record<string, string> = {
@@ -209,8 +212,17 @@ export default function InvoicesPage() {
   const [reprocessing, setReprocessing] = useState(false);
   const [reprocessMessage, setReprocessMessage] = useState<string | null>(null);
 
+  // Classification state
+  const [classifications, setClassifications] = useState<Record<string, ClassificationData>>({});
+  const [classificationLoading, setClassificationLoading] = useState(false);
+  const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
+  const [correctionSessionId, setCorrectionSessionId] = useState<string | null>(null);
+
+  // Tab state for switching between Facturas and Complementos de Pago
+  const [activeTab, setActiveTab] = useState<'invoices' | 'payment-complements'>('invoices');
+
   // Get user and tenant from auth context
-  const { user, tenant } = useAuthStore();
+  const { user, tenant} = useAuthStore();
 
   // RFC de la empresa (deberías obtenerlo del contexto de autenticación)
   const companyRFC = 'POL210218264'; // TODO: Get from auth context
@@ -225,7 +237,7 @@ export default function InvoicesPage() {
     try {
       setLoading(true);
 
-      // Get tenant_id from authenticated user
+      // Get company_id from authenticated user's tenant
       if (!user || !tenant) {
         console.error('User not authenticated');
         setSessions([]);
@@ -233,11 +245,18 @@ export default function InvoicesPage() {
         return;
       }
 
-      const tenantId = tenant.id;
-      // Fetch ALL sessions - filtering is done client-side to avoid multiple requests
-      const url = `http://localhost:8001/universal-invoice/sessions/tenant/${tenantId}`;
+      // Use company_id string from tenant (populated by backend from companies.company_id)
+      // Falls back to tenant ID if company_id is not set (for backward compatibility)
+      const companyId = tenant.company_id || tenant.id.toString();
 
-      console.log(`[Invoices] Fetching sessions for tenant ${tenantId} from:`, url);
+      if (!tenant.company_id) {
+        console.warn('[Invoices] tenant.company_id is not set, falling back to tenant.id:', tenant.id);
+      }
+
+      // Fetch ALL sessions - filtering is done client-side to avoid multiple requests
+      const url = `http://localhost:8001/universal-invoice/sessions/company/${companyId}`;
+
+      console.log(`[Invoices] Fetching sessions for company ${companyId} from:`, url);
 
       const response = await fetch(url, {
         headers: {
@@ -259,11 +278,14 @@ export default function InvoicesPage() {
       console.log(`[Invoices] Sessions count:`, data.sessions?.length || 0);
       setSessions(data.sessions || []);
 
-      // Cargar datos extraídos de las sesiones completadas para mostrar en la lista
-      const completedSessions = (data.sessions || []).filter((s: InvoiceSession) => s.status === 'completed');
-      completedSessions.forEach((session: InvoiceSession) => {
+      // Cargar datos extraídos de TODAS las sesiones (no solo completed)
+      // para poder mostrarlos en la tabla de complementos de pago
+      (data.sessions || []).forEach((session: InvoiceSession) => {
         fetchExtractedData(session.session_id);
       });
+
+      // Cargar clasificaciones para todas las sesiones
+      fetchClassifications(data.sessions || []);
     } catch (error) {
       console.error('Error fetching sessions:', error);
     } finally {
@@ -294,6 +316,171 @@ export default function InvoicesPage() {
     } catch (error) {
       console.error('Error fetching extracted data:', error);
     }
+  };
+
+  // Fetch classifications for all sessions
+  const fetchClassifications = async (sessions: InvoiceSession[]) => {
+    try {
+      // Fetch classification for each session in parallel
+      const classificationPromises = sessions.map(async (session) => {
+        try {
+          const detail = await getClassificationDetail(session.session_id);
+
+          // Debug logging
+          console.log(`Classification detail for ${session.session_id}:`, detail);
+          console.log(`confidence_sat: ${detail.classification.confidence_sat}`);
+          console.log(`metrics.confidence: ${detail.metrics?.confidence}`);
+
+          // Use confidence_sat with fallback to metrics.confidence, then to 0.5
+          const confidence =
+            detail.classification.confidence_sat ??
+            detail.metrics?.confidence ??
+            0.5;
+
+          console.log(`Final confidence used: ${confidence}`);
+
+          // Transform ClassificationDetail to ClassificationData
+          const classification: ClassificationData = {
+            session_id: detail.session_id,
+            sat_code: detail.classification.sat_account_code,
+            sat_account_name: detail.classification.sat_account_name || detail.classification.sat_account_code, // Official name from catalog
+            family_code: detail.classification.family_code,
+            confidence: confidence,
+            explanation: detail.classification.explanation_short,
+            explanation_detail: detail.classification.explanation_detail || undefined,
+            status: detail.classification.status as 'pending_confirmation' | 'confirmed' | 'corrected' | 'not_classified',
+            confirmed_by: detail.classification.confirmed_by || undefined,
+            confirmed_at: detail.classification.confirmed_at || undefined,
+            corrected_code: detail.classification.corrected_sat_code || undefined,
+            corrected_at: detail.classification.corrected_at || undefined,
+            corrected_notes: detail.classification.correction_notes || undefined,
+            alternative_candidates: detail.classification.alternative_candidates || undefined,
+            hierarchical_phase1: detail.metadata?.hierarchical_phase1 || undefined,
+          };
+
+          return { sessionId: session.session_id, classification };
+        } catch (error) {
+          // Classification not found or error - skip it
+          console.error(`Error fetching classification for ${session.session_id}:`, error);
+          return { sessionId: session.session_id, classification: null };
+        }
+      });
+
+      const results = await Promise.all(classificationPromises);
+
+      // Build classifications map
+      const classificationsMap: Record<string, ClassificationData> = {};
+      results.forEach(({ sessionId, classification }) => {
+        if (classification) {
+          classificationsMap[sessionId] = classification;
+        }
+      });
+
+      console.log('Final classifications map:', classificationsMap);
+      setClassifications(classificationsMap);
+    } catch (error) {
+      console.error('Error fetching classifications:', error);
+    }
+  };
+
+  // Handle confirm classification
+  const handleConfirmClassification = async (sessionId: string, alternativeCode?: string) => {
+    if (!user?.id) return;
+
+    try {
+      setClassificationLoading(true);
+
+      // If alternative code provided, use correction endpoint
+      if (alternativeCode) {
+        await correctClassification(
+          sessionId,
+          alternativeCode,
+          'Seleccionado de candidatos alternativos',
+          user.id.toString()
+        );
+
+        // Update local state
+        setClassifications(prev => ({
+          ...prev,
+          [sessionId]: {
+            ...prev[sessionId],
+            status: 'corrected',
+            corrected_code: alternativeCode,
+            corrected_by: user.full_name,
+            corrected_at: new Date().toISOString(),
+            corrected_notes: 'Seleccionado de candidatos alternativos',
+          },
+        }));
+
+        alert('Clasificación alternativa confirmada exitosamente');
+      } else {
+        // Otherwise, use normal confirmation
+        await confirmClassification(sessionId, user.id.toString());
+
+        // Update local state
+        setClassifications(prev => ({
+          ...prev,
+          [sessionId]: {
+            ...prev[sessionId],
+            status: 'confirmed',
+            confirmed_by: user.full_name,
+            confirmed_at: new Date().toISOString(),
+          },
+        }));
+
+        alert('Clasificación confirmada exitosamente');
+      }
+    } catch (error) {
+      console.error('Error confirming classification:', error);
+      alert('Error al confirmar clasificación');
+    } finally {
+      setClassificationLoading(false);
+    }
+  };
+
+  // Handle correct classification
+  const handleCorrectClassification = (sessionId: string) => {
+    setCorrectionSessionId(sessionId);
+    setCorrectionModalOpen(true);
+  };
+
+  // Handle submit correction
+  const handleSubmitCorrection = async (correctedCode: string, notes?: string) => {
+    if (!correctionSessionId || !user?.id) return;
+
+    try {
+      setClassificationLoading(true);
+      await correctClassification(correctionSessionId, correctedCode, notes, user.id.toString());
+
+      // Update local state
+      setClassifications(prev => ({
+        ...prev,
+        [correctionSessionId]: {
+          ...prev[correctionSessionId],
+          status: 'corrected',
+          corrected_code: correctedCode,
+          corrected_notes: notes,
+          corrected_by: user.full_name,
+          corrected_at: new Date().toISOString(),
+        },
+      }));
+
+      setCorrectionModalOpen(false);
+      setCorrectionSessionId(null);
+      alert('Clasificación corregida exitosamente');
+    } catch (error) {
+      console.error('Error correcting classification:', error);
+      alert('Error al corregir clasificación');
+    } finally {
+      setClassificationLoading(false);
+    }
+  };
+
+  // Handle classify manually
+  const handleClassifyManually = (sessionId: string) => {
+    // Open correction modal with empty code (manual classification)
+    setCorrectionSessionId(sessionId);
+    setCorrectionModalOpen(true);
   };
 
   const handleReprocessFailed = async () => {
@@ -518,12 +705,36 @@ export default function InvoicesPage() {
 
   // Obtener estado SAT de la sesión
   const getSatStatus = (session: InvoiceSession): string => {
+    // Prioridad 1: display_info.sat_status (si no es "desconocido")
+    if (session.display_info?.sat_status &&
+        session.display_info.sat_status !== 'desconocido') {
+      return session.display_info.sat_status;
+    }
+
+    // Prioridad 2: sat_validation.status (fallback crítico)
+    if (session.sat_validation?.status &&
+        session.sat_validation.status !== 'pending') {
+      return session.sat_validation.status;
+    }
+
+    // Prioridad 3: display_info.sat_status incluso si es "desconocido"
     if (session.display_info?.sat_status) {
       return session.display_info.sat_status;
     }
-    // Fallback: buscar en extractedData
+
+    // Prioridad 4: buscar en extractedData
     const data = extractedData[session.session_id];
     return data?.sat_status || 'desconocido';
+  };
+
+  // Obtener tipo de comprobante (I, E, P, N, T)
+  const getTipoComprobante = (session: InvoiceSession): string | null => {
+    if (session.display_info?.tipo_comprobante) {
+      return session.display_info.tipo_comprobante;
+    }
+    // Fallback: buscar en extractedData
+    const data = extractedData[session.session_id];
+    return data?.tipo_comprobante || null;
   };
 
   // Extraer años únicos de las facturas
@@ -543,13 +754,42 @@ export default function InvoicesPage() {
 
   // Filtrar sesiones
   const filteredSessions = sessions.filter(session => {
+    // FILTRO POR TAB: Separar facturas de complementos de pago
+    const tipoComprobante = getTipoComprobante(session);
+
+    if (activeTab === 'invoices') {
+      // En tab de facturas: SOLO mostrar tipo I, E, N, T (excluir tipo P)
+      if (tipoComprobante === 'P') {
+        return false; // Excluir complementos de pago
+      }
+    } else if (activeTab === 'payment-complements') {
+      // En tab de complementos: SOLO mostrar tipo P
+      if (tipoComprobante !== 'P') {
+        return false; // Excluir facturas normales
+      }
+    }
+
     // Filtro de búsqueda
     const matchesSearch = session.original_filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
       session.session_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (session.display_info?.emisor_nombre?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
 
     // Filtro de estado
-    const matchesStatus = statusFilter === 'all' || session.status === statusFilter;
+    // Accept invoices where:
+    // 1. status matches the filter, OR
+    // 2. extraction_status is completed (data is ready to display)
+    let matchesStatus = statusFilter === 'all' || session.status === statusFilter;
+
+    // If statusFilter is 'completed', also show invoices with extraction_status = 'completed'
+    // This allows users to see invoices that have been processed but not yet fully completed
+    if (statusFilter === 'completed' && session.extraction_status === 'completed') {
+      matchesStatus = true;
+    }
+
+    // For 'all' filter, show anything with display_info (extraction completed)
+    if (statusFilter === 'all' && session.display_info) {
+      matchesStatus = true;
+    }
 
     // Filtro de tipo de factura (emitida/recibida)
     let matchesInvoiceType = true;
@@ -623,6 +863,89 @@ export default function InvoicesPage() {
     // Card 4: SAT & Conciliación
     const failedCount = filteredSessions.filter(s => s.status === 'failed').length;
 
+    // Estadísticas de complementos de pago (Tipo P)
+    const paymentComplements = filteredSessions.filter(s => getTipoComprobante(s) === 'P');
+    const paymentComplementsVigentes = paymentComplements.filter(s => getSatStatus(s) === 'vigente');
+
+    // Calcular monto total pagado (suma de payment_complement.pagos[].monto)
+    const totalPagado = paymentComplementsVigentes.reduce((sum, s) => {
+      const paymentComp = s.parsed_data?.payment_complement;
+      if (!paymentComp?.pagos) return sum;
+      const pagosTotal = paymentComp.pagos.reduce((pSum: number, pago: any) => pSum + (pago.monto || 0), 0);
+      return sum + pagosTotal;
+    }, 0);
+
+    // Contar formas de pago CON MONTOS + PORCENTAJES
+    const formasPagoStats: Record<string, { count: number; monto: number }> = {};
+    paymentComplementsVigentes.forEach(s => {
+      const paymentComp = s.parsed_data?.payment_complement;
+      if (!paymentComp?.pagos) return;
+      paymentComp.pagos.forEach((pago: any) => {
+        const forma = pago.forma_pago || 'No especificado';
+        if (!formasPagoStats[forma]) {
+          formasPagoStats[forma] = { count: 0, monto: 0 };
+        }
+        formasPagoStats[forma].count++;
+        formasPagoStats[forma].monto += pago.monto || 0;
+      });
+    });
+
+    // Analizar facturas relacionadas: totalmente pagadas vs con saldo pendiente
+    const facturasRelacionadasMap = new Map<string, { saldoPendiente: number; totalPagado: number; numParcialidades: number }>();
+    paymentComplementsVigentes.forEach(s => {
+      const paymentComp = s.parsed_data?.payment_complement;
+      if (!paymentComp?.pagos) return;
+      paymentComp.pagos.forEach((pago: any) => {
+        if (pago.documentos_relacionados) {
+          pago.documentos_relacionados.forEach((doc: any) => {
+            const uuid = doc.id_documento;
+            if (!uuid) return;
+
+            if (!facturasRelacionadasMap.has(uuid)) {
+              facturasRelacionadasMap.set(uuid, { saldoPendiente: 0, totalPagado: 0, numParcialidades: 0 });
+            }
+            const facturaData = facturasRelacionadasMap.get(uuid)!;
+            facturaData.saldoPendiente = doc.imp_saldo_insoluto || 0;
+            facturaData.totalPagado += doc.imp_pagado || 0;
+            facturaData.numParcialidades++;
+          });
+        }
+      });
+    });
+
+    // Contar facturas totalmente pagadas vs con saldo pendiente
+    let facturasTotalmentePagadas = 0;
+    let facturasConSaldoPendiente = 0;
+    let saldoPendienteTotal = 0;
+
+    facturasRelacionadasMap.forEach(({ saldoPendiente }) => {
+      if (saldoPendiente === 0) {
+        facturasTotalmentePagadas++;
+      } else {
+        facturasConSaldoPendiente++;
+        saldoPendienteTotal += saldoPendiente;
+      }
+    });
+
+    // Contar parcialidades completas vs pendientes
+    let parcialidadesCompletas = 0;
+    let parcialidadesPendientes = 0;
+    paymentComplementsVigentes.forEach(s => {
+      const paymentComp = s.parsed_data?.payment_complement;
+      if (!paymentComp?.pagos) return;
+      paymentComp.pagos.forEach((pago: any) => {
+        if (pago.documentos_relacionados) {
+          pago.documentos_relacionados.forEach((doc: any) => {
+            if (doc.imp_saldo_insoluto === 0) {
+              parcialidadesCompletas++;
+            } else {
+              parcialidadesPendientes++;
+            }
+          });
+        }
+      });
+    });
+
     return {
       // Card 1
       vigentesCount: vigenteSessions.length,
@@ -649,9 +972,26 @@ export default function InvoicesPage() {
       failedCount,
 
       // Total
-      total: filteredSessions.length
+      total: filteredSessions.length,
+
+      // Complementos de pago (Tipo P) - Versión mejorada
+      paymentComplementsCount: paymentComplements.length,
+      paymentComplementsVigentesCount: paymentComplementsVigentes.length,
+      totalPagado,
+      formasPagoStats, // { forma: { count, monto } }
+      facturasRelacionadasCount: facturasRelacionadasMap.size,
+      facturasTotalmentePagadas,
+      facturasConSaldoPendiente,
+      saldoPendienteTotal,
+      parcialidadesCompletas,
+      parcialidadesPendientes,
     };
   }, [filteredSessions]);
+
+  // Contar complementos de pago excluidos para mostrar nota informativa
+  const excludedPaymentComplements = useMemo(() => {
+    return sessions.filter(s => getTipoComprobante(s) === 'P').length;
+  }, [sessions]);
 
   // Ordenar facturas por fecha (más reciente primero)
   const sortedSessions = useMemo(() => {
@@ -721,6 +1061,32 @@ export default function InvoicesPage() {
             </div>
           </div>
 
+          {/* Tabs: Facturas | Complementos de Pago */}
+          <div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-700">
+            <button
+              onClick={() => setActiveTab('invoices')}
+              className={cn(
+                "px-4 py-3 text-sm font-medium transition-all border-b-2 -mb-px",
+                activeTab === 'invoices'
+                  ? "border-slate-900 dark:border-white text-slate-900 dark:text-white"
+                  : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+              )}
+            >
+              Facturas ({sessions.filter(s => getTipoComprobante(s) !== 'P').length})
+            </button>
+            <button
+              onClick={() => setActiveTab('payment-complements')}
+              className={cn(
+                "px-4 py-3 text-sm font-medium transition-all border-b-2 -mb-px",
+                activeTab === 'payment-complements'
+                  ? "border-slate-900 dark:border-white text-slate-900 dark:text-white"
+                  : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+              )}
+            >
+              Complementos de Pago ({sessions.filter(s => getTipoComprobante(s) === 'P').length})
+            </button>
+          </div>
+
           {/* Reprocess Message */}
           {reprocessMessage && (
             <div className={cn(
@@ -736,182 +1102,313 @@ export default function InvoicesPage() {
           )}
 
           {/* Stats Cards - 4 cards interactivas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Card 1: Resumen del periodo - MÁS PESO VISUAL */}
-            <div className="bg-white dark:bg-slate-900 rounded-xl border-2 border-slate-300/80 dark:border-slate-600/80 p-5 hover:shadow-lg transition-all hover:border-slate-400 dark:hover:border-slate-500 cursor-pointer">
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-3 uppercase tracking-wide">Resumen del periodo</p>
-              <div className="space-y-2">
-                <button
-                  onClick={() => {
-                    setSatStatusFilter('vigente');
-                    setInvoiceTypeFilter('all');
-                  }}
-                  className="w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 -mx-2 px-2 py-1 rounded transition-colors cursor-pointer"
-                >
-                  <p className="text-3xl font-bold text-slate-900 dark:text-white">{detailedStats.vigentesCount} CFDI vigentes</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{detailedStats.total === detailedStats.vigentesCount ? '100%' : `${Math.round((detailedStats.vigentesCount / detailedStats.total) * 100)}%`} del total</p>
-                </button>
-                <div className="space-y-1 text-sm">
+          {activeTab === 'payment-complements' ? (
+            // Estadísticas específicas para Complementos de Pago (Tipo P)
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Card 1: Resumen de complementos de pago */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl border-2 border-slate-300/80 dark:border-slate-600/80 p-5 hover:shadow-lg transition-all hover:border-slate-400 dark:hover:border-slate-500 cursor-pointer">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-3 uppercase tracking-wide">Complementos de pago</p>
+                <div className="space-y-2">
                   <button
-                    onClick={() => setInvoiceTypeFilter('recibida')}
-                    className="w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 -mx-2 px-2 py-0.5 rounded transition-colors flex items-center justify-between cursor-pointer"
+                    onClick={() => setSatStatusFilter('vigente')}
+                    className="w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 -mx-2 px-2 py-1 rounded transition-colors cursor-pointer"
                   >
-                    <span className="text-slate-700 dark:text-slate-300 font-medium">Recibidas: {detailedStats.recibidasCount}</span>
-                    <span className="text-slate-600 dark:text-slate-400">· {formatCurrency(detailedStats.recibidasTotal)}</span>
+                    <p className="text-3xl font-bold text-slate-900 dark:text-white">{detailedStats.paymentComplementsVigentesCount} vigentes</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {detailedStats.paymentComplementsCount > 0 ? `${Math.round((detailedStats.paymentComplementsVigentesCount / detailedStats.paymentComplementsCount) * 100)}%` : '0%'} de los complementos están vigentes
+                    </p>
                   </button>
-                  <button
-                    onClick={() => setInvoiceTypeFilter('emitida')}
-                    className="w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 -mx-2 px-2 py-0.5 rounded transition-colors flex items-center justify-between cursor-pointer"
-                  >
-                    <span className="text-slate-700 dark:text-slate-300 font-medium">Emitidas: {detailedStats.emitidasCount}</span>
-                    <span className="text-slate-600 dark:text-slate-400">· {formatCurrency(detailedStats.emitidasTotal)}</span>
-                  </button>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
-                  <span className="font-semibold">Total CFDI (importe con IVA):</span> {formatCurrency(detailedStats.totalGeneral)}
-                </p>
-              </div>
-            </div>
-
-            {/* Card 2: IVA del periodo */}
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-700/60 p-4 hover:shadow-md transition-shadow">
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3">IVA del periodo (CFDI vigentes)</p>
-              <div className="space-y-2">
-                <button
-                  onClick={() => setInvoiceTypeFilter('recibida')}
-                  className="w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 -mx-2 px-2 py-1 rounded transition-colors cursor-pointer"
-                >
-                  <p className="text-sm text-slate-700 dark:text-slate-300">IVA acreditable (recibidas):</p>
-                  <p className="text-xl font-semibold text-slate-900 dark:text-white">{formatCurrency(detailedStats.ivaAcreditable)}</p>
-                </button>
-                <div className="space-y-1 text-sm">
-                  {detailedStats.ivaTrasladado > 0 ? (
-                    <button
-                      onClick={() => setInvoiceTypeFilter('emitida')}
-                      className="w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 -mx-2 px-2 py-0.5 rounded transition-colors cursor-pointer"
-                    >
-                      <span className="text-slate-700 dark:text-slate-300">IVA trasladado (emitidas): </span>
-                      <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(detailedStats.ivaTrasladado)}</span>
-                    </button>
-                  ) : (
+                  <div className="space-y-1 text-sm">
                     <div className="px-2 py-0.5">
-                      <span className="text-slate-400 dark:text-slate-500 text-xs italic">No hay IVA trasladado en este periodo</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">Total complementos: {detailedStats.paymentComplementsCount}</span>
                     </div>
-                  )}
-                  {detailedStats.baseTasa0 > 0 ? (
-                    <div className="text-slate-700 dark:text-slate-300 px-2 py-0.5">
-                      <span>Base tasa 0%: </span>
-                      <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(detailedStats.baseTasa0)}</span>
-                    </div>
-                  ) : (
-                    <div className="px-2 py-0.5">
-                      <span className="text-slate-400 dark:text-slate-500 text-xs italic">Sin operaciones a tasa 0%</span>
-                    </div>
-                  )}
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
-                  Cálculo estimado con CFDI vigentes del periodo
-                </p>
-              </div>
-            </div>
-
-            {/* Card 3: Pagos & complementos */}
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-700/60 p-4 hover:shadow-md transition-shadow">
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3">Métodos de pago</p>
-              <div className="space-y-2">
-                <button
-                  onClick={() => setPaymentMethodFilter('PUE')}
-                  className="w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 -mx-2 px-2 py-1 rounded transition-colors cursor-pointer"
-                >
-                  <p className="text-2xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                    PUE: {detailedStats.pueCount} CFDI
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                    <span className="font-semibold">Monto total pagado:</span> {formatCurrency(detailedStats.totalPagado)}
                   </p>
-                  <p className="text-xs text-slate-500 mt-0.5">Pago en una sola exhibición</p>
-                </button>
-                <div className="space-y-1 text-sm">
-                  <button
-                    onClick={() => setPaymentMethodFilter('PPD')}
-                    className="w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 -mx-2 px-2 py-0.5 rounded transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-700 dark:text-slate-300 font-medium">PPD: {detailedStats.ppdCount} CFDI</span>
-                      {detailedStats.ppdSinComplementoCount > 0 && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-medium">
-                          <AlertTriangle className="w-3 h-3" />
-                          {detailedStats.ppdSinComplementoCount} sin complemento
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                  {detailedStats.ppdSinComplementoCount > 0 && (
-                    <div className="px-2 py-1 bg-amber-50 dark:bg-amber-950/30 rounded-md border border-amber-200/50 dark:border-amber-900/50">
-                      <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-                        <AlertTriangle className="w-3 h-3 inline mr-1" />
-                        PPD sin complemento no son deducibles hasta recibir el CFDI de pago
+                </div>
+              </div>
+
+              {/* Card 2: Facturas relacionadas - MEJORADO con montos */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-700/60 p-4 hover:shadow-md transition-shadow">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3">Facturas relacionadas</p>
+                <div className="space-y-2">
+                  <div className="px-2 py-1">
+                    <p className="text-2xl font-semibold text-slate-900 dark:text-white">{detailedStats.facturasRelacionadasCount}</p>
+                    <p className="text-sm text-slate-700 dark:text-slate-300 mt-1">Facturas únicas con pagos</p>
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    <div className="px-2 py-1 bg-emerald-50 dark:bg-emerald-950/30 rounded-md border border-emerald-200/50 dark:border-emerald-900/50">
+                      <p className="text-xs text-emerald-800 dark:text-emerald-300">
+                        <CheckCircle2 className="w-3 h-3 inline mr-1" />
+                        Pagadas totalmente: {detailedStats.facturasTotalmentePagadas}
                       </p>
                     </div>
-                  )}
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
-                  Basado en método de pago del CFDI
-                </p>
-              </div>
-            </div>
-
-            {/* Card 4: SAT & Conciliación bancaria */}
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-700/60 p-4 hover:shadow-md transition-shadow">
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3">Estado SAT & conciliación</p>
-              <div className="space-y-2">
-                <button
-                  onClick={() => setSatStatusFilter('vigente')}
-                  className="w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 -mx-2 px-2 py-1 rounded transition-colors cursor-pointer"
-                >
-                  <p className="text-2xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                    {detailedStats.vigentesCount} vigentes
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                  </p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {detailedStats.total > 0 ? `${Math.round((detailedStats.vigentesCount / detailedStats.total) * 100)}%` : '0%'} de {detailedStats.total} CFDI totales
-                  </p>
-                </button>
-                <div className="space-y-1 text-sm">
-                  <div className="flex items-center gap-2 px-2">
-                    <button
-                      onClick={() => setSatStatusFilter('cancelado')}
-                      className="hover:underline text-slate-700 dark:text-slate-300 cursor-pointer"
-                    >
-                      <span>Canceladas: </span>
-                      <span className="font-medium text-slate-900 dark:text-white">{detailedStats.canceladoCount}</span>
-                    </button>
-                    <span className="text-slate-500">·</span>
-                    <button
-                      onClick={() => setSatStatusFilter('sustituido')}
-                      className="hover:underline text-slate-700 dark:text-slate-300 cursor-pointer"
-                    >
-                      <span>Sustituidas: </span>
-                      <span className="font-medium text-slate-900 dark:text-white">{detailedStats.sustituidoCount}</span>
-                    </button>
+                    {detailedStats.facturasConSaldoPendiente > 0 && (
+                      <div className="px-2 py-1 bg-amber-50 dark:bg-amber-950/30 rounded-md border border-amber-200/50 dark:border-amber-900/50">
+                        <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                          <AlertTriangle className="w-3 h-3 inline mr-1" />
+                          Con saldo pendiente: {detailedStats.facturasConSaldoPendiente} · {formatCurrency(detailedStats.saldoPendienteTotal)}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <div className="px-2 py-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200/50 dark:border-blue-900/50 mt-2">
-                    <p className="text-xs text-blue-700 dark:text-blue-300 font-medium mb-0.5">Conciliación bancaria</p>
-                    <div className="text-xs text-blue-800 dark:text-blue-200">
-                      <span className="font-semibold">{Math.floor(detailedStats.vigentesCount * 0.65)}</span> de <span className="font-semibold">{detailedStats.vigentesCount}</span> conciliadas
-                      <span className="text-blue-600 dark:text-blue-400 ml-1">
-                        ({detailedStats.vigentesCount > 0 ? Math.round((Math.floor(detailedStats.vigentesCount * 0.65) / detailedStats.vigentesCount) * 100) : 0}%)
-                      </span>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                    {detailedStats.parcialidadesCompletas} parcialidades completas · {detailedStats.parcialidadesPendientes} pendientes
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 3: Formas de pago - MEJORADO con montos y % */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-700/60 p-4 hover:shadow-md transition-shadow">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3">Formas de pago (SAT)</p>
+                <div className="space-y-2">
+                  <div className="space-y-1 text-sm">
+                    {Object.entries(detailedStats.formasPagoStats || {})
+                      .sort(([, a], [, b]) => (b as any).monto - (a as any).monto)
+                      .slice(0, 4)
+                      .map(([forma, stats]: [string, any]) => {
+                        const formaName = forma === '03' ? 'Transferencia' : forma === '04' ? 'Tarjeta crédito' : forma === '01' ? 'Efectivo' : forma === '28' ? 'Tarjeta débito' : `Forma ${forma}`;
+                        const porcentaje = detailedStats.totalPagado > 0 ? Math.round((stats.monto / detailedStats.totalPagado) * 100) : 0;
+                        return (
+                          <div key={forma} className="px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded transition-colors">
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-700 dark:text-slate-300 font-medium text-xs">{formaName}</span>
+                              <span className="text-slate-500 dark:text-slate-400 text-xs">{porcentaje}%</span>
+                            </div>
+                            <div className="flex items-center justify-between mt-0.5">
+                              <span className="text-slate-900 dark:text-white font-semibold text-sm">{formatCurrency(stats.monto)}</span>
+                              <span className="text-slate-500 dark:text-slate-400 text-xs">{stats.count} pagos</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    {Object.keys(detailedStats.formasPagoStats || {}).length === 0 && (
+                      <div className="px-2 py-0.5">
+                        <span className="text-slate-400 dark:text-slate-500 text-xs italic">Sin formas de pago registradas</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                    Ordenado por monto total
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 4: Estado SAT */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-700/60 p-4 hover:shadow-md transition-shadow">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3">Validación SAT</p>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setSatStatusFilter('vigente')}
+                    className="w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 -mx-2 px-2 py-1 rounded transition-colors cursor-pointer"
+                  >
+                    <p className="text-2xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                      {detailedStats.paymentComplementsVigentesCount} vigentes
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {detailedStats.paymentComplementsCount > 0 ? `${Math.round((detailedStats.paymentComplementsVigentesCount / detailedStats.paymentComplementsCount) * 100)}%` : '0%'} de {detailedStats.paymentComplementsCount} complementos
+                    </p>
+                  </button>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex items-center gap-2 px-2">
+                      <button
+                        onClick={() => setSatStatusFilter('cancelado')}
+                        className="hover:underline text-slate-700 dark:text-slate-300 cursor-pointer"
+                      >
+                        <span>Cancelados: </span>
+                        <span className="font-medium text-slate-900 dark:text-white">
+                          {detailedStats.paymentComplementsCount - detailedStats.paymentComplementsVigentesCount}
+                        </span>
+                      </button>
                     </div>
                   </div>
-                </div>
-                {detailedStats.failedCount > 0 && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 pt-1 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {detailedStats.failedCount} CFDI con errores de procesamiento
+                  <p className="text-xs text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                    Complementos validados contra SAT
                   </p>
-                )}
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            // Estadísticas normales para facturas (Tipo I, E, etc.)
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Card 1: Resumen del periodo - MÁS PESO VISUAL */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl border-2 border-slate-300/80 dark:border-slate-600/80 p-5 hover:shadow-lg transition-all hover:border-slate-400 dark:hover:border-slate-500 cursor-pointer">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-3 uppercase tracking-wide">Resumen del periodo</p>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      setSatStatusFilter('vigente');
+                      setInvoiceTypeFilter('all');
+                    }}
+                    className="w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 -mx-2 px-2 py-1 rounded transition-colors cursor-pointer"
+                  >
+                    <p className="text-3xl font-bold text-slate-900 dark:text-white">{detailedStats.vigentesCount} CFDI vigentes</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{detailedStats.total === detailedStats.vigentesCount ? '100%' : `${Math.round((detailedStats.vigentesCount / detailedStats.total) * 100)}%`} del total</p>
+                  </button>
+                  <div className="space-y-1 text-sm">
+                    <button
+                      onClick={() => setInvoiceTypeFilter('recibida')}
+                      className="w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 -mx-2 px-2 py-0.5 rounded transition-colors flex items-center justify-between cursor-pointer"
+                    >
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">Recibidas: {detailedStats.recibidasCount}</span>
+                      <span className="text-slate-600 dark:text-slate-400">· {formatCurrency(detailedStats.recibidasTotal)}</span>
+                    </button>
+                    <button
+                      onClick={() => setInvoiceTypeFilter('emitida')}
+                      className="w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 -mx-2 px-2 py-0.5 rounded transition-colors flex items-center justify-between cursor-pointer"
+                    >
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">Emitidas: {detailedStats.emitidasCount}</span>
+                      <span className="text-slate-600 dark:text-slate-400">· {formatCurrency(detailedStats.emitidasTotal)}</span>
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                    <span className="font-semibold">Total CFDI (importe con IVA):</span> {formatCurrency(detailedStats.totalGeneral)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 2: IVA del periodo */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-700/60 p-4 hover:shadow-md transition-shadow">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3">IVA del periodo (CFDI vigentes)</p>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setInvoiceTypeFilter('recibida')}
+                    className="w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 -mx-2 px-2 py-1 rounded transition-colors cursor-pointer"
+                  >
+                    <p className="text-sm text-slate-700 dark:text-slate-300">IVA acreditable (recibidas):</p>
+                    <p className="text-xl font-semibold text-slate-900 dark:text-white">{formatCurrency(detailedStats.ivaAcreditable)}</p>
+                  </button>
+                  <div className="space-y-1 text-sm">
+                    {detailedStats.ivaTrasladado > 0 ? (
+                      <button
+                        onClick={() => setInvoiceTypeFilter('emitida')}
+                        className="w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 -mx-2 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                      >
+                        <span className="text-slate-700 dark:text-slate-300">IVA trasladado (emitidas): </span>
+                        <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(detailedStats.ivaTrasladado)}</span>
+                      </button>
+                    ) : (
+                      <div className="px-2 py-0.5">
+                        <span className="text-slate-400 dark:text-slate-500 text-xs italic">No hay IVA trasladado en este periodo</span>
+                      </div>
+                    )}
+                    {detailedStats.baseTasa0 > 0 ? (
+                      <div className="text-slate-700 dark:text-slate-300 px-2 py-0.5">
+                        <span>Base tasa 0%: </span>
+                        <span className="font-medium text-slate-900 dark:text-white">{formatCurrency(detailedStats.baseTasa0)}</span>
+                      </div>
+                    ) : (
+                      <div className="px-2 py-0.5">
+                        <span className="text-slate-400 dark:text-slate-500 text-xs italic">Sin operaciones a tasa 0%</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                    Cálculo estimado con CFDI vigentes del periodo
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 3: Pagos & complementos */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-700/60 p-4 hover:shadow-md transition-shadow">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3">Métodos de pago</p>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setPaymentMethodFilter('PUE')}
+                    className="w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 -mx-2 px-2 py-1 rounded transition-colors cursor-pointer"
+                  >
+                    <p className="text-2xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                      PUE: {detailedStats.pueCount} CFDI
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">Pago en una sola exhibición</p>
+                  </button>
+                  <div className="space-y-1 text-sm">
+                    <button
+                      onClick={() => setPaymentMethodFilter('PPD')}
+                      className="w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 -mx-2 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-700 dark:text-slate-300 font-medium">PPD: {detailedStats.ppdCount} CFDI</span>
+                        {detailedStats.ppdSinComplementoCount > 0 && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-medium">
+                            <AlertTriangle className="w-3 h-3" />
+                            {detailedStats.ppdSinComplementoCount} sin complemento
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                    {detailedStats.ppdSinComplementoCount > 0 && (
+                      <div className="px-2 py-1 bg-amber-50 dark:bg-amber-950/30 rounded-md border border-amber-200/50 dark:border-amber-900/50">
+                        <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                          <AlertTriangle className="w-3 h-3 inline mr-1" />
+                          PPD sin complemento no son deducibles hasta recibir el CFDI de pago
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                    Basado en método de pago del CFDI
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 4: SAT & Conciliación bancaria */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-700/60 p-4 hover:shadow-md transition-shadow">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3">Estado SAT & conciliación</p>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setSatStatusFilter('vigente')}
+                    className="w-full text-left hover:bg-slate-50 dark:hover:bg-slate-800 -mx-2 px-2 py-1 rounded transition-colors cursor-pointer"
+                  >
+                    <p className="text-2xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                      {detailedStats.vigentesCount} vigentes
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {detailedStats.total > 0 ? `${Math.round((detailedStats.vigentesCount / detailedStats.total) * 100)}%` : '0%'} de {detailedStats.total} CFDI totales
+                    </p>
+                  </button>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex items-center gap-2 px-2">
+                      <button
+                        onClick={() => setSatStatusFilter('cancelado')}
+                        className="hover:underline text-slate-700 dark:text-slate-300 cursor-pointer"
+                      >
+                        <span>Canceladas: </span>
+                        <span className="font-medium text-slate-900 dark:text-white">{detailedStats.canceladoCount}</span>
+                      </button>
+                      <span className="text-slate-500">·</span>
+                      <button
+                        onClick={() => setSatStatusFilter('sustituido')}
+                        className="hover:underline text-slate-700 dark:text-slate-300 cursor-pointer"
+                      >
+                        <span>Sustituidas: </span>
+                        <span className="font-medium text-slate-900 dark:text-white">{detailedStats.sustituidoCount}</span>
+                      </button>
+                    </div>
+                    <div className="px-2 py-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200/50 dark:border-blue-900/50 mt-2">
+                      <p className="text-xs text-blue-700 dark:text-blue-300 font-medium mb-0.5">Conciliación bancaria</p>
+                      <div className="text-xs text-blue-800 dark:text-blue-200">
+                        <span className="font-semibold">{Math.floor(detailedStats.vigentesCount * 0.65)}</span> de <span className="font-semibold">{detailedStats.vigentesCount}</span> conciliadas
+                        <span className="text-blue-600 dark:text-blue-400 ml-1">
+                          ({detailedStats.vigentesCount > 0 ? Math.round((Math.floor(detailedStats.vigentesCount * 0.65) / detailedStats.vigentesCount) * 100) : 0}%)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  {detailedStats.failedCount > 0 && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 pt-1 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {detailedStats.failedCount} CFDI con errores de procesamiento
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Filtros Compactos + Búsqueda */}
           <div className="flex flex-col gap-3">
@@ -1093,46 +1590,293 @@ export default function InvoicesPage() {
             )}
           </div>
 
-          {/* Invoices List - Simple filtered list */}
-          <div className="space-y-2">
-            {loading ? (
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-2xl" />
-                <div className="absolute inset-0 rounded-2xl border border-slate-200/50 dark:border-slate-700/50" />
-                <div className="relative p-12 text-center">
-                  <div className="inline-flex items-center gap-3 text-slate-600 dark:text-slate-400">
-                    <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-sm font-medium">Cargando facturas...</span>
+          {/* Nota informativa sobre complementos de pago excluidos - HIDDEN: ahora usamos tabs */}
+          {/* Banner removido porque ahora tenemos tabs separados para Facturas y Complementos de Pago */}
+
+          {/* Invoices List OR Payment Complements Table */}
+          {activeTab === 'invoices' ? (
+            /* Invoices Tab - Card View */
+            <div className="space-y-2">
+              {loading ? (
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-2xl" />
+                  <div className="absolute inset-0 rounded-2xl border border-slate-200/50 dark:border-slate-700/50" />
+                  <div className="relative p-12 text-center">
+                    <div className="inline-flex items-center gap-3 text-slate-600 dark:text-slate-400">
+                      <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm font-medium">Cargando facturas...</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : sortedSessions.length === 0 ? (
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-2xl" />
-                <div className="absolute inset-0 rounded-2xl border border-slate-200/50 dark:border-slate-700/50" />
-                <div className="relative p-12 text-center">
-                  <FileText strokeWidth={1.5} className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400">No se encontraron facturas</p>
+              ) : sortedSessions.length === 0 ? (
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 rounded-2xl" />
+                  <div className="absolute inset-0 rounded-2xl border border-slate-200/50 dark:border-slate-700/50" />
+                  <div className="relative p-12 text-center">
+                    <FileText strokeWidth={1.5} className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-slate-600 dark:text-slate-400">No se encontraron facturas</p>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              sortedSessions.map((session) => (
-                <InvoiceCard
-                  key={session.session_id}
-                  session={session}
-                  expanded={expandedSessions.has(session.session_id)}
-                  onToggle={() => toggleSessionExpanded(session.session_id)}
-                  displayInfo={getInvoiceDisplayInfo(session)}
-                  statusIcon={getStatusIcon(session.status)}
-                  statusBadge={getStatusBadge(session.status)}
-                  extractedData={extractedData[session.session_id]}
-                  formatDate={formatDate}
-                  satStatus={getSatStatus(session)}
-                />
-              ))
-            )}
-          </div>
+              ) : (
+                sortedSessions.map((session) => (
+                  <InvoiceCard
+                    key={session.session_id}
+                    session={session}
+                    expanded={expandedSessions.has(session.session_id)}
+                    onToggle={() => toggleSessionExpanded(session.session_id)}
+                    displayInfo={getInvoiceDisplayInfo(session)}
+                    statusIcon={getStatusIcon(session.status)}
+                    statusBadge={getStatusBadge(session.status)}
+                    extractedData={extractedData[session.session_id]}
+                    formatDate={formatDate}
+                    satStatus={getSatStatus(session)}
+                    classification={classifications[session.session_id]}
+                    onConfirmClassification={handleConfirmClassification}
+                    onCorrectClassification={handleCorrectClassification}
+                    onClassifyManually={handleClassifyManually}
+                    classificationLoading={classificationLoading}
+                  />
+                ))
+              )}
+            </div>
+          ) : (
+            /* Payment Complements Tab - Table View */
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-700/60 overflow-hidden">
+              {loading ? (
+                <div className="p-12 text-center">
+                  <div className="inline-flex items-center gap-3 text-slate-600 dark:text-slate-400">
+                    <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-sm font-medium">Cargando complementos de pago...</span>
+                  </div>
+                </div>
+              ) : sortedSessions.length === 0 ? (
+                <div className="p-12 text-center">
+                  <FileText strokeWidth={1.5} className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400">No se encontraron complementos de pago</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">Los complementos de pago documentan CUÁNDO y CÓMO se pagó una factura PPD</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Fecha Pago</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Emisor (Certifica el pago)</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Monto Pagado</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Forma de Pago</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Factura Relacionada</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Parcialidad</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Estado SAT</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                      {sortedSessions.map((session) => {
+                        const displayInfo = getInvoiceDisplayInfo(session);
+                        const data = extractedData[session.session_id];
+
+                        // Extraer info básica del complemento
+                        const emisorNombre = data?.emisor?.nombre || displayInfo.emisor_nombre || 'Cargando...';
+                        const emisorRfc = data?.emisor?.rfc || displayInfo.emisor_rfc || 'N/A';
+
+                        // Extraer datos del complemento de pago (pago20:Pagos)
+                        const paymentComplement = data?.payment_complement;
+                        const hasPagos = paymentComplement && paymentComplement.pagos && paymentComplement.pagos.length > 0;
+
+                        const pago = hasPagos ? paymentComplement.pagos[0] : null;
+                        const fechaPago = pago?.fecha_pago || 'N/A';
+                        const montoPagado = pago?.monto || 0;
+                        const moneda = pago?.moneda || 'MXN';
+                        const formaPago = pago?.forma_pago || 'N/A';
+
+                        // Información del documento relacionado (factura original)
+                        const doctoRelacionado = pago?.documentos_relacionados?.[0];
+                        const facturaRelacionadaUUID = doctoRelacionado?.id_documento || 'N/A';
+                        const numParcialidad = doctoRelacionado?.num_parcialidad || 0;
+                        const saldoInsoluto = doctoRelacionado?.imp_saldo_insoluto || 0;
+
+                        // Calcular total de parcialidades estimadas
+                        // Si saldo insoluto = 0, esta es la última parcialidad
+                        // Si hay saldo, asumimos que habrá más pagos (mostramos ?)
+                        const esPagoCompleto = saldoInsoluto === 0 && montoPagado > 0;
+                        const totalParcialidades = esPagoCompleto ? numParcialidad : '?';
+                        const parcialidadDisplay = numParcialidad > 0 ? `${numParcialidad}/${totalParcialidades}` : 'N/A';
+
+                        // Catálogo de formas de pago SAT
+                        const formasPago: Record<string, string> = {
+                          '01': 'Efectivo',
+                          '02': 'Cheque nominativo',
+                          '03': 'Transferencia electrónica',
+                          '04': 'Tarjeta de crédito',
+                          '05': 'Monedero electrónico',
+                          '06': 'Dinero electrónico',
+                          '28': 'Tarjeta de débito',
+                          '29': 'Tarjeta de servicios',
+                          '99': 'Por definir',
+                        };
+                        const formaPagoDesc = formasPago[formaPago] || formaPago;
+
+                        return (
+                          <tr
+                            key={session.session_id}
+                            className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+                            onClick={() => toggleSessionExpanded(session.session_id)}
+                          >
+                            {/* Fecha de Pago */}
+                            <td className="px-4 py-3 text-sm text-slate-900 dark:text-white whitespace-nowrap">
+                              {fechaPago !== 'N/A' ? formatDate(fechaPago) : 'Sin datos'}
+                            </td>
+
+                            {/* Emisor (quien certifica el pago) */}
+                            <td className="px-4 py-3">
+                              <div className="text-sm font-medium text-slate-900 dark:text-white">
+                                {emisorNombre}
+                              </div>
+                              <div className="text-xs text-slate-500 dark:text-slate-500">
+                                RFC: {emisorRfc}
+                              </div>
+                            </td>
+
+                            {/* Monto Pagado */}
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                                ${montoPagado.toFixed(2)} {moneda}
+                              </div>
+                              {saldoInsoluto > 0 && (
+                                <div className="text-xs text-amber-600 dark:text-amber-400">
+                                  Saldo restante: ${saldoInsoluto.toFixed(2)}
+                                </div>
+                              )}
+                              {saldoInsoluto === 0 && montoPagado > 0 && (
+                                <div className="text-xs text-emerald-600 dark:text-emerald-400">
+                                  Pagado completamente
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Forma de Pago */}
+                            <td className="px-4 py-3">
+                              <div className="text-sm text-slate-900 dark:text-white">
+                                {formaPagoDesc}
+                              </div>
+                              <div className="text-xs text-slate-500 dark:text-slate-500">
+                                Clave: {formaPago}
+                              </div>
+                            </td>
+
+                            {/* Factura Relacionada */}
+                            <td className="px-4 py-3">
+                              <div className="text-xs font-mono text-slate-600 dark:text-slate-400 max-w-xs truncate">
+                                {facturaRelacionadaUUID}
+                              </div>
+                            </td>
+
+                            {/* Parcialidad */}
+                            <td className="px-4 py-3 whitespace-nowrap text-center">
+                              {numParcialidad > 0 ? (
+                                <div className="flex flex-col items-center gap-1">
+                                  <span className={`inline-flex items-center justify-center px-3 py-1.5 rounded-full font-semibold text-sm ${
+                                    esPagoCompleto
+                                      ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                                      : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                                  }`}>
+                                    {parcialidadDisplay}
+                                  </span>
+                                  {esPagoCompleto && (
+                                    <span className="text-xs text-emerald-600 dark:text-emerald-400">
+                                      Última
+                                    </span>
+                                  )}
+                                  {!esPagoCompleto && saldoInsoluto > 0 && (
+                                    <span className="text-xs text-amber-600 dark:text-amber-400">
+                                      Pendiente
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-sm text-slate-400">N/A</span>
+                              )}
+                            </td>
+
+                            {/* Estado SAT */}
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              {(() => {
+                                const satStatus = data?.sat_status || 'desconocido';
+                                if (satStatus === 'vigente') {
+                                  return (
+                                    <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                                      ✓ Vigente
+                                    </span>
+                                  );
+                                } else if (satStatus === 'cancelado') {
+                                  return (
+                                    <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
+                                      ✗ Cancelado
+                                    </span>
+                                  );
+                                } else {
+                                  return (
+                                    <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                      ? Sin validar
+                                    </span>
+                                  );
+                                }
+                              })()}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+
+                  {/* Información sobre complementos de pago */}
+                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                      <div className="text-xs text-blue-900 dark:text-blue-100">
+                        <span className="font-semibold">Complementos de Pago (Tipo P).</span>
+                        {' '}Estos documentos certifican CUÁNDO y CÓMO se pagó una factura PPD. No generan ingreso/egreso fiscal, solo documentan el pago de facturas existentes.
+                        <br />
+                        <span className="font-semibold mt-1 inline-block">Parcialidades:</span>
+                        {' '}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold">1/1</span> = pago único completado,
+                        {' '}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-semibold">1/?</span> = primer pago de varios (total desconocido),
+                        {' '}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-semibold">2/?</span> = segundo pago.
+                        <br />
+                        <span className="font-semibold mt-1 inline-block">Estado SAT:</span>
+                        {' '}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold">✓ Vigente</span> = CFDI válido ante el SAT,
+                        {' '}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs font-semibold">✗ Cancelado</span> = CFDI cancelado por el emisor,
+                        {' '}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-semibold">? Sin validar</span> = pendiente de verificación con el SAT.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* Correction Modal */}
+        {correctionSessionId && correctionModalOpen && (
+          <ClassificationCorrectionModal
+            isOpen={correctionModalOpen}
+            onClose={() => {
+              setCorrectionModalOpen(false);
+              setCorrectionSessionId(null);
+            }}
+            onSubmit={handleSubmitCorrection}
+            originalCode={classifications[correctionSessionId]?.sat_code || ''}
+            originalExplanation={classifications[correctionSessionId]?.explanation || ''}
+            invoiceDescription={
+              sessions.find(s => s.session_id === correctionSessionId)?.display_info?.emisor_nombre || 'Factura'
+            }
+            loading={classificationLoading}
+          />
+        )}
       </AppLayout>
     </ProtectedRoute>
   );
@@ -1149,6 +1893,11 @@ function InvoiceCard({
   extractedData,
   formatDate,
   satStatus,
+  classification,
+  onConfirmClassification,
+  onCorrectClassification,
+  onClassifyManually,
+  classificationLoading,
 }: {
   session: InvoiceSession;
   expanded: boolean;
@@ -1159,6 +1908,11 @@ function InvoiceCard({
   extractedData: ExtractedData;
   formatDate: (dateString: string) => string;
   satStatus: string;
+  classification?: ClassificationData | null;
+  onConfirmClassification?: (sessionId: string) => void;
+  onCorrectClassification?: (sessionId: string) => void;
+  onClassifyManually?: (sessionId: string) => void;
+  classificationLoading?: boolean;
 }) {
   // Helper para determinar tipo de factura
   const getInvoiceType = (session: InvoiceSession) => {
@@ -1327,6 +2081,17 @@ function InvoiceCard({
                     UUID: {session.display_info?.uuid?.substring(0, 8) || session.session_id.substring(0, 8)}...
                   </span>
                 </div>
+              )}
+
+              {/* Clasificación Contable (IA) */}
+              {classification && onConfirmClassification && onCorrectClassification && onClassifyManually && (
+                <InlineClassificationControl
+                  classification={classification}
+                  onConfirm={onConfirmClassification}
+                  onCorrect={onCorrectClassification}
+                  onClassifyManually={onClassifyManually}
+                  loading={classificationLoading}
+                />
               )}
 
               {/* Alerta PPD sin complemento */}

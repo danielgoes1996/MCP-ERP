@@ -124,7 +124,7 @@ class AIReconciliationService:
                 for combo in matching_combos[:3]:  # Top 3 combinations per movement
                     confidence = self._calculate_one_to_many_confidence(
                         movement=movement,
-                        expenses=combo['expenses'],
+                        expenses=combo['manual_expenses'],
                         amount_diff=combo['amount_diff'],
                         date_diff_avg=combo['date_diff_avg']
                     )
@@ -140,7 +140,7 @@ class AIReconciliationService:
                                 'amount': movement_amount,
                                 'date': movement['date']
                             },
-                            'expenses': [
+                            'manual_expenses': [
                                 {
                                     'id': e['id'],
                                     'description': e['description'],
@@ -148,10 +148,10 @@ class AIReconciliationService:
                                     'date': e['date'],
                                     'allocated_amount': e['amount']  # Default to full amount
                                 }
-                                for e in combo['expenses']
+                                for e in combo['manual_expenses']
                             ],
                             'breakdown': combo['breakdown'],
-                            'total_allocated': sum(e['amount'] for e in combo['expenses']),
+                            'total_allocated': sum(e['amount'] for e in combo['manual_expenses']),
                             'difference': combo['amount_diff']
                         })
 
@@ -317,7 +317,7 @@ class AIReconciliationService:
                 )
 
                 combinations.append({
-                    'expenses': combo,
+                    'manual_expenses': combo,
                     'amount_diff': amount_diff,
                     'date_diff_avg': date_diff_avg,
                     'desc_similarity': desc_similarity,

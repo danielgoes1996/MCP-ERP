@@ -6,10 +6,19 @@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
+export interface AlternativeCandidate {
+  code: string;
+  name: string;
+  family_code: string;
+  score: number;
+  description: string;
+}
+
 export interface PendingInvoice {
   session_id: string;
   filename: string;
   created_at: string;
+  source: 'manual' | 'sat_auto_sync';  // Origin of invoice
   sat_code: string;
   family_code: string;
   confidence: number;
@@ -20,6 +29,7 @@ export interface PendingInvoice {
     nombre: string;
   };
   description: string;
+  alternative_candidates?: AlternativeCandidate[];
 }
 
 export interface PendingClassificationsResponse {
@@ -116,14 +126,32 @@ export interface ClassificationDetail {
 export async function getPendingClassifications(
   companyId: string,
   limit: number = 50,
-  offset: number = 0
+  offset: number = 0,
+  source?: 'manual' | 'sat_auto_sync'  // Filter by source
 ): Promise<PendingClassificationsResponse> {
-  const response = await fetch(
-    `${API_BASE_URL}/invoice-classification/pending?company_id=${companyId}&limit=${limit}&offset=${offset}`
-  );
+  let url = `${API_BASE_URL}/invoice-classification/pending?company_id=${companyId}&limit=${limit}&offset=${offset}`;
+
+  if (source) {
+    url += `&source=${source}`;
+  }
+
+  const response = await fetch(url);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch pending classifications: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Get count of pending SAT auto-sync invoices
+ */
+export async function getSATSyncPendingCount(companyId: number): Promise<{ company_id: number; pending_count: number }> {
+  const response = await fetch(`${API_BASE_URL}/sat/sync-config/pending-count/${companyId}`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch SAT pending count: ${response.statusText}`);
   }
 
   return response.json();
@@ -180,7 +208,27 @@ export async function confirmClassification(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to confirm classification: ${response.statusText}`);
+    // Try to get error details from response body
+    let errorMessage = `Failed to confirm classification: ${response.statusText}`;
+    try {
+      const errorData = await response.json();
+      if (errorData.detail) {
+        errorMessage = `Error al confirmar: ${errorData.detail}`;
+      } else if (errorData.message) {
+        errorMessage = `Error al confirmar: ${errorData.message}`;
+      }
+    } catch (e) {
+      // If can't parse JSON, use text
+      try {
+        const errorText = await response.text();
+        if (errorText) {
+          errorMessage = `Error al confirmar: ${errorText}`;
+        }
+      } catch (e2) {
+        // Use default error message
+      }
+    }
+    throw new Error(errorMessage);
   }
 
   return response.json();

@@ -2235,7 +2235,7 @@ async def generate_dummy_data() -> Dict[str, Any]:
         return {
             "success": True,
             "message": f"Se generaron {len(generated_expenses)} gastos de demostración",
-            "expenses": generated_expenses,
+            "manual_expenses": generated_expenses,
             "statistics": stats,
             "demo_scenarios": [
                 "✅ Gastos normales en diferentes categorías",

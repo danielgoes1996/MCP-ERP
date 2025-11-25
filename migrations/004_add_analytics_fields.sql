@@ -3,15 +3,15 @@
 -- Priority: MEDIUM - These fields support analytics and ML features
 
 -- Add analytics fields to expenses for enhanced reporting
-ALTER TABLE expenses ADD COLUMN IF NOT EXISTS trend_category TEXT;
-ALTER TABLE expenses ADD COLUMN IF NOT EXISTS forecast_confidence DECIMAL(3,2);
-ALTER TABLE expenses ADD COLUMN IF NOT EXISTS seasonality_factor DECIMAL(3,2);
+ALTER TABLE manual_expenses ADD COLUMN IF NOT EXISTS trend_category TEXT;
+ALTER TABLE manual_expenses ADD COLUMN IF NOT EXISTS forecast_confidence DECIMAL(3,2);
+ALTER TABLE manual_expenses ADD COLUMN IF NOT EXISTS seasonality_factor DECIMAL(3,2);
 
 -- Add ML and prediction fields
-ALTER TABLE expenses ADD COLUMN IF NOT EXISTS ml_features JSON;
-ALTER TABLE expenses ADD COLUMN IF NOT EXISTS similarity_scores JSON;
-ALTER TABLE expenses ADD COLUMN IF NOT EXISTS duplicate_risk_level TEXT DEFAULT 'low';
-ALTER TABLE expenses ADD COLUMN IF NOT EXISTS ml_model_version TEXT;
+ALTER TABLE manual_expenses ADD COLUMN IF NOT EXISTS ml_features JSON;
+ALTER TABLE manual_expenses ADD COLUMN IF NOT EXISTS similarity_scores JSON;
+ALTER TABLE manual_expenses ADD COLUMN IF NOT EXISTS duplicate_risk_level TEXT DEFAULT 'low';
+ALTER TABLE manual_expenses ADD COLUMN IF NOT EXISTS ml_model_version TEXT;
 
 -- Create analytics_cache table for performance
 CREATE TABLE IF NOT EXISTS analytics_cache (

@@ -1,4 +1,4 @@
--- Migration: Add accounting_classification to universal_invoice_sessions
+-- Migration: Add accounting_classification to sat_invoices
 -- Date: 2025-11-12
 -- Purpose: Enable AI-powered accounting classification for invoices
 -- Author: System (Fase 1 - v1)
@@ -7,10 +7,10 @@
 -- Add accounting_classification column
 -- ============================================================================
 
-ALTER TABLE universal_invoice_sessions
+ALTER TABLE sat_invoices
     ADD COLUMN IF NOT EXISTS accounting_classification JSONB;
 
-COMMENT ON COLUMN universal_invoice_sessions.accounting_classification IS
+COMMENT ON COLUMN sat_invoices.accounting_classification IS
 'AI-powered accounting classification result. Structure:
 {
   "sat_account_code": "601.84.01",
@@ -32,17 +32,17 @@ COMMENT ON COLUMN universal_invoice_sessions.accounting_classification IS
 
 -- Index for filtering by SAT account code
 CREATE INDEX IF NOT EXISTS idx_universal_invoice_sessions_accounting_code
-    ON universal_invoice_sessions((accounting_classification->>'sat_account_code'))
+    ON sat_invoices((accounting_classification->>'sat_account_code'))
     WHERE accounting_classification IS NOT NULL;
 
 -- Index for filtering pending confirmations
 CREATE INDEX IF NOT EXISTS idx_universal_invoice_sessions_accounting_status
-    ON universal_invoice_sessions((accounting_classification->>'status'))
+    ON sat_invoices((accounting_classification->>'status'))
     WHERE accounting_classification->>'status' = 'pending_confirmation';
 
 -- Composite index for company + classification status queries
 CREATE INDEX IF NOT EXISTS idx_universal_invoice_sessions_company_accounting
-    ON universal_invoice_sessions(company_id, (accounting_classification->>'status'))
+    ON sat_invoices(company_id, (accounting_classification->>'status'))
     WHERE accounting_classification IS NOT NULL;
 
 -- ============================================================================
@@ -55,10 +55,10 @@ BEGIN
     IF EXISTS (
         SELECT 1
         FROM information_schema.columns
-        WHERE table_name = 'universal_invoice_sessions'
+        WHERE table_name = 'sat_invoices'
         AND column_name = 'accounting_classification'
     ) THEN
-        RAISE NOTICE 'SUCCESS: Column accounting_classification added to universal_invoice_sessions';
+        RAISE NOTICE 'SUCCESS: Column accounting_classification added to sat_invoices';
     ELSE
         RAISE EXCEPTION 'ERROR: Column accounting_classification was not added';
     END IF;
@@ -70,7 +70,7 @@ BEGIN
     IF EXISTS (
         SELECT 1
         FROM pg_indexes
-        WHERE tablename = 'universal_invoice_sessions'
+        WHERE tablename = 'sat_invoices'
         AND indexname = 'idx_universal_invoice_sessions_accounting_code'
     ) THEN
         RAISE NOTICE 'SUCCESS: Index idx_universal_invoice_sessions_accounting_code created';
@@ -79,7 +79,7 @@ BEGIN
     IF EXISTS (
         SELECT 1
         FROM pg_indexes
-        WHERE tablename = 'universal_invoice_sessions'
+        WHERE tablename = 'sat_invoices'
         AND indexname = 'idx_universal_invoice_sessions_accounting_status'
     ) THEN
         RAISE NOTICE 'SUCCESS: Index idx_universal_invoice_sessions_accounting_status created';

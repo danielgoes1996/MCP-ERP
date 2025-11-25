@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     # Database
-    DATABASE_URL: str = "postgresql://mcp_user:mcp_pass@localhost:5432/mcp_db"
+    DATABASE_URL: str = "postgresql://mcp_user:changeme@127.0.0.1:5433/mcp_system"
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 40
     DATABASE_ECHO: bool = False

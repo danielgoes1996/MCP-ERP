@@ -1,8 +1,8 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
   "/login/page": "app/login/page.js",
-  "/invoices/page": "app/invoices/page.js",
-  "/invoices/upload/page": "app/invoices/upload/page.js",
-  "/reconciliation/page": "app/reconciliation/page.js",
+  "/sat-credentials/page": "app/sat-credentials/page.js",
+  "/forgot-password/page": "app/forgot-password/page.js",
+  "/sat-config/page": "app/sat-config/page.js",
+  "/register/page": "app/register/page.js",
   "/dashboard/page": "app/dashboard/page.js"
 }

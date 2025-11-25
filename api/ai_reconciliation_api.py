@@ -55,7 +55,7 @@ async def get_reconciliation_suggestions(
           "amount": 2551.25,
           "date": "2025-01-16"
         },
-        "expenses": [
+        "manual_expenses": [
           {
             "id": 10244,
             "description": "Gasolina",
@@ -228,7 +228,7 @@ async def auto_apply_suggestion(
                         amount=e['allocated_amount'],
                         notes=f"Auto-matched by AI ({suggestion['confidence_score']}%)"
                     )
-                    for e in suggestion['expenses']
+                    for e in suggestion['manual_expenses']
                 ],
                 notes=f"Auto-applied AI suggestion (confidence: {suggestion['confidence_score']}%)"
             )
@@ -387,4 +387,84 @@ async def get_ai_stats() -> Dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error getting statistics: {str(e)}"
+        )
+
+
+# =====================================================
+# RECONCILIATION STATISTICS (Real Bank Reconciliation Data)
+# =====================================================
+
+# Create a separate router for the reconciliation stats endpoint to match frontend expectations
+reconciliation_router = APIRouter(prefix="/ai-reconciliation", tags=["Reconciliation Stats"])
+
+@reconciliation_router.get("/stats")
+async def get_reconciliation_stats(
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Get real bank reconciliation statistics from database
+
+    🔒 **Requires:** Authentication
+
+    **Returns:**
+    - totalInvoices: Total number of invoices in system
+    - reconciledInvoices: Number of invoices reconciled with bank transactions
+    - pendingInvoices: Number of invoices not yet reconciled
+    - totalAmount: Total amount of all invoices
+    - reconciledAmount: Total amount of reconciled invoices
+    - pendingAmount: Total amount of pending invoices
+    - reconciliationRate: Percentage of invoices reconciled (0-100)
+    """
+    try:
+        from sqlalchemy import text
+        from core.database import get_db_session
+
+        # 🔐 Enforce tenant isolation
+        tenant_id = enforce_tenant_isolation(current_user)
+
+        with get_db_session() as db:
+            # Query real reconciliation data from database
+            query = text("""
+                SELECT
+                    COUNT(*) as total_invoices,
+                    COUNT(*) FILTER (WHERE reconciled_with_bank_transaction_id IS NOT NULL) as reconciled_invoices,
+                    COUNT(*) FILTER (WHERE reconciled_with_bank_transaction_id IS NULL) as pending_invoices,
+                    COALESCE(SUM(total), 0) as total_amount,
+                    COALESCE(SUM(total) FILTER (WHERE reconciled_with_bank_transaction_id IS NOT NULL), 0) as reconciled_amount,
+                    COALESCE(SUM(total) FILTER (WHERE reconciled_with_bank_transaction_id IS NULL), 0) as pending_amount
+                FROM sat_invoices
+                WHERE tenant_id = :tenant_id
+                AND parsed_data IS NOT NULL
+                AND parsed_data->>'total' IS NOT NULL
+            """)
+
+            result = db.execute(query, {"tenant_id": tenant_id})
+            row = result.fetchone()
+
+            total_invoices = row[0] or 0
+            reconciled_invoices = row[1] or 0
+            pending_invoices = row[2] or 0
+            total_amount = float(row[3] or 0)
+            reconciled_amount = float(row[4] or 0)
+            pending_amount = float(row[5] or 0)
+
+            reconciliation_rate = (reconciled_invoices / total_invoices * 100) if total_invoices > 0 else 0.0
+
+            logger.info(f"User {current_user.email} (tenant={tenant_id}) fetched reconciliation stats: {reconciled_invoices}/{total_invoices} reconciled")
+
+            return {
+                "totalInvoices": total_invoices,
+                "reconciledInvoices": reconciled_invoices,
+                "pendingInvoices": pending_invoices,
+                "totalAmount": total_amount,
+                "reconciledAmount": reconciled_amount,
+                "pendingAmount": pending_amount,
+                "reconciliationRate": round(reconciliation_rate, 2)
+            }
+
+    except Exception as e:
+        logger.exception(f"Error getting reconciliation stats: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting reconciliation statistics: {str(e)}"
         )

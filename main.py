@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 import math
 import re
 # PostgreSQL adapter (drop-in replacement for sqlite3)
-from core.database import pg_sync_adapter as sqlite3
+from core.database_adapters import pg_sync_adapter as sqlite3
 import io
 import uuid
 
@@ -31,8 +31,8 @@ from core.reconciliation.bank.bank_statements_models import infer_movement_kind
 # Cargar variables de entorno
 try:
     from dotenv import load_dotenv
-    load_dotenv()
-    logging.info("Variables de entorno cargadas desde .env")
+    load_dotenv(override=True)  # override=True para sobrescribir variables del sistema
+    logging.info("Variables de entorno cargadas desde .env (con override)")
 except ImportError:
     logging.warning("python-dotenv no instalado, usando variables del sistema")
 
@@ -216,7 +216,9 @@ async def lifespan(app: FastAPI):
     """Handle application lifespan to bootstrap the internal catalog."""
 
     try:
+        print("[LIFESPAN] Starting lifespan initialization...")
         initialize_internal_database()
+        print("[LIFESPAN] Internal database initialized")
         logger.info("Internal account catalog initialised")
 
         # Apply database optimizations (PostgreSQL - skip for now)
@@ -227,7 +229,27 @@ async def lifespan(app: FastAPI):
         #         optimize_database_connection(conn)
         logger.info("Database optimizations skipped (using PostgreSQL)")
 
+        # Start SAT sync scheduler
+        print("[LIFESPAN] Starting SAT sync scheduler...")
+        try:
+            from core.sat.sat_sync_scheduler import start_scheduler
+            await start_scheduler()
+            print("[LIFESPAN] ✅ SAT Sync Scheduler started successfully!")
+            logger.info("SAT Sync Scheduler started")
+        except Exception as scheduler_exc:
+            print(f"[LIFESPAN] ❌ Failed to start scheduler: {scheduler_exc}")
+            logger.warning(f"Failed to start SAT Sync Scheduler: {scheduler_exc}")
+
         yield
+
+        # Shutdown: Stop SAT sync scheduler
+        try:
+            from core.sat.sat_sync_scheduler import stop_scheduler
+            await stop_scheduler()
+            logger.info("SAT Sync Scheduler stopped")
+        except Exception as scheduler_exc:
+            logger.warning(f"Failed to stop SAT Sync Scheduler: {scheduler_exc}")
+
     except Exception as exc:  # pragma: no cover - defensive logging
         logger.exception("Error initialising internal database: %s", exc)
         raise
@@ -376,6 +398,14 @@ try:
 except ImportError as e:
     logger.warning(f"Expense placeholder completion API not available: {e}")
 
+# Import and mount classification correction API (learning system)
+try:
+    from api.classification_correction_api import router as classification_correction_router
+    app.include_router(classification_correction_router)
+    logger.info("✅ Classification correction and learning API loaded successfully")
+except ImportError as e:
+    logger.warning(f"Classification correction API not available: {e}")
+
 # Import and mount conversational assistant API
 try:
     from api.conversational_assistant_api import router as conversational_assistant_router
@@ -482,8 +512,9 @@ except ImportError as e:
 
 # AI Reconciliation API
 try:
-    from api.ai_reconciliation_api import router as ai_reconciliation_router
+    from api.ai_reconciliation_api import router as ai_reconciliation_router, reconciliation_router
     app.include_router(ai_reconciliation_router)
+    app.include_router(reconciliation_router)
     logger.info("AI reconciliation API loaded successfully")
 except ImportError as e:
     logger.warning(f"AI reconciliation API not available: {e}")
@@ -1552,46 +1583,7 @@ async def test_error_handling(
         )
 
 
-@app.post("/simple_expense")
-async def create_simple_expense(request: dict):
-    """
-    Endpoint simplificado para crear gastos desde la nueva interfaz de voz.
-    Evita la complejidad de los modelos y usa mapeo directo.
-
-    Args:
-        request: Datos del gasto en formato simple
-
-    Returns:
-        JSONResponse: Resultado de la creación
-    """
-    try:
-        logger.info("Creating simple expense from voice interface")
-
-        # Usar el OdooFieldMapper directamente
-        from core.odoo_field_mapper import OdooFieldMapper
-
-        mapper = OdooFieldMapper()
-
-        # Conectar a Odoo
-        if not mapper.connect_to_odoo():
-            raise Exception("No se pudo conectar a Odoo")
-
-        # Mapear y crear el gasto
-        result = mapper.create_expense_in_odoo(request)
-
-        logger.info(f"Simple expense creation result: {result}")
-
-        return JSONResponse(content=result)
-
-    except Exception as e:
-        logger.error(f"Error creating simple expense: {str(e)}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "error": f"Error interno creando gasto: {str(e)}"
-            }
-        )
+# REMOVED: /simple_expense endpoint (legacy, replaced by /expenses)
 
 
 @app.get("/api/status")
@@ -1932,72 +1924,7 @@ async def voice_mcp_enhanced_endpoint(file: UploadFile = File(...)):
 # CompleteExpenseRequest model moved to core/api_models.py
 
 
-@app.post("/complete_expense")
-async def complete_expense_endpoint(request: CompleteExpenseRequest):
-    """
-    Complete and create expense with user-provided additional fields.
-
-    Args:
-        request: CompleteExpenseRequest with enhanced_data and user_completions
-
-    Returns:
-        JSONResponse: Result of expense creation in Odoo
-    """
-    try:
-        logger.info("Completing expense with user data")
-
-        # Merge enhanced data with user completions
-        enhanced_data = request.enhanced_data
-        user_completions = request.user_completions
-
-        # Merge data
-        final_expense_data = {**enhanced_data, **user_completions}
-
-        # Create in Odoo using the mapper
-        from core.odoo_field_mapper import get_odoo_mapper
-        mapper = get_odoo_mapper()
-
-        # Map to Odoo fields
-        mapped_data, missing_fields = mapper.map_expense_data(final_expense_data)
-
-        if missing_fields:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "error": "Critical fields still missing",
-                    "missing_fields": missing_fields
-                }
-            )
-
-        # Create in Odoo
-        creation_result = mapper.create_expense_in_odoo(mapped_data)
-
-        if creation_result['success']:
-            # Generate TTS response
-            if VOICE_ENABLED:
-                try:
-                    from core.voice_handler import text_to_speech
-                    response_text = f"Gasto creado exitosamente con ID {creation_result['expense_id']}. Monto: ${final_expense_data.get('total_amount', 0)} pesos."
-                    tts_result = text_to_speech(response_text)
-
-                    if tts_result['success']:
-                        # Store audio file for serving
-                        app.state.audio_files = getattr(app.state, 'audio_files', {})
-                        audio_filename = os.path.basename(tts_result['audio_file'])
-                        app.state.audio_files[audio_filename] = tts_result['audio_file']
-                        creation_result['audio_file_url'] = f"/audio/{audio_filename}"
-                except Exception as e:
-                    logger.warning(f"TTS generation failed: {e}")
-
-        return JSONResponse(content=creation_result)
-
-    except Exception as e:
-        logger.error(f"Error completing expense: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error creating expense: {str(e)}"
-        )
+# REMOVED: /complete_expense endpoint (legacy, replaced by /expenses)
 
 
 @app.post("/ocr/parse")
@@ -2295,11 +2222,6 @@ async def list_supported_methods():
                 "description": "Enhanced voice MCP with field validation (POST /voice_mcp_enhanced)",
                 "parameters": ["audio_file (multipart/form-data)"],
                 "returns": "JSON response + completion form + validation"
-            },
-            "complete_expense": {
-                "description": "Complete expense creation with additional fields (POST /complete_expense)",
-                "parameters": ["enhanced_data", "user_completions"],
-                "returns": "Expense creation result"
             },
             "audio_file": {
                 "description": "Serve generated audio files (GET /audio/{filename})",
@@ -4939,7 +4861,7 @@ async def get_expenses_with_tag(
             "returned_count": len(expenses),
             "offset": offset,
             "limit": limit,
-            "expenses": [
+            "manual_expenses": [
                 {
                     "id": expense["id"],
                     "description": expense["description"],
@@ -5479,7 +5401,7 @@ async def generate_dummy_data() -> Dict[str, Any]:
         return {
             "success": True,
             "message": f"Se generaron {len(generated_expenses)} gastos de demostración",
-            "expenses": generated_expenses,
+            "manual_expenses": generated_expenses,
             "statistics": stats,
             "demo_scenarios": [
                 "✅ Gastos normales en diferentes categorías",
@@ -5702,6 +5624,36 @@ try:
     logger.info("✅ SAT Download API loaded successfully (simplified version)")
 except ImportError as e:
     logger.warning(f"⚠️  SAT Download API not available: {e}")
+
+# ========================================
+# SAT Auto Sync Configuration API
+# ========================================
+try:
+    from api.sat_sync_config_api import router as sat_sync_config_router
+    app.include_router(sat_sync_config_router)
+    logger.info("✅ SAT Auto Sync Config API loaded successfully")
+except ImportError as e:
+    logger.warning(f"⚠️  SAT Auto Sync Config API not available: {e}")
+
+# ========================================
+# SAT Sync Dashboard API
+# ========================================
+try:
+    from api.sat_sync_dashboard_api import router as sat_sync_dashboard_router
+    app.include_router(sat_sync_dashboard_router)
+    logger.info("✅ SAT Sync Dashboard API loaded successfully")
+except ImportError as e:
+    logger.warning(f"⚠️  SAT Sync Dashboard API not available: {e}")
+
+# ========================================
+# SAT Credentials API
+# ========================================
+try:
+    from api.sat_credentials_api import router as sat_credentials_router
+    app.include_router(sat_credentials_router)
+    logger.info("✅ SAT Credentials API loaded successfully")
+except ImportError as e:
+    logger.warning(f"⚠️  SAT Credentials API not available: {e}")
 
 # ========================================
 # CFDI Verification API

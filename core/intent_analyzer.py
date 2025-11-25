@@ -15,6 +15,11 @@ try:
 except ImportError:
     OpenAI = None
 
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,16 +41,29 @@ class IntentAnalyzer:
     """
 
     def __init__(self):
-        if not OpenAI:
-            logger.warning("OpenAI library not available, using rule-based intent analysis")
-            self.client = None
-        else:
+        # Priorizar Gemini sobre OpenAI
+        self.client = None
+        self.use_gemini = False
+
+        if genai:
+            gemini_api_key = os.getenv('GEMINI_API_KEY')
+            if gemini_api_key:
+                try:
+                    genai.configure(api_key=gemini_api_key)
+                    self.gemini_model = os.getenv('GEMINI_COMPLETE_MODEL', 'gemini-2.0-flash-exp')
+                    self.use_gemini = True
+                    logger.info(f"Gemini configured for intent analysis: {self.gemini_model}")
+                except Exception as e:
+                    logger.warning(f"Error configuring Gemini: {e}")
+                    self.use_gemini = False
+
+        if not self.use_gemini and OpenAI:
             api_key = os.getenv('OPENAI_API_KEY')
-            if not api_key:
-                logger.warning("OPENAI_API_KEY not configured, using rule-based intent analysis")
-                self.client = None
-            else:
+            if api_key:
                 self.client = OpenAI(api_key=api_key)
+                logger.info("OpenAI configured for intent analysis")
+            else:
+                logger.warning("Neither Gemini nor OpenAI configured, using rule-based intent analysis")
 
         # Patrones de gastos en español
         self.EXPENSE_PATTERNS = {
@@ -106,9 +124,35 @@ class IntentAnalyzer:
             ExpenseIntent con la evaluación del mensaje
         """
 
-        if self.client:
+        if self.use_gemini:
+            return self._analyze_with_gemini(text, source, metadata)
+        elif self.client:
             return self._analyze_with_llm(text, source, metadata)
         else:
+            return self._analyze_with_rules(text, source, metadata)
+
+    def _analyze_with_gemini(self, text: str, source: str, metadata: Dict[str, Any] = None) -> ExpenseIntent:
+        """Análisis usando Gemini"""
+
+        try:
+            # Crear prompt estructurado para detección de gastos
+            prompt = self._create_expense_detection_prompt(text, source, metadata)
+
+            model = genai.GenerativeModel(self.gemini_model)
+            response = model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.1,
+                    max_output_tokens=800,
+                )
+            )
+
+            result_text = response.text.strip()
+            return self._parse_llm_intent_response(result_text, text, source)
+
+        except Exception as e:
+            logger.error(f"Error in Gemini intent analysis: {e}")
+            # Fallback a reglas básicas
             return self._analyze_with_rules(text, source, metadata)
 
     def _analyze_with_llm(self, text: str, source: str, metadata: Dict[str, Any] = None) -> ExpenseIntent:

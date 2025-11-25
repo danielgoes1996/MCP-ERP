@@ -242,7 +242,7 @@ def _handle_get_expenses(params: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(f"Obtenidos {len(expenses)} gastos desde Odoo")
 
         return {
-            "expenses": expenses,
+            "manual_expenses": expenses,
             "total_count": len(expenses),
             "source": "odoo_hr_expense",
             "timestamp": datetime.now().isoformat()

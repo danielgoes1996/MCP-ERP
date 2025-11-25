@@ -239,12 +239,14 @@ def jwt_login(username: str, password: str, tenant_id: Optional[int]) -> Token:
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
+        # Get tenant and company information
         cursor.execute(
             """
-            SELECT t.id, t.name
+            SELECT t.id, t.name, c.company_id
             FROM tenants t
             INNER JOIN users u ON u.tenant_id = t.id
-            WHERE u.id = ? AND t.id = ?
+            LEFT JOIN companies c ON c.tenant_id = t.id
+            WHERE u.id = %s AND t.id = %s
             """,
             (user.id, tenant_id),
         )
@@ -263,7 +265,12 @@ def jwt_login(username: str, password: str, tenant_id: Optional[int]) -> Token:
             token_type="bearer",
             expires_in=JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             user=user,
-            tenant={"id": tenant_row["id"], "name": tenant_row["name"], "description": None},
+            tenant={
+                "id": tenant_row[0],
+                "name": tenant_row[1],
+                "company_id": tenant_row[2],  # Include company_id from companies table
+                "description": None
+            },
         )
     finally:
         conn.close()

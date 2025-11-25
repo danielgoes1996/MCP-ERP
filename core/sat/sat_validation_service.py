@@ -78,9 +78,10 @@ class SATValidationService:
                     id,
                     company_id,
                     extracted_data,
+                    parsed_data,
                     sat_validation_status,
                     sat_verified_at
-                FROM universal_invoice_sessions
+                FROM sat_invoices
                 WHERE id = :session_id
             """)
 
@@ -101,21 +102,21 @@ class SATValidationService:
                     'cached': True
                 }, None
 
-            # Extract CFDI fields from extracted_data
-            extracted_data = session_data.get('extracted_data', {})
+            # Extract CFDI fields from parsed_data
+            parsed_data = session_data.get('parsed_data', {})
 
-            uuid = extracted_data.get('uuid')
-            rfc_emisor = extracted_data.get('emisor_rfc')
-            rfc_receptor = extracted_data.get('receptor_rfc')
-            total = extracted_data.get('total', 0.0)
+            uuid = parsed_data.get('uuid')
+            rfc_emisor = parsed_data.get('rfc_emisor')
+            rfc_receptor = parsed_data.get('rfc_receptor')
+            total = parsed_data.get('total', 0.0)
 
             # Validate required fields
             if not uuid:
-                return False, None, "UUID not found in extracted data"
+                return False, None, "UUID not found in parsed data"
             if not rfc_emisor:
-                return False, None, "RFC emisor not found in extracted data"
+                return False, None, "RFC emisor not found in parsed data"
             if not rfc_receptor:
-                return False, None, "RFC receptor not found in extracted data"
+                return False, None, "RFC receptor not found in parsed data"
 
             # Convert total to float
             try:
@@ -125,7 +126,7 @@ class SATValidationService:
 
             # Mark as verifying
             update_query = text("""
-                UPDATE universal_invoice_sessions
+                UPDATE sat_invoices
                 SET sat_validation_status = 'verifying',
                     sat_last_check_at = CURRENT_TIMESTAMP
                 WHERE id = :session_id
@@ -145,7 +146,7 @@ class SATValidationService:
             if not success:
                 # Update session with error
                 error_query = text("""
-                    UPDATE universal_invoice_sessions
+                    UPDATE sat_invoices
                     SET sat_validation_status = 'error',
                         sat_verification_error = :error,
                         sat_last_check_at = CURRENT_TIMESTAMP
@@ -169,7 +170,7 @@ class SATValidationService:
 
             # Update session with SAT validation results
             update_result_query = text("""
-                UPDATE universal_invoice_sessions
+                UPDATE sat_invoices
                 SET sat_validation_status = :status,
                     sat_codigo_estatus = :codigo_estatus,
                     sat_es_cancelable = :es_cancelable,
@@ -281,7 +282,7 @@ class SATValidationService:
 
             query = text("""
                 SELECT id
-                FROM universal_invoice_sessions
+                FROM sat_invoices
                 WHERE company_id = :company_id
                     AND sat_validation_status = 'pending'
                     AND extraction_status = 'completed'
@@ -366,7 +367,7 @@ class SATValidationService:
 
             query = text("""
                 SELECT id
-                FROM universal_invoice_sessions
+                FROM sat_invoices
                 WHERE company_id = :company_id
                     AND sat_validation_status IN ('vigente', 'por_cancelar')
                     AND sat_verified_at < :cutoff_time
@@ -396,7 +397,7 @@ class SATValidationService:
                 # Get old status
                 old_status_query = text("""
                     SELECT sat_validation_status
-                    FROM universal_invoice_sessions
+                    FROM sat_invoices
                     WHERE id = :session_id
                 """)
                 old_result = self.db.execute(old_status_query, {"session_id": session_id}).fetchone()
@@ -453,7 +454,7 @@ class SATValidationService:
                 SELECT
                     sat_validation_status,
                     COUNT(*) as count
-                FROM universal_invoice_sessions
+                FROM sat_invoices
                 WHERE company_id = :company_id
                     AND extraction_status = 'completed'
                 GROUP BY sat_validation_status

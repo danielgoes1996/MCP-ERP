@@ -423,7 +423,7 @@ class NonReconciliationSystem:
                 u.full_name as reported_by_name,
                 a.full_name as assigned_to_name
             FROM non_reconciliation_records nr
-            JOIN expenses e ON nr.expense_id = e.id
+            JOIN manual_expenses e ON nr.expense_id = e.id
             JOIN users u ON nr.reported_by = u.id
             LEFT JOIN users a ON nr.assigned_to = a.id
             WHERE {where_clause}
@@ -538,7 +538,7 @@ class NonReconciliationSystem:
 
         query = """
         SELECT id, descripcion, monto_total, estado, reconciliation_status
-        FROM expenses
+        FROM manual_expenses
         WHERE id = $1 AND estado != 'deleted'
         """
 
@@ -623,7 +623,7 @@ class NonReconciliationSystem:
         """Actualiza estado de conciliación del gasto"""
 
         query = """
-        UPDATE expenses
+        UPDATE manual_expenses
         SET reconciliation_status = $1,
             reconciliation_reason = $2,
             updated_at = CURRENT_TIMESTAMP

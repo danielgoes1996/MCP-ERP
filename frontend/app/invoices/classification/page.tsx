@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/auth/useAuthStore';
 import { useRouter } from 'next/navigation';
 import {
   getPendingClassifications,
+  getSATSyncPendingCount,
   confirmClassification,
   correctClassification,
   type PendingInvoice,
@@ -32,6 +33,10 @@ export default function ClassificationPage() {
   const [offset, setOffset] = useState(0);
   const limit = 10;
 
+  // Filter by source (manual vs SAT auto-sync)
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'manual' | 'sat_auto_sync'>('all');
+  const [satPendingCount, setSatPendingCount] = useState(0);
+
   // Modal state
   const [correctionModal, setCorrectionModal] = useState<{
     isOpen: boolean;
@@ -51,15 +56,39 @@ export default function ClassificationPage() {
     }
   }, [isAuthenticated, router]);
 
+  // Fetch SAT pending count
+  useEffect(() => {
+    async function fetchSATCount() {
+      const companyId = tenant?.company_id;
+      if (!companyId) return;
+
+      try {
+        const data = await getSATSyncPendingCount(parseInt(companyId));
+        setSatPendingCount(data.pending_count);
+      } catch (err) {
+        console.error('Error fetching SAT pending count:', err);
+      }
+    }
+
+    fetchSATCount();
+  }, [tenant?.company_id]);
+
   // Fetch pending classifications
   useEffect(() => {
     async function fetchPending() {
-      if (!tenant?.company_id) return;
+      // Use company_id from tenant, or fallback to 'carreta_verde' for testing
+      const companyId = tenant?.company_id || 'carreta_verde';
+
+      if (!companyId) return;
 
       try {
         setLoading(true);
         setError(null);
-        const data = await getPendingClassifications(tenant.company_id, limit, offset);
+
+        // Pass source filter if not 'all'
+        const source = sourceFilter === 'all' ? undefined : sourceFilter;
+        const data = await getPendingClassifications(companyId, limit, offset, source);
+
         setPendingInvoices(data.invoices);
         setTotal(data.total);
       } catch (err) {
@@ -71,24 +100,36 @@ export default function ClassificationPage() {
     }
 
     fetchPending();
-  }, [tenant?.company_id, offset]);
+  }, [tenant?.company_id, offset, sourceFilter]);
 
   /**
    * Handle confirm classification
+   * If alternativeCode is provided, treat it as a correction
    */
-  const handleConfirm = async (sessionId: string) => {
+  const handleConfirm = async (sessionId: string, alternativeCode?: string) => {
     if (!user?.id) return;
 
     try {
       setActionLoading(true);
-      await confirmClassification(sessionId, user.id);
+
+      // If alternative code provided, use correction endpoint
+      if (alternativeCode) {
+        await correctClassification(
+          sessionId,
+          alternativeCode,
+          'Seleccionado de candidatos alternativos',
+          user.id.toString()
+        );
+        alert('Clasificación alternativa confirmada exitosamente');
+      } else {
+        // Otherwise, use normal confirmation
+        await confirmClassification(sessionId, user.id.toString());
+        alert('Clasificación confirmada exitosamente');
+      }
 
       // Remove from pending list
       setPendingInvoices((prev) => prev.filter((inv) => inv.session_id !== sessionId));
       setTotal((prev) => prev - 1);
-
-      // Show success message (could use toast here)
-      alert('Clasificación confirmada exitosamente');
     } catch (err) {
       console.error('Error confirming classification:', err);
       alert('Error al confirmar clasificación');
@@ -122,7 +163,7 @@ export default function ClassificationPage() {
         correctionModal.invoice.session_id,
         correctedCode,
         notes,
-        user.id
+        user.id.toString()
       );
 
       // Remove from pending list
@@ -191,6 +232,87 @@ export default function ClassificationPage() {
             <ClassificationStats companyId={tenant.company_id} days={30} />
           </div>
         )}
+
+        {/* Source Filter Tabs */}
+        <div className="mb-6">
+          <div className="border-b border-neutral-200">
+            <nav className="-mb-px flex space-x-8">
+              {/* All Invoices Tab */}
+              <button
+                onClick={() => {
+                  setSourceFilter('all');
+                  setOffset(0);
+                }}
+                className={`
+                  whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+                  ${
+                    sourceFilter === 'all'
+                      ? 'border-primary-600 text-primary-700'
+                      : 'border-transparent text-neutral-600 hover:text-neutral-800 hover:border-neutral-300'
+                  }
+                `}
+              >
+                Todas las facturas
+                {!loading && sourceFilter === 'all' && (
+                  <span className="ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                    {total}
+                  </span>
+                )}
+              </button>
+
+              {/* Manual Invoices Tab */}
+              <button
+                onClick={() => {
+                  setSourceFilter('manual');
+                  setOffset(0);
+                }}
+                className={`
+                  whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+                  ${
+                    sourceFilter === 'manual'
+                      ? 'border-primary-600 text-primary-700'
+                      : 'border-transparent text-neutral-600 hover:text-neutral-800 hover:border-neutral-300'
+                  }
+                `}
+              >
+                Cargadas manualmente
+                {!loading && sourceFilter === 'manual' && (
+                  <span className="ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium bg-neutral-100 text-neutral-800">
+                    {total}
+                  </span>
+                )}
+              </button>
+
+              {/* SAT Auto-Sync Tab */}
+              <button
+                onClick={() => {
+                  setSourceFilter('sat_auto_sync');
+                  setOffset(0);
+                }}
+                className={`
+                  whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+                  ${
+                    sourceFilter === 'sat_auto_sync'
+                      ? 'border-primary-600 text-primary-700'
+                      : 'border-transparent text-neutral-600 hover:text-neutral-800 hover:border-neutral-300'
+                  }
+                `}
+              >
+                Del SAT
+                {satPendingCount > 0 && (
+                  <span className="ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    {satPendingCount}
+                  </span>
+                )}
+                {!loading && sourceFilter === 'sat_auto_sync' && satPendingCount === 0 && (
+                  <span className="ml-2 py-0.5 px-2.5 rounded-full text-xs font-medium bg-neutral-100 text-neutral-800">
+                    {total}
+                  </span>
+                )}
+              </button>
+            </nav>
+          </div>
+        </div>
 
         {/* Pending Count */}
         {!loading && (

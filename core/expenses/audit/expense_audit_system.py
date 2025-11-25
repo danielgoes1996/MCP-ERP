@@ -324,7 +324,7 @@ class ExpenseAuditSystem:
         for expense_id in expense_ids:
             # Obtener estado actual del gasto
             expense_data = await self.db.fetch_one(
-                "SELECT * FROM expenses WHERE id = $1",
+                "SELECT * FROM manual_expenses WHERE id = $1",
                 expense_id
             )
 
@@ -435,7 +435,7 @@ class ExpenseAuditSystem:
             original_state = snapshot["previous_state"]
 
             await self.db.execute("""
-                UPDATE expenses
+                UPDATE manual_expenses
                 SET invoice_status = $1,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = $2
@@ -449,7 +449,7 @@ class ExpenseAuditSystem:
             original_state = snapshot["previous_state"]
 
             await self.db.execute("""
-                UPDATE expenses
+                UPDATE manual_expenses
                 SET categoria = $1,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = $2
@@ -485,7 +485,7 @@ class ExpenseAuditSystem:
                 values.append(expense_id)
 
                 query = f"""
-                    UPDATE expenses
+                    UPDATE manual_expenses
                     SET {', '.join(update_fields)}
                     WHERE id = ${param_idx}
                 """
@@ -500,7 +500,7 @@ class ExpenseAuditSystem:
             original_state = snapshot["previous_state"]
 
             await self.db.execute("""
-                UPDATE expenses
+                UPDATE manual_expenses
                 SET estado = $1,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = $2

@@ -432,7 +432,7 @@ def filter_by_scope(user: User, resource: str, query_filters: dict) -> dict:
         if scope == 'own':
             if resource == 'employee_advances':
                 query_filters['employee_id'] = user.employee_id
-            elif resource == 'expenses':
+            elif resource == 'manual_expenses':
                 query_filters['user_id'] = user.id
 
         return query_filters

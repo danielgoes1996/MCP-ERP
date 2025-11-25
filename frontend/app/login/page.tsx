@@ -9,11 +9,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth, useTenants } from '@/lib/hooks/useAuth';
+import { useAuthStore } from '@/stores/auth/useAuthStore';
 import {
   Eye,
   EyeOff,
-  Building2,
   Mail,
   Lock,
   ArrowRight,
@@ -24,23 +23,26 @@ import {
   Shield
 } from 'lucide-react';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+
+interface TenantOption {
+  id: number;
+  name: string;
+  company_id?: number;
+}
+
 export default function LoginPage() {
   const router = useRouter();
-  const { login, error, isLoading, isAuthenticated } = useAuth();
+  const { isAuthenticated, setUser, setTenant, setTokens, setLoading: setStoreLoading } = useAuthStore();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [tenantId, setTenantId] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-
-  const { data: tenants, isLoading: tenantsLoading } = useTenants(
-    email.length > 0 ? email : undefined
-  );
-
-  useEffect(() => {
-    if (tenants && tenants.length === 1) {
-      setTenantId(tenants[0].id.toString());
-    }
-  }, [tenants]);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [availableTenants, setAvailableTenants] = useState<TenantOption[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState<number | null>(null);
+  const [loadingTenants, setLoadingTenants] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -48,16 +50,110 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, router]);
 
+  // Fetch tenants when email changes and contains @
+  useEffect(() => {
+    const fetchTenants = async () => {
+      if (!email.includes('@')) {
+        setAvailableTenants([]);
+        setSelectedTenantId(null);
+        return;
+      }
+
+      try {
+        setLoadingTenants(true);
+        const response = await fetch(`${API_BASE_URL}/auth/tenants?email=${encodeURIComponent(email)}`);
+
+        if (response.ok) {
+          const tenants = await response.json();
+          setAvailableTenants(tenants);
+
+          // Auto-select if only one tenant
+          if (tenants.length === 1) {
+            setSelectedTenantId(tenants[0].id);
+          } else if (tenants.length > 1) {
+            setSelectedTenantId(null); // Force user to select
+          }
+        } else {
+          setAvailableTenants([]);
+          setSelectedTenantId(null);
+        }
+      } catch (err) {
+        console.error('Error fetching tenants:', err);
+        setAvailableTenants([]);
+        setSelectedTenantId(null);
+      } finally {
+        setLoadingTenants(false);
+      }
+    };
+
+    // Debounce: wait 500ms after user stops typing
+    const timeoutId = setTimeout(fetchTenants, 500);
+    return () => clearTimeout(timeoutId);
+  }, [email]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password || !tenantId) return;
+    setError(null);
 
-    login({
-      email,
-      password,
-      tenant_id: parseInt(tenantId),
-    });
+    if (!email || !password) {
+      setError('Por favor completa todos los campos');
+      return;
+    }
+
+    // If multiple tenants available, require selection
+    if (availableTenants.length > 1 && !selectedTenantId) {
+      setError('Por favor selecciona una empresa');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setStoreLoading(true);
+
+      // Call login API with form data
+      const formData = new URLSearchParams();
+      formData.append('username', email); // Backend expects 'username' field
+      formData.append('password', password);
+
+      // Send tenant_id if available (either auto-selected or user-selected)
+      if (selectedTenantId) {
+        formData.append('tenant_id', selectedTenantId.toString());
+      }
+      // Otherwise, backend will auto-determine from user's default tenant
+
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData.toString(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Error al iniciar sesión');
+      }
+
+      const data = await response.json();
+
+      // Update store
+      setUser(data.user);
+      setTenant(data.tenant);
+      setTokens(data.access_token, data.refresh_token);
+
+      // Redirect
+      router.push('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Error al iniciar sesión. Verifica tus credenciales.');
+    } finally {
+      setIsLoading(false);
+      setStoreLoading(false);
+    }
   };
+
+  if (isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex">
@@ -177,70 +273,85 @@ export default function LoginPage() {
               </div>
             </motion.div>
 
-            {/* Tenant Field */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-            >
-              <label
-                htmlFor="tenant"
-                className="block text-sm font-semibold text-gray-900 mb-2"
-              >
-                Empresa
-              </label>
-              <div className="relative">
-                <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
-                {tenants && tenants.length > 0 ? (
-                  <select
-                    id="tenant"
-                    value={tenantId}
-                    onChange={(e) => setTenantId(e.target.value)}
-                    required
-                    disabled={tenantsLoading}
-                    className="w-full pl-12 pr-10 py-3.5 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:border-[#11446e] focus:ring-2 focus:ring-[#11446e]/10 transition-all disabled:opacity-50 appearance-none cursor-pointer"
+            {/* Tenant Selection - Only show if multiple tenants found */}
+            <AnimatePresence>
+              {availableTenants.length > 1 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ delay: 0.4 }}
+                >
+                  <label
+                    htmlFor="tenant"
+                    className="block text-sm font-semibold text-gray-900 mb-2"
                   >
-                    <option value="">Selecciona tu empresa</option>
-                    {tenants.map((tenant) => (
-                      <option key={tenant.id} value={tenant.id}>
-                        {tenant.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
+                    Empresa
+                  </label>
                   <div className="relative">
-                    {tenantsLoading ? (
-                      <div className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-300 rounded-xl text-gray-500 flex items-center">
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                          className="w-4 h-4 border-2 border-gray-300 border-t-[#11446e] rounded-full mr-2"
-                        />
-                        Cargando empresas...
-                      </div>
-                    ) : (
-                      <input
-                        id="tenant"
-                        type="text"
-                        placeholder="Ingresa tu email primero"
-                        disabled
-                        className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-300 rounded-xl text-gray-500 placeholder-gray-400 cursor-not-allowed"
-                      />
-                    )}
+                    <select
+                      id="tenant"
+                      value={selectedTenantId || ''}
+                      onChange={(e) => setSelectedTenantId(Number(e.target.value))}
+                      className="w-full px-4 py-3.5 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:border-[#11446e] focus:ring-2 focus:ring-[#11446e]/10 transition-all appearance-none cursor-pointer"
+                    >
+                      <option value="">Selecciona una empresa...</option>
+                      {availableTenants.map((tenant) => (
+                        <option key={tenant.id} value={tenant.id}>
+                          {tenant.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
                   </div>
-                )}
-              </div>
-              {tenants && tenants.length === 0 && email && !tenantsLoading && (
-                <p className="mt-2 text-sm text-gray-500">
-                  No se encontraron empresas asociadas a este email
-                </p>
+                  <p className="mt-2 text-xs text-gray-500">
+                    Tienes acceso a {availableTenants.length} empresas
+                  </p>
+                </motion.div>
               )}
+
+              {/* Show single tenant auto-detected */}
+              {availableTenants.length === 1 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="p-3 bg-green-50 border border-green-200 rounded-xl"
+                >
+                  <p className="text-sm text-green-800 flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span className="font-medium">{availableTenants[0].name}</span>
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Forgot Password Link */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="flex justify-end"
+            >
+              <a
+                href="/forgot-password"
+                className="text-sm text-[#11446e] hover:text-[#0d3454] font-medium transition-colors"
+              >
+                ¿Olvidaste tu contraseña?
+              </a>
             </motion.div>
 
             {/* Submit Button */}
             <motion.button
               type="submit"
-              disabled={isLoading || !email || !password || !tenantId}
+              disabled={isLoading || !email || !password}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.45 }}
@@ -266,21 +377,36 @@ export default function LoginPage() {
             </motion.button>
           </form>
 
-          {/* Footer */}
+          {/* Register Link */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
-            className="mt-8 text-center"
+            className="mt-6 text-center"
           >
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-600">
               ¿No tienes cuenta?{' '}
               <a
                 href="/register"
-                className="text-[#11446e] font-semibold hover:text-[#0d3454] transition-colors"
+                className="text-[#11446e] hover:text-[#0d3454] font-semibold transition-colors"
               >
-                Crear cuenta
+                Regístrate aquí
               </a>
+            </p>
+          </motion.div>
+
+          {/* Footer */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            className="mt-12 pt-6 border-t border-gray-200 text-center"
+          >
+            <p className="text-sm text-gray-500">
+              <span className="text-[#11446e] font-semibold">
+                ContaFlow
+              </span>
+              {' '}· Plataforma de gestión empresarial
             </p>
           </motion.div>
         </motion.div>

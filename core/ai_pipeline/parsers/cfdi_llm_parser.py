@@ -1,7 +1,21 @@
 """CFDI extraction helpers powered by Claude Haiku.
 
-Provides a thin wrapper around the Anthropic Messages API to transform a CFDI
-XML document into a structured JSON payload ready for persistence and UI use.
+⚠️  DEPRECATED FOR CFDI XML FILES ⚠️
+
+This LLM-based parser should NOT be used when you have access to the original CFDI XML.
+It is expensive (~$0.01 per invoice), slower (~5-10s per call), and error-prone compared
+to the deterministic XML parser.
+
+CORRECT USAGE:
+    For CFDI XML → Use: core.ai_pipeline.parsers.invoice_parser.parse_cfdi_xml
+    For PDF/Images → This parser MAY be used (future feature)
+
+This module is maintained ONLY for potential future PDF/image extraction.
+Consider removing entirely if that use case is not needed.
+
+Created: 2024
+Deprecated: 2025-01-13
+Reason: Using LLM to parse structured XML is an antipattern
 """
 
 from __future__ import annotations
@@ -175,7 +189,27 @@ def extract_cfdi_metadata(
     """Call Claude Haiku to extract fiscal metadata from a CFDI XML string.
 
     Includes automatic retry logic for rate limit (429) and overload (529) errors.
+
+    ⚠️ DEPRECATED: This LLM-based parser should NOT be used for CFDI XML files.
+    Use core.ai_pipeline.parsers.invoice_parser.parse_cfdi_xml instead.
+    This is 50x faster, free, and 100% reliable.
     """
+
+    # Emit runtime deprecation warning
+    import warnings
+    warnings.warn(
+        "extract_cfdi_metadata() is DEPRECATED for CFDI XML files. "
+        "Use core.ai_pipeline.parsers.invoice_parser.parse_cfdi_xml instead. "
+        "The LLM parser is expensive (~$0.01/invoice), slow (~5-10s), and error-prone. "
+        "The deterministic XML parser is free, fast (~0.1s), and 100% reliable.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    logger.warning(
+        "⚠️ DEPRECATED: extract_cfdi_metadata() called. "
+        "Use parse_cfdi_xml() for CFDI XML instead. "
+        "See core/ai_pipeline/parsers/cfdi_llm_parser.py docstring for details."
+    )
 
     api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
     if not api_key:

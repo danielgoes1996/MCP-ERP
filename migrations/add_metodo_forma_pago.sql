@@ -4,12 +4,12 @@
 
 -- Add metodo_pago column
 -- Values: PUE (Pago en Una Exhibición), PPD (Pago en Parcialidades o Diferido), PIP (Pago Inicial y Parcialidades)
-ALTER TABLE expenses
+ALTER TABLE manual_expenses
 ADD COLUMN IF NOT EXISTS metodo_pago VARCHAR(3) CHECK (metodo_pago IN ('PUE', 'PPD', 'PIP'));
 
 -- Add forma_pago column
 -- Values: 01-31, 99 (see SAT c_FormaPago catalog)
-ALTER TABLE expenses
+ALTER TABLE manual_expenses
 ADD COLUMN IF NOT EXISTS forma_pago VARCHAR(2);
 
 -- Add comments for documentation

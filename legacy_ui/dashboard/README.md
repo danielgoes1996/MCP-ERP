@@ -191,10 +191,10 @@ El dashboard genera automáticamente scripts de corrección:
 
 ```sql
 -- PRIORIDAD CRÍTICA
-ALTER TABLE expenses ADD COLUMN deducible BOOLEAN DEFAULT TRUE;
-ALTER TABLE expenses ADD COLUMN centro_costo TEXT;
-ALTER TABLE expenses ADD COLUMN proyecto TEXT;
-ALTER TABLE expenses ADD COLUMN tags JSON;
+ALTER TABLE manual_expenses ADD COLUMN deducible BOOLEAN DEFAULT TRUE;
+ALTER TABLE manual_expenses ADD COLUMN centro_costo TEXT;
+ALTER TABLE manual_expenses ADD COLUMN proyecto TEXT;
+ALTER TABLE manual_expenses ADD COLUMN tags JSON;
 
 -- PRIORIDAD MEDIA
 ALTER TABLE invoices ADD COLUMN subtotal DECIMAL(10,2);

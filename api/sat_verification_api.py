@@ -102,7 +102,7 @@ async def validate_invoice(
     Validate a single invoice against SAT
 
     This endpoint:
-    1. Fetches invoice data from universal_invoice_sessions
+    1. Fetches invoice data from sat_invoices
     2. Extracts UUID, RFCs, and total from extracted_data
     3. Calls SAT web service to verify status
     4. Updates session with SAT validation results

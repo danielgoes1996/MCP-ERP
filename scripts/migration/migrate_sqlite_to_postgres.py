@@ -27,7 +27,7 @@ PG_CONFIG = {
 # Tables already in PostgreSQL (skip these)
 EXISTING_PG_TABLES = {
     'bank_statements', 'bank_transactions', 'bulk_invoice_batch_items',
-    'bulk_invoice_batches', 'companies', 'expense_invoices', 'expenses',
+    'bulk_invoice_batches', 'companies', 'expense_invoices', 'manual_expenses',
     'invoice_import_logs', 'payment_accounts', 'refresh_tokens',
     'sat_download_logs', 'sat_efirma_credentials', 'sat_invoice_mapping',
     'sat_packages', 'sat_requests', 'schema_versions', 'tenants', 'users'

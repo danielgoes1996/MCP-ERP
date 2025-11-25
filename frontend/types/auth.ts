@@ -20,8 +20,9 @@ export interface User {
 export interface Tenant {
   id: number;
   name: string;
+  company_id?: number;
   description: string | null;
-  is_active: boolean;
+  is_active?: boolean;
   created_at?: string;
 }
 

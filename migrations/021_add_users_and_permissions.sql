@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS permissions (
 
     -- Permission definition
     role TEXT NOT NULL,
-    resource TEXT NOT NULL,  -- 'employee_advances', 'bank_reconciliation', 'expenses'
+    resource TEXT NOT NULL,  -- 'employee_advances', 'bank_reconciliation', 'manual_expenses'
     action TEXT NOT NULL,    -- 'read', 'create', 'update', 'delete', '*'
     scope TEXT,              -- 'own', 'all', 'department'
 
@@ -136,17 +136,17 @@ CREATE INDEX idx_access_log_errors ON access_log(status_code) WHERE status_code 
 
 -- Employee permissions
 INSERT INTO permissions (role, resource, action, scope, description) VALUES
-    ('employee', 'expenses', 'read', 'own', 'View own expenses'),
-    ('employee', 'expenses', 'create', 'own', 'Create own expenses'),
-    ('employee', 'expenses', 'update', 'own', 'Update own expenses'),
+    ('employee', 'manual_expenses', 'read', 'own', 'View own expenses'),
+    ('employee', 'manual_expenses', 'create', 'own', 'Create own expenses'),
+    ('employee', 'manual_expenses', 'update', 'own', 'Update own expenses'),
     ('employee', 'employee_advances', 'read', 'own', 'View own advances'),
     ('employee', 'employee_advances', 'create', 'own', 'Create own advances'),
     ('employee', 'dashboard', 'read', 'own', 'View own dashboard');
 
 -- Accountant permissions
 INSERT INTO permissions (role, resource, action, scope, description) VALUES
-    ('accountant', 'expenses', 'read', 'all', 'View all expenses'),
-    ('accountant', 'expenses', 'update', 'all', 'Update any expense'),
+    ('accountant', 'manual_expenses', 'read', 'all', 'View all expenses'),
+    ('accountant', 'manual_expenses', 'update', 'all', 'Update any expense'),
     ('accountant', 'employee_advances', 'read', 'all', 'View all advances'),
     ('accountant', 'employee_advances', 'update', 'all', 'Process reimbursements'),
     ('accountant', 'employee_advances', 'create', 'all', 'Create advances for any employee'),
@@ -158,9 +158,9 @@ INSERT INTO permissions (role, resource, action, scope, description) VALUES
 
 -- Manager permissions (accountant + approval)
 INSERT INTO permissions (role, resource, action, scope, description) VALUES
-    ('manager', 'expenses', 'read', 'all', 'View all expenses'),
-    ('manager', 'expenses', 'update', 'all', 'Update any expense'),
-    ('manager', 'expenses', 'approve', 'all', 'Approve expenses'),
+    ('manager', 'manual_expenses', 'read', 'all', 'View all expenses'),
+    ('manager', 'manual_expenses', 'update', 'all', 'Update any expense'),
+    ('manager', 'manual_expenses', 'approve', 'all', 'Approve expenses'),
     ('manager', 'employee_advances', 'read', 'all', 'View all advances'),
     ('manager', 'employee_advances', 'update', 'all', 'Update advances'),
     ('manager', 'employee_advances', 'approve', 'all', 'Approve advances'),

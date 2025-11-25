@@ -435,7 +435,7 @@ SELECT
         ELSE false
     END as is_overdue
 FROM expense_non_reconciliation nr
-JOIN expenses e ON nr.expense_id = e.id
+JOIN manual_expenses e ON nr.expense_id = e.id
 LEFT JOIN non_reconciliation_reason_codes rc ON nr.reason_code = rc.code
 WHERE nr.status IN ('pending', 'in_progress', 'escalated');
 

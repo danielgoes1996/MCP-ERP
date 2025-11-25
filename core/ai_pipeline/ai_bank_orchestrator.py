@@ -291,7 +291,7 @@ class AIBankOrchestrator:
                 SELECT
                     id, fecha, rfc_emisor, descripcion_concepto,
                     total, forma_pago, uuid
-                FROM expenses
+                FROM manual_expenses
                 WHERE company_id = %s
                 AND tenant_id = %s
                 AND forma_pago = '04'

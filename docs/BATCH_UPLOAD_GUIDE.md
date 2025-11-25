@@ -218,7 +218,7 @@ WARNING - Attempt 1/3 - Anthropic API rate limit error (429). Retrying in 10 sec
 
 ## Próximas Mejoras
 
-1. Agregar columna `batch_id` a la tabla `universal_invoice_sessions`
+1. Agregar columna `batch_id` a la tabla `sat_invoices`
 2. Implementar WebSocket para notificaciones en tiempo real
 3. Agregar endpoint para cancelar batch completo
 4. Persistir batch_id en localStorage del frontend

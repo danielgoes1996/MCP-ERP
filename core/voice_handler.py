@@ -286,8 +286,8 @@ class VoiceHandler:
                 return f"Gasto creado exitosamente por {amount} pesos con ID {expense_id}. Estado: pendiente de aprobación."
             
             # Handle expense list responses
-            if "expenses" in data:
-                count = len(data["expenses"])
+            if "manual_expenses" in data:
+                count = len(data["manual_expenses"])
                 return f"Se encontraron {count} gastos en el sistema."
             
             # Generic success response

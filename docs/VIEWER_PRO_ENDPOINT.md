@@ -487,14 +487,14 @@ const InvoicesPage = () => {
 **Solución**:
 1. Reprocesar facturas con endpoint `/sessions/reprocess-failed/`
 2. Usar el endpoint sin filtros y filtrar en frontend
-3. Verificar que los datos existen: `SELECT extracted_data FROM universal_invoice_sessions LIMIT 1;`
+3. Verificar que los datos existen: `SELECT extracted_data FROM sat_invoices LIMIT 1;`
 
 ### Error: XML vacío ("")
 
 **Causa**: El archivo en `invoice_file_path` no existe o no es accesible
 
 **Solución**:
-1. Verificar que el archivo existe: `SELECT invoice_file_path FROM universal_invoice_sessions LIMIT 1;`
+1. Verificar que el archivo existe: `SELECT invoice_file_path FROM sat_invoices LIMIT 1;`
 2. Verificar permisos del archivo
 3. Re-subir el archivo si es necesario
 

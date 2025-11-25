@@ -14,6 +14,7 @@ import uuid
 import asyncio
 import time
 import psutil
+import os
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass, asdict
@@ -99,6 +100,7 @@ class InvoiceItem:
     error_message: Optional[str] = None
     error_code: Optional[str] = None
     error_details: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None  # For storing auto-classification info
 
 
 @dataclass
@@ -156,7 +158,7 @@ class BulkInvoiceProcessor:
 
     def __init__(self):
         # Import PostgreSQL adapter
-        from core.database import pg_sync_adapter
+        from core.database_adapters import pg_sync_adapter
         self.pg_adapter = pg_sync_adapter
 
         # Create a db object that mimics the async interface but uses sync
@@ -408,6 +410,12 @@ class BulkInvoiceProcessor:
             if not invoice_id:
                 logger.warning(f"Failed to insert invoice {item.filename}, continuing with matching...")
                 # Continuar con matching aunque falle la inserción (no es crítico)
+
+            # ⭐ NUEVO (v2): Auto-classify invoice with AI if enabled
+            # This integrates UniversalInvoiceEngineSystem with BulkInvoiceProcessor
+            # for automatic accounting classification during SAT bulk downloads
+            if await self._should_auto_classify_invoice(batch, item):
+                await self._auto_classify_invoice(batch, item, invoice_id)
 
             # Find matching expenses
             candidates = await self._find_matching_expenses(batch, item)
@@ -690,6 +698,219 @@ class BulkInvoiceProcessor:
             logger.error(f"Traceback: {traceback.format_exc()}")
             return None
 
+    async def _should_auto_classify_invoice(
+        self,
+        batch: BatchRecord,
+        item: InvoiceItem
+    ) -> bool:
+        """
+        Determinar si una factura debe ser clasificada automáticamente con AI.
+
+        Criterios configurables en batch.batch_metadata:
+        - 'auto_classify_enabled': True/False (default: False por ahora)
+        - 'auto_classify_min_amount': Monto mínimo para clasificar (default: 0)
+        - 'auto_classify_types': Lista de tipos de comprobante (default: ['I'])
+
+        Args:
+            batch: Batch record con metadata
+            item: Invoice item a evaluar
+
+        Returns:
+            True si debe clasificarse automáticamente
+        """
+        try:
+            metadata = batch.batch_metadata or {}
+
+            # Check if auto-classification is enabled
+            if not metadata.get('auto_classify_enabled', False):
+                return False
+
+            # Check minimum amount threshold (default: 0 = all invoices)
+            min_amount = metadata.get('auto_classify_min_amount', 0)
+            if item.total_amount < min_amount:
+                logger.debug(f"Skipping classification for {item.filename}: "
+                           f"amount {item.total_amount} < threshold {min_amount}")
+                return False
+
+            # Check invoice type filter (default: ['I'] = only Ingreso invoices)
+            allowed_types = metadata.get('auto_classify_types', ['I'])
+
+            # Extract tipo_comprobante from XML if available
+            if item.raw_xml:
+                import xml.etree.ElementTree as ET
+                try:
+                    root = ET.fromstring(item.raw_xml)
+                    tipo_comprobante = root.get('TipoDeComprobante', 'I')
+
+                    if tipo_comprobante not in allowed_types:
+                        logger.debug(f"Skipping classification for {item.filename}: "
+                                   f"tipo {tipo_comprobante} not in {allowed_types}")
+                        return False
+
+                except Exception as e:
+                    logger.warning(f"Could not parse XML to check tipo_comprobante: {e}")
+                    # If parsing fails, assume it's 'I' and continue
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error checking if should auto-classify {item.filename}: {e}")
+            return False
+
+    async def _get_company_id_string(self, tenant_id: int) -> str:
+        """
+        Get company_id string from tenant_id integer.
+
+        This is a wrapper around the centralized tenant_utils.get_company_id_from_tenant()
+        to maintain compatibility with BulkInvoiceProcessor's async interface.
+
+        Args:
+            tenant_id: Integer tenant ID
+
+        Returns:
+            company_id string (e.g., "contaflow")
+        """
+        from core.shared.tenant_utils import get_company_id_from_tenant
+
+        try:
+            return get_company_id_from_tenant(tenant_id)
+        except Exception as e:
+            logger.error(f"Error getting company_id for tenant_id={tenant_id}: {e}")
+            # Fallback: use tenant_id as string
+            return str(tenant_id)
+
+    async def _auto_classify_invoice(
+        self,
+        batch: BatchRecord,
+        item: InvoiceItem,
+        invoice_id: Optional[int]
+    ):
+        """
+        Clasificar factura automáticamente usando UniversalInvoiceEngineSystem.
+
+        Este método integra el clasificador AI con el bulk processor:
+        1. Lee el XML (desde raw_xml o file_path)
+        2. Crea una sesión temporal en sat_invoices
+        3. Ejecuta clasificación AI
+        4. Actualiza accounting_classification en expense_invoices (dual-write)
+
+        Args:
+            batch: Batch record
+            item: Invoice item a clasificar
+            invoice_id: ID de la factura en expense_invoices
+        """
+        try:
+            from core.expenses.invoices.universal_invoice_engine_system import UniversalInvoiceEngineSystem
+
+            logger.info(f"🤖 Auto-classifying invoice {item.filename} (amount: ${item.total_amount:,.2f})")
+
+            # Get company_id string for UniversalInvoiceEngineSystem
+            # batch.company_id is integer (tenant_id), but engine expects string
+            company_id_string = await self._get_company_id_string(int(batch.company_id))
+            logger.debug(f"Using company_id: {company_id_string} (from tenant_id: {batch.company_id})")
+
+            # Get XML content (prefer raw_xml from database, fallback to file_path)
+            xml_content = None
+
+            if item.raw_xml:
+                xml_content = item.raw_xml.encode('utf-8') if isinstance(item.raw_xml, str) else item.raw_xml
+                logger.debug(f"Using raw_xml from database for {item.filename}")
+            elif item.file_path and os.path.exists(item.file_path):
+                with open(item.file_path, 'rb') as f:
+                    xml_content = f.read()
+                logger.debug(f"Using file_path {item.file_path} for {item.filename}")
+            else:
+                # Try to get raw_xml from expense_invoices if we have invoice_id
+                if invoice_id:
+                    conn = self._get_conn()
+                    cursor = conn.cursor()
+                    try:
+                        cursor.execute("""
+                            SELECT raw_xml FROM expense_invoices WHERE id = %s
+                        """, (invoice_id,))
+                        row = cursor.fetchone()
+                        if row and row['raw_xml']:
+                            xml_content = row['raw_xml'].encode('utf-8') if isinstance(row['raw_xml'], str) else row['raw_xml']
+                            logger.debug(f"Retrieved raw_xml from expense_invoices for {item.filename}")
+                    finally:
+                        conn.close()
+
+            if not xml_content:
+                logger.warning(f"Cannot auto-classify {item.filename}: No XML content available")
+                return
+
+            # Initialize classification engine
+            engine = UniversalInvoiceEngineSystem()
+
+            # Create a temporary session for classification
+            session_id = f"bulk_{item.uuid[:16]}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+
+            # Upload invoice to engine (creates session)
+            upload_result = await engine.upload_invoice_file(
+                company_id=company_id_string,  # Use string, not integer
+                file_content=xml_content,
+                filename=item.filename,
+                content_type='application/xml',
+                user_id='bulk_processor_auto_classify'
+            )
+
+            actual_session_id = upload_result['session_id']
+            logger.debug(f"Created classification session: {actual_session_id}")
+
+            # Process invoice (parse + classify)
+            process_result = await engine.process_invoice(actual_session_id)
+
+            if process_result.get('status') == 'completed':
+                classification = process_result.get('accounting_classification', {})
+
+                logger.info(
+                    f"✅ Auto-classified {item.filename}: "
+                    f"{classification.get('sat_account_code')} "
+                    f"(confidence: {classification.get('confidence_sat', 0):.2%})"
+                )
+
+                # The dual-write to expense_invoices should have happened automatically
+                # in UniversalInvoiceEngineSystem._classify_invoice_accounting()
+                # But let's verify it worked
+                conn = self._get_conn()
+                cursor = conn.cursor()
+                try:
+                    cursor.execute("""
+                        SELECT accounting_classification
+                        FROM expense_invoices
+                        WHERE uuid = %s
+                    """, (item.uuid,))
+
+                    result = cursor.fetchone()
+                    if result and result['accounting_classification']:
+                        logger.debug(f"✓ Verified dual-write to expense_invoices for {item.filename}")
+                    else:
+                        logger.warning(
+                            f"⚠ Classification not found in expense_invoices for {item.filename} - "
+                            f"dual-write may have failed"
+                        )
+                finally:
+                    conn.close()
+
+                # Store classification info in item metadata for reporting
+                item.metadata = item.metadata or {}
+                item.metadata['auto_classified'] = True
+                item.metadata['classification_session_id'] = actual_session_id
+                item.metadata['sat_account_code'] = classification.get('sat_account_code')
+                item.metadata['classification_confidence'] = classification.get('confidence_sat')
+
+            else:
+                logger.warning(
+                    f"⚠ Auto-classification failed for {item.filename}: "
+                    f"{process_result.get('error', 'Unknown error')}"
+                )
+
+        except Exception as e:
+            logger.error(f"Error auto-classifying invoice {item.filename}: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            # Don't raise - classification failure shouldn't stop the bulk process
+
     async def _find_matching_expenses(
         self,
         batch: BatchRecord,
@@ -704,7 +925,7 @@ class BulkInvoiceProcessor:
             SELECT
                 id, description, amount, provider_name, expense_date,
                 category, metadata, created_at
-            FROM expenses
+            FROM manual_expenses
             WHERE company_id = ?
             AND bank_status != 'invoiced'
             AND ABS(amount - ?) <= (? * 0.1)  -- 10% tolerance
@@ -889,7 +1110,7 @@ class BulkInvoiceProcessor:
             }
 
             await self.db.execute(
-                "UPDATE expenses SET invoice_status = ?, metadata = json_patch(COALESCE(metadata, '{}'), ?) WHERE id = ?",
+                "UPDATE manual_expenses SET invoice_status = ?, metadata = json_patch(COALESCE(metadata, '{}'), ?) WHERE id = ?",
                 ("invoiced", json.dumps(update_data), expense_id)
             )
 

@@ -368,7 +368,7 @@ except ImportError as e:
 ```python
 # Usuario pregunta: "¿Cuáles son mis gastos más altos de este mes?"
 # Sistema genera y ejecuta:
-sql = "SELECT descripcion, monto_total FROM expenses WHERE user_id = ? AND fecha_gasto >= date('now', 'start of month') ORDER BY monto_total DESC LIMIT 10"
+sql = "SELECT descripcion, monto_total FROM manual_expenses WHERE user_id = ? AND fecha_gasto >= date('now', 'start of month') ORDER BY monto_total DESC LIMIT 10"
 
 # Respuesta formateada automáticamente:
 "Tus gastos más altos de este mes son:
@@ -393,7 +393,7 @@ sql = "SELECT descripcion, monto_total FROM expenses WHERE user_id = ? AND fecha
 
 ### **4. Seguridad Empresarial**
 ```python
-# Input: "DELETE FROM expenses WHERE id > 0; DROP TABLE users;"
+# Input: "DELETE FROM manual_expenses WHERE id > 0; DROP TABLE users;"
 # Sistema: "Query contiene contenido potencialmente peligroso"
 # Resultado: ❌ Bloqueado automáticamente
 ```

@@ -1,0 +1,303 @@
+================================================================================
+                    INVOICE STORAGE MIGRATION SUMMARY
+================================================================================
+
+ANALYSIS DATE: 2025-11-15
+PROJECT: MCP-SERVER
+BRANCH: feature/backend-refactor
+
+================================================================================
+                                 KEY FINDINGS
+================================================================================
+
+1. CURRENT STATE: MIXED DATABASE SETUP
+   - PostgreSQL: PRIMARY (universal_invoice_engine_system.py)
+   - SQLite: LEGACY (invoice_manager.py, internal_db.py)
+   - CONFLICT: expense_invoices table exists in BOTH databases!
+
+2. INVOICE STORAGE BREAKDOWN:
+   - PostgreSQL (7 operations): 64% - ACTIVE
+   - SQLite (4 operations): 36% - LEGACY/DEPRECATED
+
+3. SINGLE SOURCE OF TRUTH:
+   - Table: expense_invoices (PostgreSQL)
+   - Location: /core/expenses/invoices/universal_invoice_engine_system.py
+   - Method: _save_classification_to_invoice() [Line 1446-1566]
+
+================================================================================
+                         CRITICAL FILES & LOCATIONS
+================================================================================
+
+PRIMARY (PostgreSQL) - Use These:
+  
+  File: /core/expenses/invoices/universal_invoice_engine_system.py
+  - create_processing_session() [Line 893-916]
+    -> INSERT INTO sat_invoices
+  
+  - _save_processing_result() [Line 1123-1189]
+    -> UPDATE sat_invoices
+    -> INSERT INTO universal_invoice_templates
+    -> INSERT INTO universal_invoice_validations
+  
+  - _save_classification_to_invoice() [Line 1446-1566] **CRITICAL**
+    -> UPDATE expense_invoices (MAIN INVOICE TABLE)
+
+  File: /core/shared/unified_db_adapter.py
+  - register_expense_invoice() [Line 1013-1039]
+    -> INSERT INTO expense_invoices
+  
+  - Updates [Line 1583]
+    -> UPDATE expense_invoices
+
+  File: /api/universal_invoice_engine_api.py
+  - POST /sessions/upload/ [Line 627-691]
+  - POST /sessions/batch-upload/ [Line 114-250]
+  - POST /sessions/{session_id}/process [Line 693-758]
+
+LEGACY (SQLite) - Remove These:
+
+  File: /core/expenses/invoices/invoice_manager.py
+  - update_invoice_status() [Line 65-107]
+    -> UPDATE tickets (DEPRECATED)
+  
+  - attach_invoice_file() [Line 109-180]
+    -> INSERT INTO invoice_attachments (DEPRECATED)
+
+  File: /core/internal_db.py
+  - register_expense_invoice() [Line 1013-1039]
+    -> INSERT INTO expense_invoices (CONFLICTS WITH PostgreSQL!)
+
+DATABASE CONFIG:
+  File: /core/shared/db_config.py
+  - POSTGRES_CONFIG [Line 12-19]
+  - expense_invoices schema [Line 23-49]
+
+================================================================================
+                              MIGRATION CHECKLIST
+================================================================================
+
+PHASE 1: AUDIT & DOCUMENTATION (COMPLETED)
+  [x] Identified all INSERT/UPDATE operations
+  [x] Mapped database conflicts
+  [x] Created architecture documentation
+  [x] Generated code location references
+
+PHASE 2: IMMEDIATE FIXES (HIGH PRIORITY)
+  [ ] Stop using invoice_manager.py SQLite code
+  [ ] Stop using internal_db.py SQLite INSERT
+  [ ] Redirect all calls to unified_db_adapter.py (PostgreSQL)
+  [ ] Add deprecation warnings to SQLite methods
+
+PHASE 3: REFACTORING (MEDIUM PRIORITY)
+  [ ] Review all invoice upload endpoints
+  [ ] Ensure bulk_invoice_processor uses PostgreSQL
+  [ ] Create unified invoice storage interface
+  [ ] Add transaction support for multi-step operations
+
+PHASE 4: MIGRATION (LOW PRIORITY - If SQLite data exists)
+  [ ] Backup SQLite invoice data
+  [ ] Create migration script (UUID-based deduplication)
+  [ ] Validate data integrity
+  [ ] Migrate SQLite → PostgreSQL
+  [ ] Verify no data loss
+
+PHASE 5: TESTING & CLEANUP (ONGOING)
+  [ ] Test invoice upload flow
+  [ ] Test batch processing
+  [ ] Test duplicate detection (UUID)
+  [ ] Test error handling
+  [ ] Remove deprecated SQLite code
+  [ ] Performance testing (1000+ invoices)
+
+================================================================================
+                         KEY SQL OPERATIONS TO VERIFY
+================================================================================
+
+1. INSERT sat_invoices
+   Location: /core/expenses/invoices/universal_invoice_engine_system.py:905-912
+   Status: ACTIVE - PostgreSQL
+
+2. UPDATE sat_invoices
+   Location: /core/expenses/invoices/universal_invoice_engine_system.py:1131-1148
+   Status: ACTIVE - PostgreSQL
+
+3. INSERT universal_invoice_templates
+   Location: /core/expenses/invoices/universal_invoice_engine_system.py:1152-1166
+   Status: ACTIVE - PostgreSQL
+
+4. INSERT universal_invoice_validations
+   Location: /core/expenses/invoices/universal_invoice_engine_system.py:1171-1187
+   Status: ACTIVE - PostgreSQL
+
+5. UPDATE expense_invoices (MAIN INVOICE TABLE)
+   Location: /core/expenses/invoices/universal_invoice_engine_system.py:1542-1552
+   Status: ACTIVE - PostgreSQL (CRITICAL)
+
+6. INSERT expense_invoices
+   Location: /core/shared/unified_db_adapter.py:1022
+   Status: ACTIVE - PostgreSQL
+
+7. UPDATE expense_invoices (general)
+   Location: /core/shared/unified_db_adapter.py:1583
+   Status: ACTIVE - PostgreSQL
+
+8. INSERT invoice_attachments (DEPRECATED)
+   Location: /core/expenses/invoices/invoice_manager.py:144-156
+   Status: DEPRECATED - SQLite
+
+9. UPDATE tickets (DEPRECATED)
+   Location: /core/expenses/invoices/invoice_manager.py:84-97
+   Status: DEPRECATED - SQLite
+
+10. INSERT expense_invoices (SQLite - CONFLICT)
+    Location: /core/internal_db.py:1712-1719
+    Status: CONFLICTS WITH PostgreSQL - REMOVE
+
+================================================================================
+                              DATABASE SCHEMA
+================================================================================
+
+Primary Invoice Table: expense_invoices (PostgreSQL)
+
+Key Columns:
+  - id: integer PRIMARY KEY
+  - uuid: varchar(36) UNIQUE - Critical for deduplication
+  - tenant_id: integer - Multi-tenant support
+  - company_id: integer
+  - filename: varchar(500)
+  - rfc_emisor: varchar(13)
+  - nombre_emisor: varchar(500)
+  - rfc_receptor: varchar(13)
+  - nombre_receptor: varchar(500)
+  - fecha_emision: timestamp
+  - subtotal: double precision
+  - iva_amount: double precision
+  - total: double precision
+  - currency: varchar(10)
+  - tipo_comprobante: varchar(10)
+  - linked_expense_id: integer
+  - match_confidence: double precision
+  - raw_xml: text
+  - accounting_classification: jsonb
+  - session_id: text (links to sat_invoices)
+
+PostgreSQL Connection:
+  - Host: 127.0.0.1 (configurable via POSTGRES_HOST)
+  - Port: 5433 (configurable via POSTGRES_PORT)
+  - Database: mcp_system (configurable via POSTGRES_DB)
+  - User: mcp_user (configurable via POSTGRES_USER)
+
+================================================================================
+                            IMPLEMENTATION NOTES
+================================================================================
+
+1. Connection Handling:
+   - PostgreSQL: Uses psycopg2 with RealDictCursor
+   - Parameterized queries (safe from SQL injection)
+   - Transaction support with commit()
+
+2. Invoice Lifecycle:
+   1. create_processing_session() -> Creates sat_invoices entry
+   2. process_invoice() -> Extracts & validates data
+   3. _save_processing_result() -> Saves session metadata
+   4. _save_classification_to_invoice() -> Links to expense_invoices (MAIN)
+
+3. Duplicate Detection:
+   - Uses UUID extracted from CFDI XML
+   - Query checks: sat_invoices + expense_invoices
+   - Location: /api/universal_invoice_engine_api.py:176-182
+
+4. Audit Trail:
+   - sat_invoices: Full processing metadata
+   - universal_invoice_templates: Template matching details
+   - universal_invoice_validations: Validation rules applied
+   - Links via session_id in expense_invoices
+
+================================================================================
+                            RECOMMENDED ACTIONS
+================================================================================
+
+IMMEDIATE (Next 1-2 days):
+  1. Add deprecation warning to invoice_manager.py
+  2. Review all callers of internal_db.register_expense_invoice()
+  3. Update callers to use unified_db_adapter instead
+  4. Test PostgreSQL connection with POSTGRES_CONFIG
+
+SHORT TERM (Next 1-2 weeks):
+  1. Create unified invoice storage interface
+  2. Refactor bulk_invoice_processor to use PostgreSQL
+  3. Add UUID uniqueness constraint to expense_invoices
+  4. Create integration tests for invoice upload flow
+
+MEDIUM TERM (Next 1-2 months):
+  1. Migrate SQLite data to PostgreSQL (if any exists)
+  2. Remove all SQLite invoice code
+  3. Performance testing with production-scale data
+  4. Documentation updates for team
+
+================================================================================
+                          CONFIGURATION REQUIRED
+================================================================================
+
+Environment Variables:
+  POSTGRES_HOST=127.0.0.1
+  POSTGRES_PORT=5433
+  POSTGRES_DB=mcp_system
+  POSTGRES_USER=mcp_user
+  POSTGRES_PASSWORD=changeme
+
+PostgreSQL must be running and mcp_system database must exist.
+
+Tables required:
+  - sat_invoices
+  - universal_invoice_templates
+  - universal_invoice_validations
+  - expense_invoices
+
+================================================================================
+                          DOCUMENTATION FILES
+================================================================================
+
+Generated reports in /Users/danielgoes96/Desktop/mcp-server/:
+
+1. INVOICE_STORAGE_MIGRATION.md
+   - Comprehensive architecture analysis
+   - All INSERT/UPDATE operations
+   - Migration priorities and steps
+   - Testing checklist
+
+2. INVOICE_INSERT_UPDATE_LOCATIONS.md
+   - Code snippets for all operations
+   - Summary table of all locations
+   - Migration action items
+   - Database statistics
+
+3. MIGRATION_SUMMARY.txt (this file)
+   - Quick reference guide
+   - Key findings and locations
+   - Checklist for migration
+   - Configuration requirements
+
+================================================================================
+                              NEXT STEPS
+================================================================================
+
+1. Review INVOICE_STORAGE_MIGRATION.md for detailed analysis
+2. Review INVOICE_INSERT_UPDATE_LOCATIONS.md for code snippets
+3. Start with Phase 2 (Immediate Fixes)
+4. Focus on redirecting calls from SQLite to PostgreSQL
+5. Add comprehensive tests for all code paths
+6. Schedule migration of any existing SQLite data
+
+================================================================================
+                            CONTACT & QUESTIONS
+================================================================================
+
+For questions about this analysis, refer to:
+- Universal Invoice Engine System: /core/expenses/invoices/universal_invoice_engine_system.py
+- Database Config: /core/shared/db_config.py
+- Unified DB Adapter: /core/shared/unified_db_adapter.py
+
+Analysis generated by Claude Code - 2025-11-15
+
+================================================================================

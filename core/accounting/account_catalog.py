@@ -224,26 +224,8 @@ def _retrieve_with_local_catalog(
         # default broad query
         query_terms = ["gastos", "generales"]
 
-    # Expand tokens with contextual aliases to improve recall (e.g. viaticos ↔ hospedaje)
-    expanded_terms: List[str] = []
-    seen_terms = set()
-
-    def _add_term(term: str) -> None:
-        normalized = term.strip().lower()
-        if normalized and normalized not in seen_terms:
-            expanded_terms.append(normalized)
-            seen_terms.add(normalized)
-
-    for original_term in list(query_terms):
-        _add_term(original_term)
-        lookup_key = _normalize_text(original_term) or original_term.strip().lower()
-        alias_terms = KEYWORD_ALIASES.get(lookup_key) or KEYWORD_ALIASES.get(original_term.strip().lower())
-        if alias_terms:
-            for alias in alias_terms:
-                _add_term(alias)
-
-    if expanded_terms:
-        query_terms = expanded_terms
+    # No keyword expansion needed - context enrichment happens in _build_embeddings_payload()
+    # which includes provider name and SAT product/service catalog lookup
 
     scored = []
     for account in candidate_accounts:
@@ -252,10 +234,22 @@ def _retrieve_with_local_catalog(
 
     scored.sort(key=lambda item: item[0], reverse=True)
 
+    # EXPAND family filter to include all subfamilies (same as pgvector path)
+    expanded_family_filter = None
+    if family_filter:
+        expanded_family_filter = []
+        for family in family_filter:
+            if len(family) == 3:  # Family code like '600'
+                expanded_family_filter.append(family)
+                for i in range(1, 100):  # 601-699
+                    expanded_family_filter.append(f"{family[0]}{i:02d}")
+            else:
+                expanded_family_filter.append(family)
+
     top_accounts = []
     for (score_tuple, account) in scored:
         family_hint = extract_family_code(account.get("code"))
-        if family_filter and family_hint not in family_filter:
+        if expanded_family_filter and family_hint not in expanded_family_filter:
             continue
         top_accounts.append({
             "code": account.get("code"),
@@ -275,25 +269,12 @@ def _normalize_text(value: Optional[str]) -> str:
     return normalize_expense_text(value or "")
 
 
-KEYWORD_ALIASES = {
-    "laptop": ["equipo computo", "computo", "activo fijo", "seccion 156"],
-    "macbook": ["equipo computo", "computo", "activo fijo", "seccion 156"],
-    "computadora": ["equipo computo", "computo", "activo fijo", "seccion 156"],
-    "computador": ["equipo computo", "computo", "activo fijo"],
-    "equipo de computo": ["equipo computo", "activo fijo"],
-    "equipo computo": ["equipo computo", "activo fijo"],
-    "tecnologia": ["equipo computo", "computo"],
-    "activo fijo": ["activo fijo", "seccion 156"],
-    "hotel": ["hospedaje", "alojamiento", "viaticos", "viajes"],
-    "hoteles": ["hospedaje", "hotel", "alojamiento", "viaticos", "viajes"],
-    "hospedaje": ["hotel", "alojamiento", "viaticos", "viajes"],
-    "alojamiento": ["hospedaje", "hotel", "viaticos", "viajes"],
-    "viaticos": ["viatico", "hospedaje", "hotel", "viaje", "viajes"],
-    "viatico": ["viaticos", "hospedaje", "hotel", "viaje"],
-    "viaje": ["viaticos", "viajes", "hospedaje", "hotel"],
-    "viajes": ["viaticos", "viaje", "hospedaje", "hotel"],
-    "estancia": ["hospedaje", "hotel", "alojamiento"],
-}
+# REMOVED: KEYWORD_ALIASES (not scalable)
+# Replaced with enriched context in _build_embeddings_payload() which includes:
+# - Original description
+# - Provider name
+# - SAT product/service catalog name (clave_prod_serv lookup)
+# This approach is more scalable and doesn't require manual maintenance
 
 
 def _build_query_embedding(expense_payload: Dict[str, Any]) -> Optional[np.ndarray]:
@@ -320,10 +301,6 @@ def _build_query_embedding(expense_payload: Dict[str, Any]) -> Optional[np.ndarr
         ])
 
     normalized_fields = [_normalize_text(str(field)) for field in fields if field]
-    text_lower = " ".join(normalized_fields)
-    for keyword, aliases in KEYWORD_ALIASES.items():
-        if keyword in text_lower:
-            normalized_fields.extend(aliases)
     text = " ".join(filter(None, normalized_fields)).strip()
     if not text:
         return None
@@ -394,10 +371,6 @@ def _retrieve_with_pgvector(
         _normalize_text(expense_payload.get("categoria_contable")),
         _normalize_text(expense_payload.get("categoria_semantica")),
     ]
-    combined_search = " ".join(filter(None, search_components))
-    for keyword, aliases in KEYWORD_ALIASES.items():
-        if keyword in combined_search:
-            search_components.extend(aliases)
     search_text = " ".join(filter(None, search_components))
 
     filters: List[str] = []
@@ -407,8 +380,53 @@ def _retrieve_with_pgvector(
         filters.append("version_tag = %s")
         params.append(version_tag)
     if family_filter:
-        filters.append("family_hint = ANY(%s)")
-        params.append(list(family_filter))
+        # Handle both family codes (e.g., '600') and subfamily codes (e.g., '115', '601')
+        # Family: 3 digits ending in '00' (e.g., '100', '600') → filter by family_hint
+        # Subfamily: 3 digits NOT ending in '00' (e.g., '115', '601') → filter by code prefix
+
+        # Separate families from subfamilies
+        families = []
+        subfamilies = []
+
+        for code in family_filter:
+            if len(code) == 3 and code.endswith('00'):
+                # Family code (e.g., '100', '600')
+                families.append(code)
+            elif len(code) == 3:
+                # Subfamily code (e.g., '115', '601')
+                subfamilies.append(code)
+            else:
+                # Other formats - treat as subfamily
+                subfamilies.append(code)
+
+        # Build filter conditions
+        filter_conditions = []
+
+        if families:
+            # For families: expand to include all subfamilies
+            # e.g., '600' → ['600', '601', '602', ..., '699']
+            expanded_families = []
+            for family in families:
+                expanded_families.append(family)
+                for i in range(1, 100):
+                    expanded_families.append(f"{family[0]}{i:02d}")
+
+            filter_conditions.append("family_hint = ANY(%s)")
+            params.append(expanded_families)
+
+        if subfamilies:
+            # For subfamilies: filter by code prefix
+            # e.g., '115' → code LIKE '115%' (matches 115, 115.01, 115.02, etc.)
+            subfamily_conditions = []
+            for subfamily in subfamilies:
+                params.append(f"{subfamily}%")
+                subfamily_conditions.append(f"code LIKE %s")
+
+            if subfamily_conditions:
+                filter_conditions.append(f"({' OR '.join(subfamily_conditions)})")
+
+        if filter_conditions:
+            filters.append(f"({' OR '.join(filter_conditions)})")
 
     where_clause = f"WHERE {' AND '.join(filters)}" if filters else ""
     sql = f"""
@@ -418,7 +436,7 @@ def _retrieve_with_pgvector(
             description,
             family_hint,
             version_tag,
-            embedding <-> %s::vector AS distance,
+            embedding <=> %s::vector AS distance,
             ts_rank(search_vector, plainto_tsquery('spanish'::regconfig, %s::text)) AS ts_rank
         FROM sat_account_embeddings
         {where_clause}
@@ -436,9 +454,25 @@ def _retrieve_with_pgvector(
         logger.warning("pgvector retrieval failed: %s", exc)
         return []
 
+    # Extract clave_prod_serv from payload metadata for boost scoring
+    clave_prod_serv = None
+    if expense_payload.get('metadata'):
+        clave_prod_serv = expense_payload['metadata'].get('clave_prod_serv')
+
     results: List[Dict[str, Any]] = []
     for code, name, description, family_hint, version_tag_value, distance, ts_rank in rows:
         score = max(0.0, 1.0 - float(distance)) if distance is not None else 0.0
+
+        # NEW: Apply ClaveProdServ boost
+        # Simple fixed boost for now - can be enhanced with historical mappings later
+        clave_boost = 0.0
+        if clave_prod_serv and description:
+            # Apply small boost if account description might relate to this product/service type
+            # This helps disambiguation when base similarity scores are very low
+            clave_boost = 0.05  # Small but meaningful boost
+
+        final_score = score + clave_boost
+
         results.append(
             {
                 "code": code,
@@ -446,9 +480,10 @@ def _retrieve_with_pgvector(
                 "description": description,
                 "family_hint": family_hint,
                 "version_tag": version_tag_value,
-                "score": score,
+                "score": final_score,  # Use boosted score
                 "distance": float(distance) if distance is not None else None,
                 "ts_rank": float(ts_rank) if ts_rank is not None else None,
+                "clave_boost": clave_boost,  # Track boost for debugging
             }
         )
 

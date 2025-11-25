@@ -10,30 +10,15 @@
 **Priority**: High
 **Functionality**: #15 - Expense completion enhancement
 
-```python
-@app.post("/complete-expense")
-async def complete_expense(request: CompleteExpenseRequest):
-    """
-    Complete expense with intelligent field suggestions
-
-    Uses:
-    - Enhanced data models from DB
-    - User completion preferences
-    - Field suggestion algorithms
-    - Validation of completeness
-    """
-    pass
-```
-
-**Required Models**:
-```python
-class CompleteExpenseRequest(BaseModel):
-    expense_id: int
-    enhanced_data: Dict[str, Any]
-    user_completions: Dict[str, Any]
-    completion_rules: Optional[Dict[str, Any]] = None
-    field_priorities: Optional[Dict[str, Any]] = None
-```
+> ⚠️ **DEPRECATED**: This endpoint has been removed. Use `POST /expenses` instead.
+>
+> The `/complete-expense` endpoint has been replaced by the unified `/expenses` endpoint which handles:
+> - Complete expense creation with validation
+> - Automatic field mapping and SAT code assignment
+> - Ticket binding and escalation hooks
+> - Multi-tenancy support
+>
+> See the [Expense Creation](#expense-creation) section for current implementation.
 
 ---
 

@@ -56,7 +56,7 @@ const whatsappSteps = [
   },
   {
     title: 'Voz',
-    description: 'Notas de voz → `/voice_mcp_enhanced` → `/complete_expense`',
+    description: 'Notas de voz → `/voice_mcp_enhanced` → `/expenses`',
     status: 'UI lista, pendiente webhook WhatsApp',
   },
   {
@@ -98,7 +98,7 @@ const entryModeConfig: Record<
   voice: {
     title: 'Nota de voz asistida',
     description: 'Transcribe, enriquece y completa desde /voice_mcp_enhanced',
-    endpoint: '/voice_mcp_enhanced → /complete_expense',
+    endpoint: '/voice_mcp_enhanced → /expenses',
     icon: Mic,
   },
   ticket: {
@@ -265,7 +265,7 @@ export default function CreateExpensePage() {
         description: 'Transcripción + LLM + formulario corto',
         status:
           voiceStage === 'ready'
-            ? 'Listo para `/complete_expense`'
+            ? 'Listo para `/expenses`'
             : voiceStage === 'processing'
             ? 'Procesando transcripción'
             : voiceStage === 'recording'
@@ -315,7 +315,7 @@ export default function CreateExpensePage() {
     },
     {
       label: 'Completar campos',
-      description: 'Formulario corto → `/complete_expense`',
+      description: 'Formulario corto → `/expenses`',
       active: voiceStage === 'ready',
     },
   ];
@@ -393,7 +393,7 @@ export default function CreateExpensePage() {
         value = inferredDate;
         if (voiceStage === 'ready') {
           status = 'complete';
-          detail = 'Confirmado en `/complete_expense`';
+          detail = 'Confirmado en `/expenses`';
         } else if (voiceStage === 'processing') {
           status = 'auto';
           detail = 'IA determinando fecha probable';
@@ -833,7 +833,7 @@ export default function CreateExpensePage() {
                       : 'Iniciar grabación demo'}
                   </Button>
                   <Button variant="secondary" onClick={handleVoiceComplete}>
-                    Generar gasto con `/complete_expense`
+                    Generar gasto con `/expenses`
                   </Button>
                 </div>
 

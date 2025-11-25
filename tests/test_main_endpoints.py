@@ -199,8 +199,8 @@ class TestExpenseEndpoints:
             expenses = data
         else:
             assert isinstance(data, dict)
-            assert "expenses" in data
-            expenses = data["expenses"]
+            assert "manual_expenses" in data
+            expenses = data["manual_expenses"]
             assert isinstance(expenses, list)
         if expenses:
             assert expenses[0]["id"] == 1

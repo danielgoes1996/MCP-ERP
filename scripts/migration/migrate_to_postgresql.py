@@ -536,7 +536,7 @@ DATABASE_URL = "postgresql://mcp_user:password@localhost:5432/mcp_production"
 docker exec -it mcp_postgres psql -U mcp_user -d mcp_production
 
 # Contar registros
-SELECT 'expenses' as table_name, COUNT(*) FROM expense_records
+SELECT 'manual_expenses' as table_name, COUNT(*) FROM expense_records
 UNION ALL
 SELECT 'jobs', COUNT(*) FROM automation_jobs
 UNION ALL

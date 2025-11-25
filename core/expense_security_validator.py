@@ -506,7 +506,7 @@ class ExpenseSecurityValidator:
         try:
             # 1. Verificar que los gastos existen y son accesibles
             existing_count = await self.db.fetch_one(
-                "SELECT COUNT(*) as count FROM expenses WHERE id = ANY($1)",
+                "SELECT COUNT(*) as count FROM manual_expenses WHERE id = ANY($1)",
                 target_expense_ids
             )
 
@@ -517,7 +517,7 @@ class ExpenseSecurityValidator:
             # 2. Verificar estados consistentes
             if action_type == ActionType.MARK_INVOICED:
                 already_invoiced = await self.db.fetch_one("""
-                    SELECT COUNT(*) as count FROM expenses
+                    SELECT COUNT(*) as count FROM manual_expenses
                     WHERE id = ANY($1) AND invoice_status = 'invoiced'
                 """, target_expense_ids)
 
@@ -586,7 +586,7 @@ class ExpenseSecurityValidator:
             if action_type == ActionType.DELETE:
                 # Verificar que no se intenten eliminar gastos facturados
                 invoiced_count = await self.db.fetch_one("""
-                    SELECT COUNT(*) as count FROM expenses
+                    SELECT COUNT(*) as count FROM manual_expenses
                     WHERE id = ANY($1) AND invoice_status = 'invoiced'
                 """, target_expense_ids)
 
@@ -689,7 +689,7 @@ class ExpenseSecurityValidator:
                 COALESCE(SUM(monto_total), 0) as total_amount,
                 COALESCE(AVG(monto_total), 0) as avg_amount,
                 COALESCE(MAX(monto_total), 0) as max_amount
-            FROM expenses
+            FROM manual_expenses
             WHERE id = ANY($1)
             """
 

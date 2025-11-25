@@ -5,11 +5,15 @@ uvicorn[standard]==0.24.0
 # HTTP client for external API calls
 requests==2.31.0
 
+# Task scheduling
+APScheduler==3.10.4
+
 # Environment variable management
 python-dotenv==1.0.0
 
 # Data validation and serialization
 pydantic==2.5.0
+email-validator>=2.1.0
 
 # File upload support
 python-multipart==0.0.6

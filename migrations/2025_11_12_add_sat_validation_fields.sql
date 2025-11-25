@@ -4,8 +4,8 @@
 
 BEGIN;
 
--- Add SAT validation fields to universal_invoice_sessions
-ALTER TABLE universal_invoice_sessions
+-- Add SAT validation fields to sat_invoices
+ALTER TABLE sat_invoices
     ADD COLUMN sat_validation_status TEXT DEFAULT 'pending' CHECK (
         sat_validation_status IN (
             'pending',      -- Not yet verified
@@ -19,36 +19,36 @@ ALTER TABLE universal_invoice_sessions
         )
     );
 
-ALTER TABLE universal_invoice_sessions
+ALTER TABLE sat_invoices
     ADD COLUMN sat_codigo_estatus TEXT;
 
-ALTER TABLE universal_invoice_sessions
+ALTER TABLE sat_invoices
     ADD COLUMN sat_es_cancelable BOOLEAN;
 
-ALTER TABLE universal_invoice_sessions
+ALTER TABLE sat_invoices
     ADD COLUMN sat_estado TEXT;
 
-ALTER TABLE universal_invoice_sessions
+ALTER TABLE sat_invoices
     ADD COLUMN sat_validacion_efos TEXT;
 
-ALTER TABLE universal_invoice_sessions
+ALTER TABLE sat_invoices
     ADD COLUMN sat_verified_at TIMESTAMP;
 
-ALTER TABLE universal_invoice_sessions
+ALTER TABLE sat_invoices
     ADD COLUMN sat_last_check_at TIMESTAMP;
 
-ALTER TABLE universal_invoice_sessions
+ALTER TABLE sat_invoices
     ADD COLUMN sat_verification_error TEXT;
 
-ALTER TABLE universal_invoice_sessions
+ALTER TABLE sat_invoices
     ADD COLUMN sat_verification_url TEXT;
 
 -- Create index for SAT validation queries
 CREATE INDEX IF NOT EXISTS idx_universal_invoice_sessions_sat_status
-    ON universal_invoice_sessions(sat_validation_status, sat_verified_at);
+    ON sat_invoices(sat_validation_status, sat_verified_at);
 
 CREATE INDEX IF NOT EXISTS idx_universal_invoice_sessions_sat_pending
-    ON universal_invoice_sessions(sat_validation_status)
+    ON sat_invoices(sat_validation_status)
     WHERE sat_validation_status = 'pending';
 
 -- Create table for SAT verification history (audit trail)
@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS sat_verification_history (
     -- Timestamps
     verified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-    FOREIGN KEY (session_id) REFERENCES universal_invoice_sessions(id) ON DELETE CASCADE
+    FOREIGN KEY (session_id) REFERENCES sat_invoices(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_sat_verification_history_session

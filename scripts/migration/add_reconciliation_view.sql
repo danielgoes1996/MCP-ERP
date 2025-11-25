@@ -11,8 +11,8 @@ DECLARE
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'expense_invoices') THEN
     expenses_table := 'expense_invoices';
-  ELSIF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'expenses') THEN
-    expenses_table := 'expenses';
+  ELSIF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'manual_expenses') THEN
+    expenses_table := 'manual_expenses';
   ELSE
     RAISE NOTICE 'No se encontró tabla de expenses, creando vista simplificada';
     expenses_table := NULL;

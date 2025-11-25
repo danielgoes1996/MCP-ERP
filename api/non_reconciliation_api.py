@@ -68,7 +68,7 @@ async def mark_expense_non_reconcilable(
 
         # Update expense status
         await db.execute(
-            "UPDATE expenses SET bank_status = 'non_reconcilable' WHERE id = ?",
+            "UPDATE manual_expenses SET bank_status = 'non_reconcilable' WHERE id = ?",
             (request.expense_id,)
         )
 

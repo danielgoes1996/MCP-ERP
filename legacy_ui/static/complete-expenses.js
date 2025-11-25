@@ -277,7 +277,7 @@ const CompleteExpenses = () => {
                     className: 'text-lg font-semibold text-gray-900 mb-4'
                 }, 'Todos los Gastos'),
                 React.createElement('div', {
-                    key: 'expenses',
+                    key: 'manual_expenses',
                     className: 'space-y-3'
                 }, expensesData.map((expense, index) =>
                     React.createElement('div', {

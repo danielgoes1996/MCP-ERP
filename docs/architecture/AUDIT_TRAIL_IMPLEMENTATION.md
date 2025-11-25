@@ -233,7 +233,7 @@ def suggest_one_to_many_splits(self, limit: int = 10):
         """, (
             suggestion_id, 'one_to_many',
             json.dumps([suggestion['movement']['id']]),
-            json.dumps([e['id'] for e in suggestion['expenses']]),
+            json.dumps([e['id'] for e in suggestion['manual_expenses']]),
             suggestion['confidence_score'],
             suggestion['breakdown']['amount_score'],
             suggestion['breakdown']['date_score'],

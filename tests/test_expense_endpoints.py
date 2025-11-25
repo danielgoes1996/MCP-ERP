@@ -414,19 +414,24 @@ class TestPOSTExpensesSimple:
     """Tests para POST /api/expenses/simple."""
 
     async def test_create_simple_expense(self, client):
-        """Debe crear gasto con formato simplificado."""
+        """Debe crear gasto con formato simplificado usando el endpoint moderno."""
         payload = {
             "descripcion": "Comida en restaurante",
             "monto_total": 450.00,
             "fecha_gasto": "2025-01-15",
-            "categoria": "alimentacion"
+            "categoria": "alimentacion",
+            "forma_pago": "efectivo",
+            "company_id": "test_company"
         }
 
-        resp = await client.post('/api/expenses/simple', json=payload)
+        resp = await client.post('/expenses', json=payload)
 
-        # Simple endpoint puede tener implementación diferente
-        # Verificar que no falle completamente
-        assert resp.status_code in [200, 201, 404, 500]
+        # Verificar que se cree correctamente con el endpoint moderno
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data['id'] > 0
+        assert data['descripcion'] == "Comida en restaurante"
+        assert data['monto_total'] == 450.00
 
 
 class TestPOSTExpensesMultipleCreation:

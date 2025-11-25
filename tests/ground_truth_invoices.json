@@ -1,0 +1,137 @@
+[
+  {
+    "description": "Servicios de facturación electrónica",
+    "provider_name": "FINKOK",
+    "provider_rfc": "FIN1203015JA",
+    "clave_prod_serv": "84111506",
+    "expected_sat_code": "613.01",
+    "expected_family": "613",
+    "rationale": "Administrative services for CFDI stamping and electronic invoicing"
+  },
+  {
+    "description": "Publicidad en redes sociales",
+    "provider_name": "Meta Platforms",
+    "provider_rfc": "MME930209C79",
+    "clave_prod_serv": "81161500",
+    "expected_sat_code": "614.02",
+    "expected_family": "614",
+    "rationale": "Marketing and advertising expenses on social media platforms"
+  },
+  {
+    "description": "Servicios de computación en la nube",
+    "provider_name": "Google Cloud",
+    "provider_rfc": "GOOG990101XXX",
+    "clave_prod_serv": "81111500",
+    "expected_sat_code": "613.02",
+    "expected_family": "613",
+    "rationale": "IT services and cloud infrastructure costs"
+  },
+  {
+    "description": "Honorarios profesionales - Contador",
+    "provider_name": "Despacho Contable XYZ",
+    "provider_rfc": "XAXX010101000",
+    "clave_prod_serv": "84111501",
+    "expected_sat_code": "613.01",
+    "expected_family": "613",
+    "rationale": "Professional accounting services fees"
+  },
+  {
+    "description": "Compra de materia prima - Harina",
+    "provider_name": "Molinos de México",
+    "provider_rfc": "MME850315XXX",
+    "clave_prod_serv": "50181501",
+    "expected_sat_code": "601",
+    "expected_family": "601",
+    "rationale": "Raw materials for food production (flour)"
+  },
+  {
+    "description": "Servicio de mensajería y paquetería",
+    "provider_name": "Estafeta",
+    "provider_rfc": "EST9001011X1",
+    "clave_prod_serv": "78101500",
+    "expected_sat_code": "614.04",
+    "expected_family": "614",
+    "rationale": "Shipping and delivery services (sales-related expense)"
+  },
+  {
+    "description": "Arrendamiento de oficina",
+    "provider_name": "Inmobiliaria del Centro",
+    "provider_rfc": "IDC000101XXX",
+    "clave_prod_serv": "70141500",
+    "expected_sat_code": "615",
+    "expected_family": "615",
+    "rationale": "Office rent - operational expense"
+  },
+  {
+    "description": "Servicio de luz - CFE",
+    "provider_name": "Comisión Federal de Electricidad",
+    "provider_rfc": "CFE370814BP0",
+    "clave_prod_serv": "27112100",
+    "expected_sat_code": "615",
+    "expected_family": "615",
+    "rationale": "Electricity service - utility expense"
+  },
+  {
+    "description": "Nómina - Sueldo mensual",
+    "provider_name": "Empleado Juan Pérez",
+    "provider_rfc": "PEXJ850101XXX",
+    "clave_prod_serv": null,
+    "expected_sat_code": "601.84",
+    "expected_family": "601",
+    "rationale": "Payroll - direct labor cost"
+  },
+  {
+    "description": "Papelería y útiles de oficina",
+    "provider_name": "Office Depot",
+    "provider_rfc": "ODE990101XXX",
+    "clave_prod_serv": "44101500",
+    "expected_sat_code": "615",
+    "expected_family": "615",
+    "rationale": "Office supplies - operational expense"
+  },
+  {
+    "description": "Mantenimiento de equipo de producción",
+    "provider_name": "Servicios Industriales SA",
+    "provider_rfc": "SIN900101XXX",
+    "clave_prod_serv": "72101500",
+    "expected_sat_code": "601",
+    "expected_family": "601",
+    "rationale": "Production equipment maintenance - cost of goods sold"
+  },
+  {
+    "description": "Seguro de responsabilidad civil",
+    "provider_name": "GNP Seguros",
+    "provider_rfc": "GNP900101XXX",
+    "clave_prod_serv": "84111700",
+    "expected_sat_code": "615",
+    "expected_family": "615",
+    "rationale": "Business liability insurance - operational expense"
+  },
+  {
+    "description": "Comisión bancaria por transferencia",
+    "provider_name": "BBVA México",
+    "provider_rfc": "BBA940707XXX",
+    "clave_prod_serv": "84101500",
+    "expected_sat_code": "616",
+    "expected_family": "616",
+    "rationale": "Bank fees - financial expense"
+  },
+  {
+    "description": "Capacitación de personal",
+    "provider_name": "Instituto de Capacitación Empresarial",
+    "provider_rfc": "ICE920101XXX",
+    "clave_prod_serv": "86101500",
+    "expected_sat_code": "615",
+    "expected_family": "615",
+    "rationale": "Employee training - operational expense"
+  },
+  {
+    "description": "Compra de empaques y envases",
+    "provider_name": "Empaques Modernos SA",
+    "provider_rfc": "EMP880101XXX",
+    "clave_prod_serv": "55101500",
+    "expected_sat_code": "601",
+    "expected_family": "601",
+    "rationale": "Packaging materials for products - cost of goods sold"
+  }
+]

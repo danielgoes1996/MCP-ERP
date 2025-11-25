@@ -33,7 +33,15 @@ class Config:
     USE_UNIFIED_DB = os.getenv("USE_UNIFIED_DB", "true").lower() == "true"
     USE_POSTGRESQL = os.getenv("USE_POSTGRESQL", "false").lower() == "true"
     USE_PG_VECTOR = os.getenv("USE_PG_VECTOR", "false").lower() == "true"
+    USE_LLM_RETRIEVAL = os.getenv("USE_LLM_RETRIEVAL", "true").lower() == "true"  # Solution A: LLM-based Phase 2B
     POSTGRES_DSN = os.getenv("POSTGRES_DSN", "")
+
+    # PostgreSQL connection parameters
+    PG_HOST = os.getenv("PG_HOST", "localhost")
+    PG_PORT = int(os.getenv("PG_PORT", "5432"))
+    PG_DB = os.getenv("PG_DB", "contaflow")
+    PG_USER = os.getenv("PG_USER", "postgres")
+    PG_PASSWORD = os.getenv("PG_PASSWORD", "")
 
     # External system credentials (placeholders for now)
     # Odoo Configuration
