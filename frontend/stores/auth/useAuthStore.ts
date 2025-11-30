@@ -144,6 +144,15 @@ export const useAuthStore = create<AuthStore>()(
         refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
+      // Migration function for version changes
+      migrate: (persistedState: unknown, version: number): any => {
+        const state = persistedState as any;
+        // If migrating from version < 2, ensure roles array exists
+        if (version < 2 && state?.user) {
+          state.user.roles = state.user.roles || [state.user.role];
+        }
+        return state;
+      },
     }
   )
 );
