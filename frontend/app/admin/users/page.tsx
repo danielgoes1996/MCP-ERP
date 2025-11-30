@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Select } from '@/components/ui/Select';
 import { Users as UsersIcon, Shield, Building2, X, Plus, Search, Pause, Play, Trash2, Edit } from 'lucide-react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -349,79 +350,46 @@ export default function AdminUsersPage() {
               </div>
 
               {/* Role Filter */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Rol
-                </label>
-                <div className="relative">
-                  <select
-                    className="w-full px-4 py-3.5 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:border-[#11446e] focus:ring-2 focus:ring-[#11446e]/10 transition-all appearance-none cursor-pointer"
-                    value={selectedRole}
-                    onChange={(e) => setSelectedRole(e.target.value)}
-                  >
-                    <option value="all">Todos</option>
-                    {roles.map((role) => (
-                      <option key={role.id} value={role.name}>
-                        {role.display_name}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
+              <Select
+                label="Rol"
+                value={selectedRole}
+                onChange={setSelectedRole}
+                options={[
+                  { value: 'all', label: 'Todos los roles' },
+                  ...roles.map((role) => ({
+                    value: role.name,
+                    label: role.display_name,
+                    icon: <Shield className="w-4 h-4 text-[#11446e]" />,
+                  })),
+                ]}
+              />
 
               {/* Department Filter */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Departamento
-                </label>
-                <div className="relative">
-                  <select
-                    className="w-full px-4 py-3.5 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:border-[#11446e] focus:ring-2 focus:ring-[#11446e]/10 transition-all appearance-none cursor-pointer"
-                    value={selectedDepartment}
-                    onChange={(e) => setSelectedDepartment(e.target.value)}
-                  >
-                    <option value="all">Todos</option>
-                    {departments.map((dept) => (
-                      <option key={dept.id} value={dept.id.toString()}>
-                        {dept.name}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
+              <Select
+                label="Departamento"
+                value={selectedDepartment}
+                onChange={setSelectedDepartment}
+                options={[
+                  { value: 'all', label: 'Todos los departamentos' },
+                  ...departments.map((dept) => ({
+                    value: dept.id.toString(),
+                    label: dept.name,
+                    icon: <Building2 className="w-4 h-4 text-[#11446e]" />,
+                  })),
+                ]}
+              />
 
               {/* Status Filter */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Estado
-                </label>
-                <div className="relative">
-                  <select
-                    className="w-full px-4 py-3.5 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:border-[#11446e] focus:ring-2 focus:ring-[#11446e]/10 transition-all appearance-none cursor-pointer"
-                    value={selectedStatus}
-                    onChange={(e) => setSelectedStatus(e.target.value)}
-                  >
-                    <option value="all">Todos</option>
-                    <option value="active">Activos</option>
-                    <option value="inactive">Inactivos</option>
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
+              <Select
+                label="Estado"
+                value={selectedStatus}
+                onChange={setSelectedStatus}
+                options={[
+                  { value: 'all', label: 'Todos los estados' },
+                  { value: 'active', label: 'Activos', icon: <Play className="w-4 h-4 text-[#60b97b]" /> },
+                  { value: 'inactive', label: 'Inactivos', icon: <Pause className="w-4 h-4 text-gray-400" /> },
+                ]}
+              />
             </div>
 
             {/* Results count */}
