@@ -584,15 +584,17 @@ try:
 except ImportError as e:
     logger.warning(f"AI retrain API not available: {e}")
 
-# Admin APIs (User/Role/Department Management)
+# Admin APIs (User/Role/Department/Company Management)
 try:
     from api.admin.users_api import router as admin_users_router
     from api.admin.departments_api import router as admin_departments_router
     from api.admin.roles_api import router as admin_roles_router
+    from api.admin.company_api import router as admin_company_router
     app.include_router(admin_users_router)
     app.include_router(admin_departments_router)
     app.include_router(admin_roles_router)
-    logger.info("✅ Admin APIs loaded successfully (users, departments, roles)")
+    app.include_router(admin_company_router)
+    logger.info("✅ Admin APIs loaded successfully (users, departments, roles, company)")
 except ImportError as e:
     logger.warning(f"Admin APIs not available: {e}")
 
