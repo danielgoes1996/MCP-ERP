@@ -28,12 +28,13 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 # =====================================================
 
 class User(BaseModel):
-    """User model"""
+    """User model with multi-role support"""
     id: int
     username: str
     email: str
     full_name: str
-    role: str
+    role: str  # Legacy single role (highest level) for backward compatibility
+    roles: Optional[List[str]] = None  # NEW: Multi-role support - all assigned roles
     tenant_id: int  # ← Multi-tenancy support
     employee_id: Optional[int] = None
     is_active: bool = True
@@ -131,7 +132,7 @@ def get_user_by_username(username: str) -> Optional[User]:
 
 
 def get_user_by_id(user_id: int) -> Optional[User]:
-    """Get user by ID"""
+    """Get user by ID with multi-role support"""
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -147,12 +148,16 @@ def get_user_by_id(user_id: int) -> Optional[User]:
         if not row:
             return None
 
+        # Get all roles assigned to the user (multi-role support)
+        user_roles = get_user_roles(user_id)
+
         return User(
             id=row[0],
             username=row[1],
             email=row[2],
             full_name=row[3],
             role=row[4],
+            roles=user_roles,  # NEW: Multi-role support
             tenant_id=row[5],
             employee_id=row[6],
             is_active=row[7]
@@ -196,6 +201,9 @@ def authenticate_user(username: str, password: str) -> Optional[User]:
             'locked_until': row[10],
             'is_email_verified': row[11]
         }
+
+        # Get all roles assigned to the user (multi-role support)
+        user_data['roles'] = get_user_roles(user_data['id'])
 
         # Check if email is verified
         if not user_data.get('is_email_verified'):
@@ -259,6 +267,7 @@ def authenticate_user(username: str, password: str) -> Optional[User]:
             email=user_data['email'],
             full_name=user_data['full_name'],
             role=user_data['role'],
+            roles=user_data['roles'],  # NEW: Multi-role support
             tenant_id=user_data['tenant_id'],
             employee_id=user_data.get('employee_id'),
             is_active=user_data['is_active']
@@ -273,14 +282,18 @@ def authenticate_user(username: str, password: str) -> Optional[User]:
 # =====================================================
 
 def create_access_token(user: User) -> str:
-    """Create JWT access token"""
+    """Create JWT access token with multi-role support"""
     jti = str(uuid.uuid4())
     expires = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+
+    # Get all roles assigned to the user from user_roles table
+    user_roles = get_user_roles(user.id)
 
     to_encode = {
         "sub": str(user.id),  # ← JWT spec requires sub to be a string
         "username": user.username,
-        "role": user.role,
+        "role": user.role,  # Legacy single role (highest level) for backward compatibility
+        "roles": user_roles,  # NEW: Multi-role support - all assigned roles
         "tenant_id": user.tenant_id,  # ← Include tenant_id in JWT
         "jti": jti,
         "exp": expires
@@ -370,74 +383,285 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     return user
 
 
+# =====================================================
+# ROLE MANAGEMENT (New multi-role system)
+# =====================================================
+
+def get_user_roles(user_id: int) -> List[str]:
+    """
+    Get all roles assigned to a user from user_roles table
+
+    Args:
+        user_id: User ID
+
+    Returns:
+        List of role names (e.g., ['admin', 'contador'])
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT r.name
+            FROM user_roles ur
+            JOIN roles r ON ur.role_id = r.id
+            WHERE ur.user_id = %s
+              AND r.is_active = TRUE
+              AND (ur.expires_at IS NULL OR ur.expires_at > CURRENT_TIMESTAMP)
+            ORDER BY r.level DESC
+        """, (user_id,))
+
+        roles = [row[0] for row in cursor.fetchall()]
+        return roles if roles else []
+
+    except Exception as e:
+        # Fallback to users.role column for backward compatibility
+        cursor.execute("SELECT role FROM users WHERE id = %s", (user_id,))
+        row = cursor.fetchone()
+        return [row[0]] if row and row[0] else []
+    finally:
+        conn.close()
+
+
+def has_role(user: User, role_name: str) -> bool:
+    """
+    Check if user has a specific role
+
+    Args:
+        user: User object
+        role_name: Role name to check (e.g., 'admin', 'contador')
+
+    Returns:
+        bool: True if user has the role
+    """
+    user_roles = get_user_roles(user.id)
+    return role_name in user_roles
+
+
+def has_any_role(user: User, role_names: List[str]) -> bool:
+    """
+    Check if user has any of the specified roles
+
+    Args:
+        user: User object
+        role_names: List of role names to check
+
+    Returns:
+        bool: True if user has at least one of the roles
+    """
+    user_roles = get_user_roles(user.id)
+    return any(role in user_roles for role in role_names)
+
+
+def get_user_departments(user_id: int) -> List[int]:
+    """
+    Get all department IDs assigned to a user
+
+    Args:
+        user_id: User ID
+
+    Returns:
+        List of department IDs
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT department_id
+            FROM user_departments
+            WHERE user_id = %s
+            ORDER BY is_primary DESC
+        """, (user_id,))
+
+        return [row[0] for row in cursor.fetchall()]
+    except:
+        return []
+    finally:
+        conn.close()
+
+
+def get_user_subordinates(user_id: int) -> List[int]:
+    """
+    Get all user IDs that report to this user
+
+    Args:
+        user_id: Supervisor's user ID
+
+    Returns:
+        List of subordinate user IDs
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT user_id
+            FROM user_hierarchy
+            WHERE supervisor_id = %s
+              AND (effective_to IS NULL OR effective_to > CURRENT_DATE)
+        """, (user_id,))
+
+        return [row[0] for row in cursor.fetchall()]
+    except:
+        return []
+    finally:
+        conn.close()
+
+
 def require_role(allowed_roles: List[str]):
-    """Require user to have one of the allowed roles"""
+    """
+    Require user to have one of the allowed roles (updated for multi-role system)
+
+    Args:
+        allowed_roles: List of role names that are allowed
+
+    Returns:
+        FastAPI dependency that checks user roles
+
+    Example:
+        @router.post("/admin/users")
+        async def create_user(current_user: User = Depends(require_role(['admin']))):
+            ...
+    """
     async def role_checker(current_user: User = Depends(get_current_user)):
-        if current_user.role not in allowed_roles:
+        # Get all roles assigned to the user
+        user_roles = get_user_roles(current_user.id)
+
+        # Check if user has any of the allowed roles
+        if not any(role in allowed_roles for role in user_roles):
             raise HTTPException(
                 status_code=403,
-                detail=f"Role '{current_user.role}' not authorized. Required: {', '.join(allowed_roles)}"
+                detail=f"Insufficient permissions. Required one of: {', '.join(allowed_roles)}. User has: {', '.join(user_roles)}"
             )
+
         return current_user
 
     return role_checker
 
 
 def check_permission(user: User, resource: str, action: str) -> bool:
-    """Check if user has permission"""
+    """
+    Check if user has permission for a resource/action (updated for multi-role system)
+
+    Args:
+        user: User object
+        resource: Resource type (e.g., 'expenses', 'invoices')
+        action: Action type (e.g., 'read', 'create')
+
+    Returns:
+        bool: True if user has permission
+    """
+    # Get all user's roles
+    user_roles = get_user_roles(user.id)
+
+    # Admin always has permission
+    if 'admin' in user_roles:
+        return True
+
     conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
-        if user.role == 'admin':
-            return True
-
+        # Check permissions from roles table (JSONB permissions column)
         cursor.execute("""
-            SELECT id FROM permissions
-            WHERE role = ? AND (resource = ? OR resource = '*')
-            AND (action = ? OR action = '*')
-        """, (user.role, resource, action))
+            SELECT r.permissions
+            FROM user_roles ur
+            JOIN roles r ON ur.role_id = r.id
+            WHERE ur.user_id = %s
+              AND r.is_active = TRUE
+              AND (ur.expires_at IS NULL OR ur.expires_at > CURRENT_TIMESTAMP)
+        """, (user.id,))
 
-        return cursor.fetchone() is not None
+        for row in cursor.fetchall():
+            perms = row[0] if row[0] else {}
 
-    except:
-        # If permissions table doesn't exist, allow admins only
-        return user.role == 'admin'
+            # Check if permissions contain the resource and action
+            resources = perms.get('resources', [])
+            actions = perms.get('actions', [])
+
+            if '*' in resources or resource in resources:
+                if '*' in actions or action in actions:
+                    return True
+
+        return False
+
+    except Exception as e:
+        # Fallback: check if user is admin
+        return 'admin' in user_roles
     finally:
         conn.close()
 
 
 def filter_by_scope(user: User, resource: str, query_filters: dict) -> dict:
-    """Add scope-based filters to query"""
-    if user.role == 'admin':
+    """
+    Add scope-based filters to query (updated for multi-role system)
+
+    Args:
+        user: User object
+        resource: Resource type (e.g., 'expenses')
+        query_filters: Existing query filters dict
+
+    Returns:
+        dict: Updated query filters with scope restrictions
+    """
+    user_roles = get_user_roles(user.id)
+
+    # Admin sees everything
+    if 'admin' in user_roles:
         return query_filters
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
+        # Get the highest scope from user's roles
         cursor.execute("""
-            SELECT scope FROM permissions
-            WHERE role = ? AND resource = ? AND action = 'read'
-        """, (user.role, resource))
+            SELECT r.permissions
+            FROM user_roles ur
+            JOIN roles r ON ur.role_id = r.id
+            WHERE ur.user_id = %s
+              AND r.is_active = TRUE
+            ORDER BY r.level DESC
+        """, (user.id,))
 
-        row = cursor.fetchone()
+        highest_scope = 'own'  # Default to most restrictive
 
-        if not row:
-            query_filters['_no_results'] = True
-            return query_filters
+        for row in cursor.fetchall():
+            perms = row[0] if row[0] else {}
+            resources = perms.get('resources', [])
 
-        scope = row['scope']
+            # Check if this role has access to the resource
+            if '*' in resources or resource in resources:
+                scope = perms.get('scope', 'own')
 
-        if scope == 'own':
+                # Update to least restrictive scope
+                if scope == 'all':
+                    highest_scope = 'all'
+                    break
+                elif scope == 'tenant' and highest_scope != 'all':
+                    highest_scope = 'tenant'
+                elif scope == 'department' and highest_scope == 'own':
+                    highest_scope = 'department'
+
+        # Apply scope filters
+        if highest_scope == 'own':
             if resource == 'employee_advances':
                 query_filters['employee_id'] = user.employee_id
-            elif resource == 'manual_expenses':
+            elif resource in ['manual_expenses', 'expenses']:
                 query_filters['user_id'] = user.id
+        elif highest_scope == 'department':
+            # Filter by user's departments
+            dept_ids = get_user_departments(user.id)
+            if dept_ids:
+                query_filters['department_id__in'] = dept_ids
+        # 'tenant' and 'all' scopes don't add filters (tenant isolation handled by middleware)
 
         return query_filters
 
-    except:
+    except Exception as e:
+        # Fallback to most restrictive
+        query_filters['user_id'] = user.id
         return query_filters
     finally:
         conn.close()

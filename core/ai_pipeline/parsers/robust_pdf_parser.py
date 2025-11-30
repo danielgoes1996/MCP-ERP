@@ -218,7 +218,7 @@ class RobustPDFParser:
         }
 
         if transactions:
-            dates = [t.date for t in transactions if t.date]
+            dates = [t.transaction_date for t in transactions if t.transaction_date]
             if dates:
                 summary["period_start"] = min(dates)
                 summary["period_end"] = max(dates)

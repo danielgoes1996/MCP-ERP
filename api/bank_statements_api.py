@@ -189,22 +189,25 @@ async def get_statement_details(
 
         # Obtener statement
         statement = bank_statements_service.get_statement(
-            statement_id, current_user.id, current_user.tenant_id
+            statement_id, current_user.tenant_id
         )
 
         # Obtener transacciones
         transactions = bank_statements_service.get_statement_transactions(
-            statement_id, current_user.id, current_user.tenant_id
+            statement_id, current_user.tenant_id
         )
 
         # Calcular resumen
+        def get_value(obj):
+            return obj.value if hasattr(obj, 'value') else obj
+
         summary = {
             "total_transactions": len(transactions),
-            "total_credits": sum(txn.amount for txn in transactions if txn.transaction_type.value == "credit"),
-            "total_debits": sum(txn.amount for txn in transactions if txn.transaction_type.value == "debit"),
+            "total_credits": sum(txn.amount for txn in transactions if get_value(txn.transaction_type) == "credit"),
+            "total_debits": sum(txn.amount for txn in transactions if get_value(txn.transaction_type) == "debit"),
             "period_start": statement.period_start,
             "period_end": statement.period_end,
-            "parsing_status": statement.parsing_status.value
+            "parsing_status": get_value(statement.parsing_status)
         }
 
         return BankStatementResponse(
@@ -321,7 +324,7 @@ async def reparse_statement(
 
         # Verificar que el statement existe
         statement = bank_statements_service.get_statement(
-            statement_id, current_user.id, current_user.tenant_id
+            statement_id, current_user.tenant_id
         )
 
         # Actualizar status a processing
@@ -336,7 +339,7 @@ async def reparse_statement(
             statement.file_path,
             statement.file_type.value if hasattr(statement.file_type, 'value') else statement.file_type,
             statement.account_id,
-            statement.user_id,
+            current_user.id,
             statement.tenant_id,
             is_reparse=True
         )
@@ -417,7 +420,7 @@ async def parse_statement_background(
 
         balance_date = None
         if transactions:
-            balance_date = min((txn.date for txn in transactions if getattr(txn, 'date', None)), default=None)
+            balance_date = min((txn.transaction_date for txn in transactions if getattr(txn, 'transaction_date', None)), default=None)
         if isinstance(summary, dict):
             period_start = _coerce_summary_date(summary.get('period_start'))
             if period_start and (balance_date is None or period_start < balance_date):
@@ -440,7 +443,7 @@ async def parse_statement_background(
 
         closing_date = None
         if transactions:
-            closing_date = max((txn.date for txn in transactions if getattr(txn, 'date', None)), default=None)
+            closing_date = max((txn.transaction_date for txn in transactions if getattr(txn, 'transaction_date', None)), default=None)
         if isinstance(summary, dict):
             period_end = _coerce_summary_date(summary.get('period_end'))
             if period_end and (closing_date is None or period_end > closing_date):

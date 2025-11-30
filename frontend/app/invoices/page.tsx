@@ -254,7 +254,7 @@ export default function InvoicesPage() {
       }
 
       // Fetch ALL sessions - filtering is done client-side to avoid multiple requests
-      const url = `http://localhost:8001/universal-invoice/sessions/company/${companyId}`;
+      const url = `http://localhost:8000/universal-invoice/sessions/company/${companyId}`;
 
       console.log(`[Invoices] Fetching sessions for company ${companyId} from:`, url);
 
@@ -296,7 +296,7 @@ export default function InvoicesPage() {
   const fetchExtractedData = async (sessionId: string) => {
     try {
       const response = await fetch(
-        `http://localhost:8001/universal-invoice/sessions/${sessionId}/extracted-data`,
+        `http://localhost:8000/universal-invoice/sessions/${sessionId}/extracted-data`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -494,7 +494,7 @@ export default function InvoicesPage() {
       setReprocessMessage(null);
 
       const response = await fetch(
-        `http://localhost:8001/universal-invoice/sessions/reprocess-failed/?company_id=${tenant.id}`,
+        `http://localhost:8000/universal-invoice/sessions/reprocess-failed/?company_id=${tenant.id}`,
         {
           method: 'POST',
           headers: {

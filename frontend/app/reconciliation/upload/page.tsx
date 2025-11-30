@@ -119,7 +119,7 @@ export default function ReconciliationUploadPage() {
       const formData = new FormData();
       formData.append('file', selectedFile);
 
-      const response = await fetch(`http://localhost:8001/bank-statements/accounts/${accountId}/upload`, {
+      const response = await fetch(`http://localhost:8000/bank-statements/accounts/${accountId}/upload`, {
         method: 'POST',
         body: formData,
         headers: authHeaders,

@@ -69,7 +69,7 @@ export default function ReconciliationPage() {
       setLoading(true);
 
       // Fetch stats
-      const statsResponse = await fetch('http://localhost:8001/ai-reconciliation/stats', {
+      const statsResponse = await fetch('http://localhost:8000/ai-reconciliation/stats', {
         headers: { 'Content-Type': 'application/json' },
       });
 
@@ -79,7 +79,7 @@ export default function ReconciliationPage() {
       }
 
       // Fetch suggestions
-      const suggestionsResponse = await fetch('http://localhost:8001/ai-reconciliation/suggestions', {
+      const suggestionsResponse = await fetch('http://localhost:8000/ai-reconciliation/suggestions', {
         headers: { 'Content-Type': 'application/json' },
       });
 

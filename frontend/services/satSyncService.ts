@@ -4,7 +4,7 @@
  * Handles API calls for SAT auto-sync configuration
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Types
 export interface SATSyncConfig {

@@ -6,7 +6,7 @@
 
 import { useAuthStore } from '@/stores/auth/useAuthStore';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 /**
  * Get auth token from Zustand store

@@ -17,7 +17,7 @@ try:
     import psycopg2  # type: ignore
     from psycopg2 import OperationalError as PostgresOperationalError  # type: ignore
     from psycopg2 import ProgrammingError as PostgresProgrammingError  # type: ignore
-    from psycopg2.extras import NamedTupleConnection  # type: ignore
+    from psycopg2.extras import RealDictConnection, RealDictCursor  # type: ignore
     from psycopg2 import errors as psycopg2_errors  # type: ignore
 except ImportError:  # pragma: no cover - psycopg2 is optional unless Postgres is enabled
     psycopg2 = None  # type: ignore
@@ -87,8 +87,8 @@ class PostgresCompatCursor:
             if self._last_query_requires_returning:
                 row = self._cursor.fetchone()
                 if row is not None:
-                    # NamedTupleCursor permite acceso por atributo e índice
-                    self.lastrowid = getattr(row, "id", row[0] if len(row) > 0 else None)
+                    # RealDictCursor devuelve diccionarios
+                    self.lastrowid = row.get("id", row.get(list(row.keys())[0] if row else None))
                 else:
                     self.lastrowid = None
         except (PostgresOperationalError, PostgresProgrammingError) as exc:
@@ -127,7 +127,7 @@ class PostgresCompatConnection:
             raise RuntimeError(
                 "psycopg2 no está instalado. Instala psycopg2-binary para usar PostgreSQL."
             )
-        self._conn = psycopg2.connect(dsn, connection_factory=NamedTupleConnection)
+        self._conn = psycopg2.connect(dsn, connection_factory=RealDictConnection)
         self._row_factory = None
 
     def cursor(self):
@@ -3084,3 +3084,427 @@ def create_bank_matching_rule(rule_data: Dict[str, Any], tenant_id: int = 1) -> 
     except Exception as e:
         logger.error(f"Error creando regla bancaria: {e}")
         raise
+
+
+# =================== ROLES Y DEPARTAMENTOS - HELPERS ===================
+
+def get_user_roles_with_details(user_id: int) -> List[Dict[str, Any]]:
+    """
+    Obtener todos los roles asignados a un usuario con detalles completos.
+
+    Args:
+        user_id: ID del usuario
+
+    Returns:
+        Lista de roles con información completa (name, display_name, level, permissions, etc.)
+    """
+    try:
+        adapter = get_unified_adapter()
+        conn = adapter.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT
+                r.id,
+                r.name,
+                r.display_name,
+                r.description,
+                r.level,
+                r.permissions,
+                r.is_system,
+                ur.assigned_at,
+                ur.expires_at
+            FROM user_roles ur
+            JOIN roles r ON ur.role_id = r.id
+            WHERE ur.user_id = ?
+              AND r.is_active = TRUE
+              AND (ur.expires_at IS NULL OR ur.expires_at > CURRENT_TIMESTAMP)
+            ORDER BY r.level DESC
+        """, (user_id,))
+
+        roles = []
+        for row in cursor.fetchall():
+            roles.append({
+                'id': row[0],
+                'name': row[1],
+                'display_name': row[2],
+                'description': row[3],
+                'level': row[4],
+                'permissions': row[5],
+                'is_system': row[6],
+                'assigned_at': row[7],
+                'expires_at': row[8]
+            })
+
+        conn.close()
+        return roles
+
+    except Exception as e:
+        logger.error(f"Error obteniendo roles del usuario {user_id}: {e}")
+        return []
+
+
+def get_user_departments_with_details(user_id: int) -> List[Dict[str, Any]]:
+    """
+    Obtener todos los departamentos asignados a un usuario con detalles.
+
+    Args:
+        user_id: ID del usuario
+
+    Returns:
+        Lista de departamentos con información completa
+    """
+    try:
+        adapter = get_unified_adapter()
+        conn = adapter.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT
+                d.id,
+                d.tenant_id,
+                d.name,
+                d.code,
+                d.parent_id,
+                d.manager_user_id,
+                d.description,
+                d.cost_center,
+                ud.is_primary,
+                ud.assigned_at
+            FROM user_departments ud
+            JOIN departments d ON ud.department_id = d.id
+            WHERE ud.user_id = ?
+              AND d.is_active = TRUE
+            ORDER BY ud.is_primary DESC, d.name ASC
+        """, (user_id,))
+
+        departments = []
+        for row in cursor.fetchall():
+            departments.append({
+                'id': row[0],
+                'tenant_id': row[1],
+                'name': row[2],
+                'code': row[3],
+                'parent_id': row[4],
+                'manager_user_id': row[5],
+                'description': row[6],
+                'cost_center': row[7],
+                'is_primary': row[8],
+                'assigned_at': row[9]
+            })
+
+        conn.close()
+        return departments
+
+    except Exception as e:
+        logger.error(f"Error obteniendo departamentos del usuario {user_id}: {e}")
+        return []
+
+
+def get_department_users(department_id: int, include_subdepartments: bool = False) -> List[Dict[str, Any]]:
+    """
+    Obtener todos los usuarios asignados a un departamento.
+
+    Args:
+        department_id: ID del departamento
+        include_subdepartments: Si True, incluye usuarios de subdepartamentos
+
+    Returns:
+        Lista de usuarios con información básica
+    """
+    try:
+        adapter = get_unified_adapter()
+        conn = adapter.get_connection()
+        cursor = conn.cursor()
+
+        if include_subdepartments:
+            # Incluir subdepartamentos recursivamente
+            cursor.execute("""
+                WITH RECURSIVE dept_tree AS (
+                    SELECT id FROM departments WHERE id = ?
+                    UNION ALL
+                    SELECT d.id FROM departments d
+                    JOIN dept_tree dt ON d.parent_id = dt.id
+                    WHERE d.is_active = TRUE
+                )
+                SELECT DISTINCT
+                    u.id,
+                    u.email,
+                    u.full_name,
+                    u.role,
+                    u.tenant_id,
+                    ud.is_primary,
+                    ud.assigned_at
+                FROM user_departments ud
+                JOIN users u ON ud.user_id = u.id
+                WHERE ud.department_id IN (SELECT id FROM dept_tree)
+                  AND u.is_active = TRUE
+                ORDER BY u.full_name ASC
+            """, (department_id,))
+        else:
+            # Solo departamento específico
+            cursor.execute("""
+                SELECT
+                    u.id,
+                    u.email,
+                    u.full_name,
+                    u.role,
+                    u.tenant_id,
+                    ud.is_primary,
+                    ud.assigned_at
+                FROM user_departments ud
+                JOIN users u ON ud.user_id = u.id
+                WHERE ud.department_id = ?
+                  AND u.is_active = TRUE
+                ORDER BY u.full_name ASC
+            """, (department_id,))
+
+        users = []
+        for row in cursor.fetchall():
+            users.append({
+                'id': row[0],
+                'email': row[1],
+                'full_name': row[2],
+                'role': row[3],
+                'tenant_id': row[4],
+                'is_primary': row[5],
+                'assigned_at': row[6]
+            })
+
+        conn.close()
+        return users
+
+    except Exception as e:
+        logger.error(f"Error obteniendo usuarios del departamento {department_id}: {e}")
+        return []
+
+
+def get_user_subordinates_hierarchy(user_id: int, include_indirect: bool = False) -> List[Dict[str, Any]]:
+    """
+    Obtener subordinados de un usuario en la jerarquía organizacional.
+
+    Args:
+        user_id: ID del supervisor
+        include_indirect: Si True, incluye subordinados indirectos (subordinados de subordinados)
+
+    Returns:
+        Lista de subordinados con información completa
+    """
+    try:
+        adapter = get_unified_adapter()
+        conn = adapter.get_connection()
+        cursor = conn.cursor()
+
+        if include_indirect:
+            # Subordinados directos e indirectos (recursivo)
+            cursor.execute("""
+                WITH RECURSIVE hierarchy AS (
+                    -- Subordinados directos
+                    SELECT
+                        uh.user_id,
+                        uh.supervisor_id,
+                        uh.relationship_type,
+                        uh.effective_from,
+                        uh.effective_to,
+                        1 as depth
+                    FROM user_hierarchy uh
+                    WHERE uh.supervisor_id = ?
+                      AND (uh.effective_to IS NULL OR uh.effective_to > CURRENT_DATE)
+
+                    UNION ALL
+
+                    -- Subordinados indirectos
+                    SELECT
+                        uh.user_id,
+                        uh.supervisor_id,
+                        uh.relationship_type,
+                        uh.effective_from,
+                        uh.effective_to,
+                        h.depth + 1
+                    FROM user_hierarchy uh
+                    JOIN hierarchy h ON uh.supervisor_id = h.user_id
+                    WHERE (uh.effective_to IS NULL OR uh.effective_to > CURRENT_DATE)
+                      AND h.depth < 10  -- Límite de profundidad para evitar loops
+                )
+                SELECT DISTINCT
+                    u.id,
+                    u.email,
+                    u.full_name,
+                    u.role,
+                    u.tenant_id,
+                    h.relationship_type,
+                    h.depth
+                FROM hierarchy h
+                JOIN users u ON h.user_id = u.id
+                WHERE u.is_active = TRUE
+                ORDER BY h.depth ASC, u.full_name ASC
+            """, (user_id,))
+        else:
+            # Solo subordinados directos
+            cursor.execute("""
+                SELECT
+                    u.id,
+                    u.email,
+                    u.full_name,
+                    u.role,
+                    u.tenant_id,
+                    uh.relationship_type,
+                    1 as depth
+                FROM user_hierarchy uh
+                JOIN users u ON uh.user_id = u.id
+                WHERE uh.supervisor_id = ?
+                  AND (uh.effective_to IS NULL OR uh.effective_to > CURRENT_DATE)
+                  AND u.is_active = TRUE
+                ORDER BY u.full_name ASC
+            """, (user_id,))
+
+        subordinates = []
+        for row in cursor.fetchall():
+            subordinates.append({
+                'id': row[0],
+                'email': row[1],
+                'full_name': row[2],
+                'role': row[3],
+                'tenant_id': row[4],
+                'relationship_type': row[5],
+                'depth': row[6]
+            })
+
+        conn.close()
+        return subordinates
+
+    except Exception as e:
+        logger.error(f"Error obteniendo subordinados del usuario {user_id}: {e}")
+        return []
+
+
+def get_all_roles(tenant_id: Optional[int] = None, include_system: bool = True) -> List[Dict[str, Any]]:
+    """
+    Obtener todos los roles disponibles.
+
+    Args:
+        tenant_id: Si se especifica, incluye roles tenant-específicos. None = solo sistema
+        include_system: Si True, incluye roles del sistema
+
+    Returns:
+        Lista de roles disponibles
+    """
+    try:
+        adapter = get_unified_adapter()
+        conn = adapter.get_connection()
+        cursor = conn.cursor()
+
+        if tenant_id is None:
+            # Solo roles del sistema
+            cursor.execute("""
+                SELECT
+                    id, name, display_name, description, level,
+                    permissions, is_system, is_active
+                FROM roles
+                WHERE tenant_id IS NULL
+                  AND is_active = TRUE
+                ORDER BY level DESC, name ASC
+            """)
+        elif include_system:
+            # Roles del sistema + tenant específicos
+            cursor.execute("""
+                SELECT
+                    id, name, display_name, description, level,
+                    permissions, is_system, is_active
+                FROM roles
+                WHERE (tenant_id IS NULL OR tenant_id = ?)
+                  AND is_active = TRUE
+                ORDER BY level DESC, name ASC
+            """, (tenant_id,))
+        else:
+            # Solo roles tenant-específicos
+            cursor.execute("""
+                SELECT
+                    id, name, display_name, description, level,
+                    permissions, is_system, is_active
+                FROM roles
+                WHERE tenant_id = ?
+                  AND is_active = TRUE
+                ORDER BY level DESC, name ASC
+            """, (tenant_id,))
+
+        roles = []
+        for row in cursor.fetchall():
+            roles.append({
+                'id': row[0],
+                'name': row[1],
+                'display_name': row[2],
+                'description': row[3],
+                'level': row[4],
+                'permissions': row[5],
+                'is_system': row[6],
+                'is_active': row[7]
+            })
+
+        conn.close()
+        return roles
+
+    except Exception as e:
+        logger.error(f"Error obteniendo roles: {e}")
+        return []
+
+
+def get_all_departments(tenant_id: int, include_inactive: bool = False) -> List[Dict[str, Any]]:
+    """
+    Obtener todos los departamentos de un tenant.
+
+    Args:
+        tenant_id: ID del tenant
+        include_inactive: Si True, incluye departamentos inactivos
+
+    Returns:
+        Lista de departamentos
+    """
+    try:
+        adapter = get_unified_adapter()
+        conn = adapter.get_connection()
+        cursor = conn.cursor()
+
+        if include_inactive:
+            cursor.execute("""
+                SELECT
+                    id, tenant_id, name, code, parent_id,
+                    manager_user_id, description, cost_center,
+                    is_active, created_at
+                FROM departments
+                WHERE tenant_id = ?
+                ORDER BY name ASC
+            """, (tenant_id,))
+        else:
+            cursor.execute("""
+                SELECT
+                    id, tenant_id, name, code, parent_id,
+                    manager_user_id, description, cost_center,
+                    is_active, created_at
+                FROM departments
+                WHERE tenant_id = ?
+                  AND is_active = TRUE
+                ORDER BY name ASC
+            """, (tenant_id,))
+
+        departments = []
+        for row in cursor.fetchall():
+            departments.append({
+                'id': row[0],
+                'tenant_id': row[1],
+                'name': row[2],
+                'code': row[3],
+                'parent_id': row[4],
+                'manager_user_id': row[5],
+                'description': row[6],
+                'cost_center': row[7],
+                'is_active': row[8],
+                'created_at': row[9]
+            })
+
+        conn.close()
+        return departments
+
+    except Exception as e:
+        logger.error(f"Error obteniendo departamentos: {e}")
+        return []

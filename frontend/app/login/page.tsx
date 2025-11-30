@@ -23,7 +23,7 @@ import {
   Shield
 } from 'lucide-react';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 interface TenantOption {
   id: number;
@@ -140,6 +140,10 @@ export default function LoginPage() {
       setUser(data.user);
       setTenant(data.tenant);
       setTokens(data.access_token, data.refresh_token);
+
+      // Save tokens to localStorage for API client
+      localStorage.setItem('auth_token', data.access_token);
+      localStorage.setItem('refresh_token', data.refresh_token);
 
       // Redirect
       router.push('/dashboard');

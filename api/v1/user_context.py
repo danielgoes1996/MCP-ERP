@@ -86,6 +86,11 @@ class UserFullContextResponse(BaseModel):
 
 
 ROLE_PERMISSION_MATRIX: Dict[str, List[str]] = {
+    """
+    DEPRECATED: Legacy permission matrix for backward compatibility.
+    New code should use _derive_permissions_from_roles() which queries
+    the database for dynamic JSONB permissions.
+    """
     "admin": [
         "expenses:create",
         "expenses:view_all",
@@ -100,6 +105,31 @@ ROLE_PERMISSION_MATRIX: Dict[str, List[str]] = {
         "expenses:tax",
         "expenses:reconcile",
         "reports:view",
+        "invoices:classify",
+        "invoices:approve",
+        "invoices:reject",
+        "polizas:view",
+    ],
+    "accountant": [
+        "expenses:view_all",
+        "expenses:approve",
+        "invoices:view",
+        "invoices:update",
+        "bank_reconciliation:view",
+    ],
+    "manager": [
+        "expenses:create",
+        "expenses:view_all",
+        "expenses:approve",
+        "expenses:reject",
+        "reports:view",
+        "employee_advances:view",
+        "employee_advances:approve",
+    ],
+    "supervisor": [
+        "expenses:view_department",
+        "expenses:approve",
+        "invoices:view_department",
     ],
     "company_admin": [
         "expenses:create",
@@ -108,8 +138,16 @@ ROLE_PERMISSION_MATRIX: Dict[str, List[str]] = {
         "reports:view",
     ],
     "viewer": [
-        "expenses:view_all",
-        "reports:view",
+        "expenses:view_own",
+        "invoices:view_own",
+        "reports:view_own",
+    ],
+    "empleado": [
+        "expenses:create",
+        "expenses:view_own",
+        "expenses:update_own",
+        "invoices:create",
+        "invoices:view_own",
     ],
     "user": [
         "expenses:create",
@@ -118,11 +156,103 @@ ROLE_PERMISSION_MATRIX: Dict[str, List[str]] = {
 }
 
 
+def _derive_permissions_from_roles(user_roles: List[str], user_id: int) -> PermissionContext:
+    """
+    Derive permissions dynamically from user's assigned roles.
+
+    This function queries the roles table for JSONB permissions and converts
+    them into capability strings (e.g., "expenses:create", "invoices:approve").
+
+    Args:
+        user_roles: List of role names assigned to the user
+        user_id: User ID (for database queries)
+
+    Returns:
+        PermissionContext with combined capabilities from all roles
+    """
+    if not user_roles:
+        # Fallback to empleado permissions if user has no roles
+        return PermissionContext(role="empleado", capabilities=ROLE_PERMISSION_MATRIX.get("empleado", []))
+
+    all_capabilities: set[str] = set()
+    highest_role = user_roles[0]  # Already sorted by level DESC
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Query permissions from roles table for all user's roles
+        placeholders = ",".join("?" * len(user_roles))
+        cursor.execute(
+            f"""
+            SELECT r.name, r.permissions
+            FROM user_roles ur
+            JOIN roles r ON ur.role_id = r.id
+            WHERE ur.user_id = ?
+              AND r.is_active = TRUE
+              AND (ur.expires_at IS NULL OR ur.expires_at > CURRENT_TIMESTAMP)
+            ORDER BY r.level DESC
+            """,
+            (user_id,),
+        )
+
+        rows = cursor.fetchall()
+        conn.close()
+
+        for row in rows:
+            role_name = row[0]
+            permissions_json = row[1] if row[1] else {}
+
+            # Convert JSONB permissions to capability strings
+            resources = permissions_json.get("resources", [])
+            actions = permissions_json.get("actions", [])
+
+            # Handle wildcard permissions (admin)
+            if "*" in resources and "*" in actions:
+                all_capabilities.update(ROLE_PERMISSION_MATRIX.get("admin", []))
+                continue
+
+            # Generate capability strings from resource:action combinations
+            for resource in resources:
+                if resource == "*":
+                    # Add all capabilities for all resources
+                    for action in actions:
+                        if action != "*":
+                            all_capabilities.add(f"*:{action}")
+                else:
+                    for action in actions:
+                        if action == "*":
+                            # Add all actions for this resource
+                            all_capabilities.add(f"{resource}:*")
+                        else:
+                            all_capabilities.add(f"{resource}:{action}")
+
+        # If no dynamic permissions found, fall back to hardcoded matrix
+        if not all_capabilities:
+            for role_name in user_roles:
+                role_caps = ROLE_PERMISSION_MATRIX.get(role_name, [])
+                all_capabilities.update(role_caps)
+
+    except Exception as e:
+        # Fallback to hardcoded matrix on error
+        for role_name in user_roles:
+            role_caps = ROLE_PERMISSION_MATRIX.get(role_name, [])
+            all_capabilities.update(role_caps)
+
+    return PermissionContext(role=highest_role, capabilities=sorted(list(all_capabilities)))
+
+
 def _derive_permissions(role: str) -> PermissionContext:
-    normalized = (role or "user").lower().strip()
+    """
+    DEPRECATED: Legacy single-role permission derivation.
+
+    Use _derive_permissions_from_roles() for multi-role support.
+    Maintained for backward compatibility only.
+    """
+    normalized = (role or "empleado").lower().strip()
     capabilities = ROLE_PERMISSION_MATRIX.get(normalized)
     if capabilities is None:
-        capabilities = ROLE_PERMISSION_MATRIX["user"]
+        capabilities = ROLE_PERMISSION_MATRIX.get("empleado", [])
     return PermissionContext(role=normalized, capabilities=capabilities)
 
 

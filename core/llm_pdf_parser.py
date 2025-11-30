@@ -912,7 +912,7 @@ class LLMPDFParser:
         expenses_total = sum(abs(t.amount) for t in transactions if t.movement_kind == MovementKind.GASTO and t.amount < 0)
         transfers_total = sum(abs(t.amount) for t in transactions if t.movement_kind == MovementKind.TRANSFERENCIA)
 
-        dates = [t.date for t in transactions]
+        dates = [t.transaction_date for t in transactions]
 
         return {
             "total_transactions": len(transactions),

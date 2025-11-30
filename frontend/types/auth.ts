@@ -9,18 +9,21 @@ export interface User {
   username: string;
   email: string;
   full_name: string;
-  role: string;
+  role: string;  // Legacy single role (highest level) - for backward compatibility
+  roles?: string[];  // New multi-role support - all assigned roles
   tenant_id: number;
   employee_id: number | null;
   is_active: boolean;
   created_at?: string;
   updated_at?: string;
+  department_id?: number;  // Primary department
+  departments?: number[];  // All assigned departments
 }
 
 export interface Tenant {
   id: number;
   name: string;
-  company_id?: number;
+  company_id?: string;  // Changed from number to string to match DB schema
   description: string | null;
   is_active?: boolean;
   created_at?: string;

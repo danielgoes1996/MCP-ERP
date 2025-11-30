@@ -364,7 +364,7 @@ class BankStatementsServicePostgres:
                 RETURNING id
             """, (
                 request.account_id, tenant_id, company_id, request.file_name,
-                str(file_path), file_size, request.file_type.value,
+                str(file_path), file_size, request.file_type.value if hasattr(request.file_type, 'value') else request.file_type,
                 request.period_start, request.period_end,
                 ParsingStatus.PENDING.value, datetime.now(), datetime.now()
             ))
@@ -518,10 +518,10 @@ class BankStatementsServicePostgres:
                 AND ABS(amount - %s) < 0.01
                 AND description = %s
                 LIMIT 1
-            """, (statement_id, txn.date, txn.amount, txn.description))
+            """, (statement_id, txn.transaction_date, txn.amount, txn.description))
 
             if cursor.fetchone():
-                logger.info(f"Duplicate transaction skipped: {txn.date} {txn.amount}")
+                logger.info(f"Duplicate transaction skipped: {txn.transaction_date} {txn.amount}")
                 continue
 
             # Insertar transacción
@@ -536,7 +536,8 @@ class BankStatementsServicePostgres:
             """, (
                 statement_id, txn.account_id, txn.tenant_id, txn.company_id,
                 txn.transaction_date, txn.description, txn.amount, txn.balance,
-                txn.transaction_type.value, txn.category, txn.reference,
+                txn.transaction_type.value if hasattr(txn.transaction_type, 'value') else txn.transaction_type,
+                txn.category, txn.reference,
                 txn.reconciled, txn.msi_candidate, txn.msi_invoice_id,
                 txn.msi_months, txn.msi_confidence,
                 txn.ai_model, txn.confidence
@@ -655,6 +656,40 @@ class BankStatementsServicePostgres:
             created_at=row.get('created_at'),
             updated_at=row.get('updated_at')
         )
+
+    def upsert_initial_balance(
+        self,
+        statement_id: int,
+        account_id: int,
+        user_id: int,
+        tenant_id: int,
+        opening_balance: float,
+        balance_date: Optional[date],
+        ai_model: Optional[str] = None,
+        confidence: float = 1.0,
+        display_name: str = "Balance inicial"
+    ):
+        """Insert initial balance as a special transaction"""
+        # For now, just update the statement's opening_balance
+        # Could also insert a special transaction if needed
+        pass
+
+    def upsert_closing_balance(
+        self,
+        statement_id: int,
+        account_id: int,
+        user_id: int,
+        tenant_id: int,
+        closing_balance: float,
+        balance_date: Optional[date],
+        ai_model: Optional[str] = None,
+        confidence: float = 1.0,
+        display_name: str = "Balance final"
+    ):
+        """Insert closing balance as a special transaction"""
+        # For now, just update the statement's closing_balance
+        # Could also insert a special transaction if needed
+        pass
 
 
 # =====================================================

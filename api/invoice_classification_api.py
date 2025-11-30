@@ -10,7 +10,7 @@ import logging
 import json
 
 from core.error_handler import handle_error, log_endpoint_entry, log_endpoint_success, log_endpoint_error
-from core.auth.jwt import get_current_user, User, enforce_tenant_isolation
+from core.auth.jwt import get_current_user, User, enforce_tenant_isolation, require_role
 
 router = APIRouter(prefix="/invoice-classification", tags=["Invoice Classification"])
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ def _get_db_connection():
 @router.post("/confirm/{session_id}")
 async def confirm_classification(
     session_id: str,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_role(['contador', 'accountant', 'admin']))
 ) -> Dict[str, Any]:
     """
     Confirm an AI-generated classification as correct
@@ -44,7 +44,7 @@ async def confirm_classification(
     This marks the classification as 'confirmed' and the accountant accepts it.
     The confirmation is stored for future learning.
 
-    🔐 Requires authentication
+    🔐 Requires role: contador, accountant, or admin
     """
     log_endpoint_entry(f"/invoice-classification/confirm/{session_id}", method="POST", user_id=current_user.id)
 
@@ -125,10 +125,12 @@ async def correct_classification(
     session_id: str,
     corrected_sat_code: str,
     correction_notes: Optional[str] = None,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_role(['contador', 'accountant', 'admin']))
 ) -> Dict[str, Any]:
     """
     Correct an AI-generated classification
+
+    🔐 Requires role: contador, accountant, or admin
 
     This allows the accountant to override the AI's suggestion with the correct
     SAT account code. The correction is stored for future learning.

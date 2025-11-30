@@ -73,7 +73,7 @@ export default function InvoiceUploadPage() {
       try {
         // Check if this batch is still processing
         const statusResponse = await fetch(
-          `http://localhost:8001/universal-invoice/sessions/batch-status/${batchId}?company_id=${tenant.company_id}`
+          `http://localhost:8000/universal-invoice/sessions/batch-status/${batchId}?company_id=${tenant.company_id}`
         );
 
         if (!statusResponse.ok) {
@@ -248,7 +248,7 @@ export default function InvoiceUploadPage() {
 
       // Upload TODOS los archivos con batch-upload
       const batchResponse = await fetch(
-        `http://localhost:8001/universal-invoice/sessions/batch-upload/?company_id=${companyId}&user_id=${userId}`,
+        `http://localhost:8000/universal-invoice/sessions/batch-upload/?company_id=${companyId}&user_id=${userId}`,
         {
           method: 'POST',
           body: formData,
@@ -286,7 +286,7 @@ export default function InvoiceUploadPage() {
       const pollBatchStatus = async () => {
         try {
           const statusResponse = await fetch(
-            `http://localhost:8001/universal-invoice/sessions/batch-status/${batchResult.batch_id}?company_id=${companyId}`
+            `http://localhost:8000/universal-invoice/sessions/batch-status/${batchResult.batch_id}?company_id=${companyId}`
           );
 
           if (!statusResponse.ok) {

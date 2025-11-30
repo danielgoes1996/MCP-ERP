@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const backendBase =
   process.env.FINANCE_API_INTERNAL_URL ??
   process.env.NEXT_PUBLIC_FINANCE_API_URL ??
-  'http://localhost:8001';
+  'http://localhost:8000';
 
 const sanitizedBase = backendBase.replace(/\/$/, '');
 

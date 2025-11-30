@@ -652,7 +652,7 @@ class GeminiNativeParser:
         total_debits = sum(abs(t.amount) for t in transactions if t.amount < 0)
 
         # Get period from transactions
-        dates = [t.date for t in transactions]
+        dates = [t.transaction_date for t in transactions]
         period_start = min(dates).isoformat() if dates else None
         period_end = max(dates).isoformat() if dates else None
 

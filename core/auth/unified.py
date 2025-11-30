@@ -43,15 +43,29 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 class UserRole:
-    """Roles de usuario del sistema"""
+    """
+    Legacy role constants for backward compatibility.
+
+    DEPRECATED: Use core.auth.roles.SystemRole instead.
+    This class is maintained only for backward compatibility with existing code.
+    """
     ADMIN = "admin"
-    USER = "user"
+    USER = "empleado"  # Maps to new 'empleado' role
     VIEWER = "viewer"
-    COMPANY_ADMIN = "company_admin"
+    COMPANY_ADMIN = "admin"  # Maps to admin
+
+    # New roles from multi-role system
+    CONTADOR = "contador"
+    ACCOUNTANT = "accountant"
+    MANAGER = "manager"
+    SUPERVISOR = "supervisor"
+    EMPLEADO = "empleado"
 
     @classmethod
     def get_all_roles(cls) -> List[str]:
-        return [cls.ADMIN, cls.USER, cls.VIEWER, cls.COMPANY_ADMIN]
+        """Returns all available roles in the system"""
+        from core.auth.roles import SystemRole
+        return [role.value for role in SystemRole]
 
 # Pydantic models
 class UserBase(BaseModel):
@@ -82,6 +96,85 @@ class User(UserBase):
     onboarding_completed_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
+    def get_roles(self) -> List[str]:
+        """
+        Get all roles assigned to this user from user_roles table.
+
+        Returns:
+            List of role names ordered by hierarchy level (highest first)
+        """
+        from core.auth.jwt import get_user_roles
+        return get_user_roles(self.id)
+
+    def has_role(self, role_name: str) -> bool:
+        """
+        Check if user has a specific role.
+
+        Args:
+            role_name: Role to check (e.g., 'admin', 'contador')
+
+        Returns:
+            True if user has the role
+        """
+        return role_name in self.get_roles()
+
+    def has_any_role(self, role_names: List[str]) -> bool:
+        """
+        Check if user has any of the specified roles.
+
+        Args:
+            role_names: List of roles to check
+
+        Returns:
+            True if user has at least one of the roles
+        """
+        user_roles = self.get_roles()
+        return any(role in user_roles for role in role_names)
+
+    def get_highest_role(self) -> Optional[str]:
+        """
+        Get the highest-level role assigned to this user.
+
+        Returns:
+            Role name with highest hierarchy level, or None if no roles
+        """
+        from core.auth.roles import get_highest_role
+        return get_highest_role(self.get_roles())
+
+    def get_departments(self) -> List[int]:
+        """
+        Get all department IDs assigned to this user.
+
+        Returns:
+            List of department IDs (primary department first)
+        """
+        from core.auth.jwt import get_user_departments
+        return get_user_departments(self.id)
+
+    def get_subordinates(self) -> List[int]:
+        """
+        Get all user IDs that report to this user.
+
+        Returns:
+            List of user IDs of direct reports
+        """
+        from core.auth.jwt import get_user_subordinates
+        return get_user_subordinates(self.id)
+
+    def can_access_resource(self, resource: str, action: str) -> bool:
+        """
+        Check if user can perform an action on a resource.
+
+        Args:
+            resource: Resource type (e.g., 'expenses', 'invoices')
+            action: Action type (e.g., 'read', 'create', 'approve')
+
+        Returns:
+            True if user has permission
+        """
+        from core.auth.roles import can_access_resource
+        return can_access_resource(self.get_roles(), resource, action)
 
 class Token(BaseModel):
     access_token: str
@@ -555,7 +648,7 @@ def get_user_by_id(user_id: int) -> Optional[UserInDB]:
                        locked_until, created_at, onboarding_completed, onboarding_completed_at,
                        company_id
                 FROM users
-                WHERE id = ? AND is_active = 1
+                WHERE id = ? AND is_active = TRUE
                 """,
                 (user_id,),
             )
@@ -1000,12 +1093,18 @@ async def get_current_superuser(current_user: UserInDB = Depends(get_current_act
 
 def create_tokens_for_user(user: UserInDB) -> Token:
     """Crear tokens de acceso y refresh para usuario"""
+    from core.auth.jwt import get_user_roles
+
+    # Get all roles from user_roles table
+    user_roles = get_user_roles(user.id)
+
     access_token = create_access_token(
         data={
             "sub": user.email,
             "user_id": user.id,
             "tenant_id": user.tenant_id,
-            "role": user.role
+            "role": user.role,  # Legacy single role for backward compatibility
+            "roles": user_roles  # New multi-role support
         }
     )
 

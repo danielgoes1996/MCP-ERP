@@ -4,7 +4,7 @@
  * API client for invoice accounting classification endpoints
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export interface AlternativeCandidate {
   code: string;

@@ -1376,6 +1376,14 @@ class UniversalInvoiceEngineSystem:
 
                 logger.info(f"Session {session_id}: Hierarchical classification completed successfully")
 
+                # ⭐ FIXED ASSETS DETECTION: Check if this is a fixed asset and get depreciation rates
+                await self._enrich_with_depreciation_rates(
+                    session_id,
+                    classification_dict,
+                    parsed_data,
+                    cursor
+                )
+
         except Exception as e:
             # Log error but don't fail the invoice processing
             logger.error(f"Session {session_id}: Error in background accounting classification: {e}")
@@ -1643,6 +1651,144 @@ class UniversalInvoiceEngineSystem:
             except Exception as e:
                 logger.error(f"Error looking up SAT account name for {sat_code}: {e}")
                 return sat_code  # Fallback to code on error
+
+    async def _enrich_with_depreciation_rates(
+        self,
+        session_id: str,
+        classification_dict: Dict[str, Any],
+        parsed_data: Dict[str, Any],
+        cursor
+    ):
+        """
+        Detect fixed assets and enrich classification with depreciation rates.
+
+        For SAT families 151-158 (fixed assets), uses RAG over LISR Article 34
+        to determine fiscal and accounting depreciation rates with legal basis.
+
+        Args:
+            session_id: Invoice session ID
+            classification_dict: Classification result from AI
+            parsed_data: Parsed CFDI data
+            cursor: Database cursor (in transaction)
+        """
+        try:
+            sat_code = classification_dict.get('sat_account_code', '')
+            if not sat_code:
+                return
+
+            # Extract SAT family (first 3 digits before decimal)
+            family = sat_code.split('.')[0]
+
+            # Fixed asset families per SAT catalog
+            FIXED_ASSET_FAMILIES = {
+                '151': 'terrenos',
+                '152': 'edificios',
+                '153': 'maquinaria',
+                '154': 'vehiculos',
+                '155': 'mobiliario',
+                '156': 'equipo_computo',
+                '157': 'equipo_comunicacion',
+                '158': 'activos_biologicos',
+                '118': 'activos_intangibles'
+            }
+
+            if family not in FIXED_ASSET_FAMILIES:
+                # Not a fixed asset, skip
+                return
+
+            asset_type = FIXED_ASSET_FAMILIES[family]
+            logger.info(
+                f"Session {session_id}: Fixed asset detected! "
+                f"SAT family {family} → {asset_type}"
+            )
+
+            # Get asset description from first concept
+            conceptos = parsed_data.get('conceptos', [])
+            if not conceptos:
+                logger.warning(f"Session {session_id}: No concepts found, skipping depreciation")
+                return
+
+            concepto = conceptos[0]
+            asset_description = concepto.get('descripcion', '')
+            sat_product_code = concepto.get('clave_prod_serv')
+            amount = parsed_data.get('total', 0)
+
+            # Query depreciation service
+            from core.fiscal.depreciation_rate_service import get_depreciation_rate_service
+
+            depr_service = get_depreciation_rate_service()
+
+            depreciation_rate = depr_service.get_depreciation_rate(
+                asset_description=asset_description,
+                sat_account_code=sat_code,
+                sat_product_code=sat_product_code,
+                amount=amount
+            )
+
+            if not depreciation_rate:
+                logger.warning(f"Session {session_id}: Could not determine depreciation rate")
+                return
+
+            # Enrich classification_dict with fixed asset metadata
+            if 'metadata' not in classification_dict:
+                classification_dict['metadata'] = {}
+
+            classification_dict['metadata']['fixed_asset'] = {
+                'is_fixed_asset': True,
+                'asset_type': depreciation_rate.asset_type,
+
+                # Fiscal rates (for SAT tax returns)
+                'depreciation_rate_fiscal_annual': depreciation_rate.annual_rate_fiscal,
+                'depreciation_years_fiscal': depreciation_rate.years_fiscal,
+                'depreciation_months_fiscal': depreciation_rate.months_fiscal,
+
+                # Accounting rates (for financial statements)
+                'depreciation_rate_accounting_annual': depreciation_rate.annual_rate_accounting,
+                'depreciation_years_accounting': depreciation_rate.years_accounting,
+                'depreciation_months_accounting': depreciation_rate.months_accounting,
+
+                # Legal basis
+                'legal_basis': {
+                    'law': depreciation_rate.law_code,
+                    'article': depreciation_rate.article,
+                    'section': depreciation_rate.section,
+                    'article_text': depreciation_rate.article_text,
+                    'effective_date': depreciation_rate.effective_date,
+                    'dof_url': depreciation_rate.dof_url
+                },
+
+                # Context
+                'applies_to': depreciation_rate.applies_to,
+                'reasoning': depreciation_rate.reasoning,
+                'confidence': depreciation_rate.confidence,
+
+                # Differential (if fiscal != accounting)
+                'has_deferred_tax': (
+                    depreciation_rate.annual_rate_fiscal != depreciation_rate.annual_rate_accounting
+                )
+            }
+
+            # Update sat_invoices with enriched classification
+            cursor.execute("""
+                UPDATE sat_invoices
+                SET accounting_classification = %s
+                WHERE id = %s
+            """, (json.dumps(classification_dict), session_id))
+
+            logger.info(
+                f"Session {session_id}: Fixed asset enriched with depreciation rates: "
+                f"{depreciation_rate.annual_rate_fiscal}% fiscal, "
+                f"{depreciation_rate.annual_rate_accounting}% accounting "
+                f"({depreciation_rate.law_code} Art. {depreciation_rate.article} "
+                f"{depreciation_rate.section})"
+            )
+
+        except Exception as e:
+            # Log error but don't fail the classification
+            logger.error(
+                f"Session {session_id}: Error enriching with depreciation rates: {e}",
+                exc_info=True
+            )
 
     async def _get_db_connection(self):
         """Obtiene conexión a PostgreSQL"""

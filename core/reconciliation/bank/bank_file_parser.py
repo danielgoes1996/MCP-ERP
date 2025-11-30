@@ -681,7 +681,75 @@ class BankFileParser:
             logger.warning(f"⚠️ Could not retrieve account info, MSI detection will be skipped")
 
         if file_type.lower() == 'pdf':
-            # 🤖 AI Classification FIRST (detecta banco Y tipo de cuenta)
+            # 🤖 STRATEGY 1: Try Gemini Vision AI Parser FIRST (most powerful)
+            try:
+                from core.ai_pipeline.parsers.ai_bank_statement_parser import get_ai_parser
+
+                logger.info("🚀 Using Gemini Vision AI parser for PDF...")
+                ai_parser = get_ai_parser()
+                statement_data = ai_parser.parse_pdf(
+                    file_path,
+                    account_id=account_id,
+                    company_id=account_info.get('company_id') if account_info else None
+                )
+
+                # Convert statement_data.transactions to BankTransaction objects
+                transactions = []
+                for tx in statement_data.transactions:
+                    # Convert dict to BankTransaction
+                    txn = BankTransaction(
+                        account_id=account_id,
+                        user_id=user_id,
+                        tenant_id=tenant_id,
+                        transaction_date=tx['date'],
+                        description=tx['description'],
+                        amount=tx['amount'],
+                        transaction_type=TransactionType.CREDIT if tx['type'] == 'credit' else TransactionType.DEBIT,
+                        balance=tx.get('balance'),
+                        reference=tx.get('reference'),
+                        msi_candidate=tx.get('is_msi_candidate', False),
+                        msi_months=tx.get('msi_months'),
+                        msi_confidence=tx.get('msi_confidence', 0.0),
+                        ai_model=statement_data.metadata.get('model', 'gemini-2.0-flash-exp'),
+                        confidence=statement_data.confidence,
+                        movement_kind=infer_movement_kind(
+                            TransactionType.CREDIT if tx['type'] == 'credit' else TransactionType.DEBIT,
+                            tx['description']
+                        )
+                    )
+                    transactions.append(txn)
+
+                # Create summary dict
+                summary = {
+                    'total_transactions': len(transactions),
+                    'total_credits': statement_data.total_credits,
+                    'total_debits': statement_data.total_debits,
+                    'opening_balance': statement_data.opening_balance,
+                    'closing_balance': statement_data.closing_balance,
+                    'period_start': statement_data.period_start,
+                    'period_end': statement_data.period_end,
+                    'detected_bank': statement_data.bank_name,
+                    'account_type': statement_data.account_type,
+                    'parser_used': 'gemini_vision_ai',
+                    'metadata': statement_data.metadata
+                }
+
+                logger.info(f"✅ Gemini Vision AI parser extracted {len(transactions)} transactions")
+
+                # Apply MSI detection if needed (AI may have already detected some, but we double-check)
+                if account_info:
+                    logger.info("🔍 Running MSI detection for Gemini AI parser transactions...")
+                    transactions = self._detect_msi_candidates(
+                        transactions, account_info,
+                        summary.get('period_start'), summary.get('period_end')
+                    )
+
+                return transactions, summary
+
+            except Exception as e:
+                logger.warning(f"⚠️ Gemini Vision AI parser failed: {e}, falling back to other parsers...")
+
+            # 🤖 STRATEGY 2: AI Classification (detecta banco Y tipo de cuenta)
             ai_classification = None
             if self.ai_classifier:
                 try:
@@ -715,6 +783,7 @@ class BankFileParser:
                 except Exception:
                     self._apply_bank_rules(detected_bank)
 
+            # 🏦 STRATEGY 3: Inbursa-specific parser (if detected)
             if (detected_bank or '').lower() == 'inbursa':
                 transactions, summary = self._parse_inbursa_pdf_with_layout(
                     file_path, account_id, user_id, tenant_id

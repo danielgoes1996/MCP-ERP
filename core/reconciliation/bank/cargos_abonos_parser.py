@@ -510,7 +510,7 @@ class CargosAbonosParser(RobustPDFParser):
         expenses_total = sum(abs(t.amount) for t in transactions if t.movement_kind == MovementKind.GASTO and t.amount < 0)
         transfers_total = sum(abs(t.amount) for t in transactions if t.movement_kind == MovementKind.TRANSFERENCIA)
 
-        dates = [t.date for t in transactions]
+        dates = [t.transaction_date for t in transactions]
 
         return {
             "total_transactions": len(transactions),
@@ -541,4 +541,4 @@ if __name__ == "__main__":
         transactions, summary = parse_with_cargos_abonos(pdf_path, 1, 1, 1)
         print(f"✅ Extracted {len(transactions)} transactions using CARGOS/ABONOS structure")
         for txn in transactions[:10]:
-            print(f"  {txn.date} | {txn.movement_kind.value} | ${txn.amount} | {txn.description[:60]}...")
+            print(f"  {txn.transaction_date} | {txn.movement_kind.value} | ${txn.amount} | {txn.description[:60]}...")

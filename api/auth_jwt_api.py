@@ -84,7 +84,7 @@ class TenantInfo(BaseModel):
     """Tenant information response"""
     id: int
     name: str
-    company_id: Optional[int] = None
+    company_id: Optional[str] = None  # Changed from int to str to match DB schema
     description: Optional[str] = None
 
 
@@ -351,10 +351,9 @@ async def login(
         cursor = conn.cursor()
 
         cursor.execute("""
-            SELECT t.id, t.name, c.id
+            SELECT t.id, t.name, t.company_id
             FROM tenants t
             INNER JOIN users u ON u.tenant_id = t.id
-            LEFT JOIN companies c ON c.tenant_id = t.id
             WHERE u.id = %s AND t.id = %s
         """, (user.id, tenant_id))
 
