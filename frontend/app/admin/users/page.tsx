@@ -7,6 +7,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Users as UsersIcon, Shield, Building2, X, Plus } from 'lucide-react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -248,68 +254,61 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-              <UsersIcon className="w-8 h-8 text-primary-600" />
-              Gestión de Usuarios
-            </h1>
-            <p className="text-gray-600 mt-2">
-              Administra usuarios, roles y departamentos
-            </p>
-          </div>
-        </div>
-      </div>
+    <ProtectedRoute>
+      <AppLayout>
+        <div className="space-y-6">
+          {/* Header */}
+          <PageHeader
+            title="Gestión de Usuarios"
+            subtitle="Administra usuarios, roles y departamentos"
+          />
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Usuarios</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{users.length}</p>
-            </div>
-            <div className="p-3 bg-primary-50 rounded-lg">
-              <UsersIcon className="w-6 h-6 text-primary-600" />
-            </div>
-          </div>
-        </div>
+          {/* Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card variant="gradient-primary" className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Usuarios</p>
+                  <p className="text-3xl font-bold text-[#11446e] mt-1">{users.length}</p>
+                </div>
+                <div className="p-3 bg-[#11446e]/10 rounded-lg">
+                  <UsersIcon className="w-6 h-6 text-[#11446e]" />
+                </div>
+              </div>
+            </Card>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Usuarios Activos</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
-                {users.filter(u => u.is_active).length}
-              </p>
-            </div>
-            <div className="p-3 bg-green-50 rounded-lg">
-              <Shield className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
+            <Card variant="gradient-green" className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Usuarios Activos</p>
+                  <p className="text-3xl font-bold text-[#60b97b] mt-1">
+                    {users.filter(u => u.is_active).length}
+                  </p>
+                </div>
+                <div className="p-3 bg-[#60b97b]/10 rounded-lg">
+                  <Shield className="w-6 h-6 text-[#60b97b]" />
+                </div>
+              </div>
+            </Card>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Con Departamento</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
-                {users.filter(u => u.departments.length > 0).length}
-              </p>
-            </div>
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <Building2 className="w-6 h-6 text-blue-600" />
-            </div>
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Con Departamento</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-1">
+                    {users.filter(u => u.departments.length > 0).length}
+                  </p>
+                </div>
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <Building2 className="w-6 h-6 text-blue-600" />
+                </div>
+              </div>
+            </Card>
           </div>
-        </div>
-      </div>
 
-      {/* Users Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
+          {/* Users Table */}
+          <Card noPadding className="overflow-hidden">
+            <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -388,44 +387,45 @@ export default function AdminUsersPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => handleEditUser(user)}
-                      className="text-primary-600 hover:text-primary-900 transition-colors"
                     >
                       Editar
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+              </table>
+            </div>
+
+            {users.length === 0 && (
+              <EmptyState
+                icon={UsersIcon}
+                title="No hay usuarios"
+                description="Los usuarios aparecerán aquí cuando sean creados."
+              />
+            )}
+          </Card>
+
+          {/* Edit User Modal */}
+          {isEditModalOpen && editingUser && (
+            <EditUserModal
+              user={editingUser}
+              roles={roles}
+              departments={departments}
+              onClose={handleCloseEditModal}
+              onAssignRole={handleAssignRole}
+              onRemoveRole={handleRemoveRole}
+              onAssignDepartment={handleAssignDepartment}
+              onRemoveDepartment={handleRemoveDepartment}
+            />
+          )}
         </div>
-
-        {users.length === 0 && (
-          <div className="text-center py-12">
-            <UsersIcon className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No hay usuarios</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Los usuarios aparecerán aquí cuando sean creados.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Edit User Modal */}
-      {isEditModalOpen && editingUser && (
-        <EditUserModal
-          user={editingUser}
-          roles={roles}
-          departments={departments}
-          onClose={handleCloseEditModal}
-          onAssignRole={handleAssignRole}
-          onRemoveRole={handleRemoveRole}
-          onAssignDepartment={handleAssignDepartment}
-          onRemoveDepartment={handleRemoveDepartment}
-        />
-      )}
-    </div>
+      </AppLayout>
+    </ProtectedRoute>
   );
 }
 
@@ -506,12 +506,13 @@ function EditUserModal({
                   {user.full_name} ({user.email})
                 </p>
               </div>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="w-6 h-6" />
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -565,14 +566,15 @@ function EditUserModal({
                       </option>
                     ))}
                   </select>
-                  <button
+                  <Button
+                    variant="primary"
+                    size="sm"
                     onClick={handleAddRole}
                     disabled={!selectedRole || loading}
-                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-4 h-4 mr-2" />
                     Agregar
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -632,14 +634,16 @@ function EditUserModal({
                         </option>
                       ))}
                     </select>
-                    <button
+                    <Button
+                      variant="primary"
+                      size="sm"
                       onClick={handleAddDepartment}
                       disabled={!selectedDepartment || loading}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                      className="bg-blue-600 hover:bg-blue-700"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-4 h-4 mr-2" />
                       Agregar
-                    </button>
+                    </Button>
                   </div>
                   <label className="flex items-center gap-2 text-sm text-gray-600">
                     <input
@@ -658,12 +662,12 @@ function EditUserModal({
 
           {/* Footer */}
           <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
-            <button
+            <Button
+              variant="secondary"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
             >
               Cerrar
-            </button>
+            </Button>
           </div>
         </div>
       </div>
