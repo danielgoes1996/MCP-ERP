@@ -474,3 +474,72 @@ async def update_user(
     except Exception as e:
         logger.error(f"Error updating user: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/{user_id}")
+async def delete_user(
+    user_id: int,
+    current_user: User = Depends(require_role(['admin']))
+) -> Dict[str, str]:
+    """
+    Delete a user and all their associated data.
+
+    🔐 Requires: admin role
+
+    This endpoint:
+    - Deletes all user role assignments
+    - Deletes all user department assignments
+    - Deletes the user record
+
+    WARNING: This action cannot be undone.
+    """
+    try:
+        adapter = get_unified_adapter()
+        conn = adapter.get_connection()
+        cursor = conn.cursor()
+
+        # Verify user exists and belongs to same tenant
+        cursor.execute("""
+            SELECT id FROM users
+            WHERE id = ? AND tenant_id = ?
+        """, (user_id, current_user.tenant_id))
+
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Prevent self-deletion
+        if user_id == current_user.id:
+            raise HTTPException(status_code=400, detail="Cannot delete your own account")
+
+        # Delete user role assignments
+        cursor.execute("""
+            DELETE FROM user_roles
+            WHERE user_id = ?
+        """, (user_id,))
+
+        # Delete user department assignments
+        cursor.execute("""
+            DELETE FROM user_departments
+            WHERE user_id = ?
+        """, (user_id,))
+
+        # Delete the user
+        cursor.execute("""
+            DELETE FROM users
+            WHERE id = ? AND tenant_id = ?
+        """, (user_id, current_user.tenant_id))
+
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        conn.commit()
+        conn.close()
+
+        logger.info(f"User {user_id} deleted by admin {current_user.id}")
+        return {"message": "User deleted successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting user: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

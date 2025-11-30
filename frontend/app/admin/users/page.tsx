@@ -13,7 +13,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Users as UsersIcon, Shield, Building2, X, Plus } from 'lucide-react';
+import { Users as UsersIcon, Shield, Building2, X, Plus, Search, Pause, Play, Trash2, Edit } from 'lucide-react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -55,9 +55,17 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedRole, setSelectedRole] = useState<string>('all');
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+
   // Modal states
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -230,6 +238,63 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleDeleteUser = async () => {
+    if (!deletingUser) return;
+
+    try {
+      const token = localStorage.getItem('auth_token');
+
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${deletingUser.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete user');
+      }
+
+      await fetchData();
+      setIsDeleteModalOpen(false);
+      setDeletingUser(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete user');
+    }
+  };
+
+  const handleOpenDeleteModal = (user: User) => {
+    setDeletingUser(user);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setDeletingUser(null);
+  };
+
+  // Filter users based on search and filters
+  const filteredUsers = users.filter(user => {
+    // Search filter
+    const matchesSearch = !searchTerm ||
+      user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // Role filter
+    const matchesRole = selectedRole === 'all' || user.roles.includes(selectedRole);
+
+    // Department filter
+    const matchesDepartment = selectedDepartment === 'all' ||
+      user.departments.includes(parseInt(selectedDepartment));
+
+    // Status filter
+    const matchesStatus = selectedStatus === 'all' ||
+      (selectedStatus === 'active' && user.is_active) ||
+      (selectedStatus === 'inactive' && !user.is_active);
+
+    return matchesSearch && matchesRole && matchesDepartment && matchesStatus;
+  });
+
   if (loading) {
     return (
       <div className="p-8">
@@ -262,6 +327,67 @@ export default function AdminUsersPage() {
             title="Gestión de Usuarios"
             subtitle="Administra usuarios, roles y departamentos"
           />
+
+          {/* Filters and Search */}
+          <Card className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              {/* Search */}
+              <div className="lg:col-span-2 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre o email..."
+                  className="w-full pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#60b97b]/20 focus:border-[#60b97b]"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              {/* Role Filter */}
+              <select
+                className="px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#60b97b]/20 focus:border-[#60b97b]"
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+              >
+                <option value="all">Todos los roles</option>
+                {roles.map((role) => (
+                  <option key={role.id} value={role.name}>
+                    {role.display_name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Department Filter */}
+              <select
+                className="px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#60b97b]/20 focus:border-[#60b97b]"
+                value={selectedDepartment}
+                onChange={(e) => setSelectedDepartment(e.target.value)}
+              >
+                <option value="all">Todos los departamentos</option>
+                {departments.map((dept) => (
+                  <option key={dept.id} value={dept.id.toString()}>
+                    {dept.name} {dept.code && `(${dept.code})`}
+                  </option>
+                ))}
+              </select>
+
+              {/* Status Filter */}
+              <select
+                className="px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#60b97b]/20 focus:border-[#60b97b]"
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+              >
+                <option value="all">Todos los estados</option>
+                <option value="active">Activos</option>
+                <option value="inactive">Inactivos</option>
+              </select>
+            </div>
+
+            {/* Results count */}
+            <div className="mt-3 text-sm text-gray-600">
+              Mostrando {filteredUsers.length} de {users.length} usuarios
+            </div>
+          </Card>
 
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -333,7 +459,7 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((user) => (
+              {filteredUsers.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -387,13 +513,41 @@ export default function AdminUsersPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditUser(user)}
-                    >
-                      Editar
-                    </Button>
+                    <div className="flex items-center justify-end gap-2">
+                      {/* Pausar/Reactivar */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleToggleActive(user.id, user.is_active)}
+                        title={user.is_active ? 'Pausar usuario' : 'Reactivar usuario'}
+                      >
+                        {user.is_active ? (
+                          <Pause className="w-4 h-4 text-yellow-600" />
+                        ) : (
+                          <Play className="w-4 h-4 text-green-600" />
+                        )}
+                      </Button>
+
+                      {/* Editar roles/departamentos */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditUser(user)}
+                        title="Editar roles y departamentos"
+                      >
+                        <Edit className="w-4 h-4 text-[#11446e]" />
+                      </Button>
+
+                      {/* Eliminar */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenDeleteModal(user)}
+                        title="Eliminar usuario"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -422,6 +576,72 @@ export default function AdminUsersPage() {
               onAssignDepartment={handleAssignDepartment}
               onRemoveDepartment={handleRemoveDepartment}
             />
+          )}
+
+          {/* Delete Confirmation Modal */}
+          {isDeleteModalOpen && deletingUser && (
+            <>
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 bg-black bg-opacity-50 z-40"
+                onClick={handleCloseDeleteModal}
+              />
+
+              {/* Modal */}
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+                  {/* Header */}
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-red-100 rounded-lg">
+                        <Trash2 className="w-6 h-6 text-red-600" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-semibold text-gray-900">
+                          Eliminar Usuario
+                        </h2>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Esta acción no se puede deshacer
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Body */}
+                  <div className="px-6 py-4">
+                    <p className="text-gray-700">
+                      ¿Estás seguro que deseas eliminar al usuario{' '}
+                      <span className="font-semibold">{deletingUser.full_name}</span>
+                      {' '}({deletingUser.email})?
+                    </p>
+                    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-sm text-red-800">
+                        <strong>Advertencia:</strong> Se eliminarán todos los roles y
+                        departamentos asignados a este usuario.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+                    <Button
+                      variant="secondary"
+                      onClick={handleCloseDeleteModal}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onClick={handleDeleteUser}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Eliminar Usuario
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </AppLayout>
