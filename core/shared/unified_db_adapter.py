@@ -127,7 +127,8 @@ class PostgresCompatConnection:
             raise RuntimeError(
                 "psycopg2 no está instalado. Instala psycopg2-binary para usar PostgreSQL."
             )
-        self._conn = psycopg2.connect(dsn, connection_factory=RealDictConnection)
+        # No usar RealDictConnection para mantener compatibilidad con acceso por índice
+        self._conn = psycopg2.connect(dsn)
         self._row_factory = None
 
     def cursor(self):

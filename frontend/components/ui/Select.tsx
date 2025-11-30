@@ -93,7 +93,7 @@ export function Select({
           onClick={() => !disabled && setIsOpen(!isOpen)}
           disabled={disabled}
           className={cn(
-            'w-full px-4 py-3.5 bg-white border rounded-xl text-left transition-all',
+            'w-full px-4 py-3 bg-white border rounded-xl text-sm text-left transition-all',
             'focus:outline-none focus:border-[#11446e] focus:ring-2 focus:ring-[#11446e]/10',
             'flex items-center justify-between gap-3',
             error
@@ -145,7 +145,7 @@ export function Select({
                       type="button"
                       onClick={() => handleSelect(option.value)}
                       className={cn(
-                        'w-full px-4 py-3 text-left transition-colors flex items-center justify-between gap-3',
+                        'w-full px-4 py-2.5 text-sm text-left transition-colors flex items-center justify-between gap-3',
                         'hover:bg-gray-50',
                         isSelected
                           ? 'bg-[#11446e]/5 text-[#11446e] font-medium'
@@ -159,7 +159,7 @@ export function Select({
                         <span className="truncate">{option.label}</span>
                       </span>
                       {isSelected && (
-                        <Check className="w-5 h-5 text-[#11446e] flex-shrink-0" />
+                        <Check className="w-4 h-4 text-[#11446e] flex-shrink-0" />
                       )}
                     </button>
                   );

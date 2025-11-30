@@ -28,9 +28,9 @@ export function PageHeader({
   const content = (
     <div className={cn('flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between', className)}>
       <div>
-        <h1 className="text-3xl font-bold text-[#11446e]">{title}</h1>
+        <h1 className="text-2xl font-bold text-[#11446e]">{title}</h1>
         {subtitle && (
-          <p className="text-gray-600 mt-2">
+          <p className="text-sm text-gray-600 mt-1">
             {subtitle}
           </p>
         )}
