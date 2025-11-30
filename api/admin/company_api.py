@@ -86,7 +86,7 @@ async def get_company_info(
             cursor.execute("""
                 SELECT settings
                 FROM companies
-                WHERE id = %s
+                WHERE company_id = %s
             """, (tenant_row[2],))
             company_row = cursor.fetchone()
             if company_row and company_row[0]:
@@ -172,7 +172,7 @@ async def update_company_settings(
         company_id = tenant_row[0]
 
         # Get current settings
-        cursor.execute("SELECT settings FROM companies WHERE id = %s", (company_id,))
+        cursor.execute("SELECT settings FROM companies WHERE company_id = %s", (company_id,))
         company_row = cursor.fetchone()
 
         if company_row and company_row[0]:
@@ -200,7 +200,7 @@ async def update_company_settings(
         cursor.execute("""
             UPDATE companies
             SET settings = %s
-            WHERE id = %s
+            WHERE company_id = %s
         """, (settings_json, company_id))
 
         conn.commit()
