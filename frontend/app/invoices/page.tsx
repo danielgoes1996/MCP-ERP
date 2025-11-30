@@ -10,6 +10,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Button } from '@/components/ui/Button';
 import {
   FileText,
   Search,
@@ -1008,38 +1010,28 @@ export default function InvoicesPage() {
         <div className="space-y-6">
           {/* Header */}
           <div className="flex flex-col gap-2">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h1 className="text-3xl font-semibold text-slate-900 dark:text-white">Facturas</h1>
-                <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm">
-                  Visualizador de CFDI recibidos y emitidos listos para conciliación
-                </p>
-              </div>
-            <div className="flex gap-3">
-              <button
-                onClick={handleReprocessFailed}
-                disabled={reprocessing}
-                className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
-                  "backdrop-blur-xl bg-white/50 dark:bg-slate-800/50",
-                  "border border-slate-200/50 dark:border-slate-700/50",
-                  "text-slate-900 dark:text-white",
-                  "hover:bg-white/80 dark:hover:bg-slate-800/80 hover:border-emerald-500/50",
-                  "disabled:opacity-50 disabled:cursor-not-allowed",
-                  "shadow-lg shadow-slate-900/5 hover:shadow-xl hover:-translate-y-0.5"
-                )}
-              >
-                <RefreshCw strokeWidth={1.5} className={cn("w-4 h-4", reprocessing && "animate-spin")} />
-                <span>{reprocessing ? 'Reprocesando...' : 'Reprocesar Fallidas'}</span>
-              </button>
-              <Link href="/invoices/upload">
-                <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-50 shadow-lg shadow-slate-900/10 dark:shadow-white/10 hover:shadow-xl hover:-translate-y-0.5">
-                  <FileText strokeWidth={1.5} className="w-4 h-4" />
-                  <span>Subir Facturas</span>
-                </button>
-              </Link>
-            </div>
-            </div>
+            <PageHeader
+              title="Facturas"
+              subtitle="Visualizador de CFDI recibidos y emitidos listos para conciliación"
+              actions={
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={handleReprocessFailed}
+                    disabled={reprocessing}
+                  >
+                    <RefreshCw className={cn("w-4 h-4 mr-2", reprocessing && "animate-spin")} />
+                    {reprocessing ? 'Reprocesando...' : 'Reprocesar Fallidas'}
+                  </Button>
+                  <Link href="/invoices/upload">
+                    <Button variant="primary">
+                      <FileText className="w-4 h-4 mr-2" />
+                      Subir Facturas
+                    </Button>
+                  </Link>
+                </>
+              }
+            />
 
             {/* Línea de contexto */}
             <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">

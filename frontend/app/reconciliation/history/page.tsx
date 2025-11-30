@@ -11,6 +11,8 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { EmptyState } from '@/components/ui/EmptyState';
 import {
   ArrowLeft,
   CheckCircle,
@@ -112,29 +114,25 @@ export default function ReconciliationHistoryPage() {
       <AppLayout>
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <PageHeader
+            title="Historial de Conciliación"
+            subtitle="Revisa todas las conciliaciones realizadas entre facturas y transacciones bancarias"
+            actions={
               <Link href="/reconciliation">
                 <Button variant="outline" size="sm">
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Regresar
                 </Button>
               </Link>
-              <div>
-                <h1 className="text-3xl font-bold text-[#11446e]">Historial de Conciliación</h1>
-                <p className="text-gray-600 mt-1">
-                  Revisa todas las conciliaciones realizadas entre facturas y transacciones bancarias
-                </p>
-              </div>
-            </div>
-          </div>
+            }
+          />
 
           {/* Filters and Search */}
           <Card className="p-4">
             <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
               <div className="flex gap-3">
                 <Button
-                  variant={filterType === 'all' ? 'default' : 'outline'}
+                  variant={filterType === 'all' ? 'primary' : 'outline'}
                   size="sm"
                   onClick={() => setFilterType('all')}
                   className={filterType === 'all' ? 'bg-[#11446e]' : ''}
@@ -142,7 +140,7 @@ export default function ReconciliationHistoryPage() {
                   Todas
                 </Button>
                 <Button
-                  variant={filterType === 'auto' ? 'default' : 'outline'}
+                  variant={filterType === 'auto' ? 'primary' : 'outline'}
                   size="sm"
                   onClick={() => setFilterType('auto')}
                   className={filterType === 'auto' ? 'bg-[#60b97b]' : ''}
@@ -150,7 +148,7 @@ export default function ReconciliationHistoryPage() {
                   Automáticas
                 </Button>
                 <Button
-                  variant={filterType === 'manual' ? 'default' : 'outline'}
+                  variant={filterType === 'manual' ? 'primary' : 'outline'}
                   size="sm"
                   onClick={() => setFilterType('manual')}
                   className={filterType === 'manual' ? 'bg-[#11446e]' : ''}
@@ -210,18 +208,18 @@ export default function ReconciliationHistoryPage() {
                 Cargando historial...
               </div>
             ) : filteredRecords.length === 0 ? (
-              <div className="text-center py-12">
-                <CheckCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-600 font-medium">No hay conciliaciones registradas</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  Las conciliaciones automáticas y manuales aparecerán aquí
-                </p>
-                <Link href="/reconciliation">
-                  <Button className="mt-4 bg-[#11446e]">
-                    Ir a Conciliación
-                  </Button>
-                </Link>
-              </div>
+              <EmptyState
+                icon={CheckCircle}
+                title="No hay conciliaciones registradas"
+                description="Las conciliaciones automáticas y manuales aparecerán aquí"
+                action={
+                  <Link href="/reconciliation">
+                    <Button variant="primary">
+                      Ir a Conciliación
+                    </Button>
+                  </Link>
+                }
+              />
             ) : (
               <div className="space-y-3">
                 {filteredRecords.map((record) => (

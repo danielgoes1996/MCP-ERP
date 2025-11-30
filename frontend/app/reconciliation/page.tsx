@@ -1,5 +1,5 @@
 /**
- * Bank Reconciliation Dashboard
+ * Bank Reconciliation Dashboard - ContaFlow Enterprise Design System
  *
  * Shows reconciliation status, suggestions, and allows managing bank statements
  */
@@ -11,6 +11,8 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { EmptyState } from '@/components/ui/EmptyState';
 import {
   Upload,
   FileText,
@@ -116,33 +118,31 @@ export default function ReconciliationPage() {
       <AppLayout>
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-[#11446e]">Conciliación Bancaria</h1>
-              <p className="text-gray-600 mt-1">
-                Gestiona estados de cuenta y concilia facturas con transacciones bancarias
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <Link href="/invoices/upload">
-                <Button variant="outline">
-                  <FileText className="w-4 h-4 mr-2" />
-                  Subir Facturas
-                </Button>
-              </Link>
-              <Link href="/reconciliation/upload">
-                <Button className="bg-[#11446e] hover:bg-[#11446e]/90">
-                  <Upload className="w-4 h-4 mr-2" />
-                  Subir Estado de Cuenta
-                </Button>
-              </Link>
-            </div>
-          </div>
+          <PageHeader
+            title="Conciliación Bancaria"
+            subtitle="Gestiona estados de cuenta y concilia facturas con transacciones bancarias"
+            actions={
+              <>
+                <Link href="/invoices/upload">
+                  <Button variant="outline">
+                    <FileText className="w-4 h-4 mr-2" />
+                    Subir Facturas
+                  </Button>
+                </Link>
+                <Link href="/reconciliation/upload">
+                  <Button variant="primary">
+                    <Upload className="w-4 h-4 mr-2" />
+                    Subir Estado de Cuenta
+                  </Button>
+                </Link>
+              </>
+            }
+          />
 
           {/* Stats Cards */}
           {stats && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="p-6 bg-gradient-to-br from-[#60b97b]/10 to-white border-2 border-[#60b97b]/20">
+              <Card variant="gradient-green" className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-medium text-gray-600">Facturas Conciliadas</h3>
                   <CheckCircle className="w-5 h-5 text-[#60b97b]" />
@@ -157,7 +157,7 @@ export default function ReconciliationPage() {
                 </div>
               </Card>
 
-              <Card className="p-6 bg-gradient-to-br from-yellow-50 to-white border-2 border-yellow-200">
+              <Card variant="gradient-warning" className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-medium text-gray-600">Pendientes de Conciliar</h3>
                   <AlertCircle className="w-5 h-5 text-yellow-600" />
@@ -214,19 +214,19 @@ export default function ReconciliationPage() {
                 Cargando sugerencias...
               </div>
             ) : suggestions.length === 0 ? (
-              <div className="text-center py-12">
-                <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-600 font-medium">No hay sugerencias disponibles</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  Sube un estado de cuenta para generar sugerencias automáticas
-                </p>
-                <Link href="/reconciliation/upload">
-                  <Button className="mt-4 bg-[#11446e]">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Subir Estado de Cuenta
-                  </Button>
-                </Link>
-              </div>
+              <EmptyState
+                icon={AlertCircle}
+                title="No hay sugerencias disponibles"
+                description="Sube un estado de cuenta para generar sugerencias automáticas"
+                action={
+                  <Link href="/reconciliation/upload">
+                    <Button variant="primary">
+                      <Upload className="w-4 h-4 mr-2" />
+                      Subir Estado de Cuenta
+                    </Button>
+                  </Link>
+                }
+              />
             ) : (
               <div className="space-y-3">
                 {suggestions.map((suggestion) => (
