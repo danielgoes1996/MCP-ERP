@@ -51,6 +51,12 @@ export default function CompanyPage() {
   const [companyName, setCompanyName] = useState('');
   const [aiContext, setAiContext] = useState('');
 
+  // AI Context individual fields
+  const [industry, setIndustry] = useState('');
+  const [businessModel, setBusinessModel] = useState('');
+  const [typicalExpenses, setTypicalExpenses] = useState('');
+  const [showJsonEditor, setShowJsonEditor] = useState(false);
+
   const logoInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
 
@@ -79,6 +85,17 @@ export default function CompanyPage() {
       setCompany(data);
       setCompanyName(data.name || '');
       setAiContext(JSON.stringify(data.settings || {}, null, 2));
+
+      // Populate individual AI context fields
+      if (data.settings) {
+        setIndustry(data.settings.industry || '');
+        setBusinessModel(data.settings.business_model || '');
+        setTypicalExpenses(
+          Array.isArray(data.settings.typical_expenses)
+            ? data.settings.typical_expenses.join('\n')
+            : ''
+        );
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -132,8 +149,25 @@ export default function CompanyPage() {
       setError(null);
       setSuccess(null);
 
-      // Parse and validate JSON
-      const parsedSettings = JSON.parse(aiContext);
+      // Build settings from form fields
+      const settings: any = {};
+
+      if (industry) settings.industry = industry;
+      if (businessModel) settings.business_model = businessModel;
+      if (typicalExpenses) {
+        settings.typical_expenses = typicalExpenses
+          .split('\n')
+          .map(e => e.trim())
+          .filter(e => e.length > 0);
+      }
+
+      // Preserve existing provider_treatments and preferences if they exist
+      if (company?.settings?.provider_treatments) {
+        settings.provider_treatments = company.settings.provider_treatments;
+      }
+      if (company?.settings?.preferences) {
+        settings.preferences = company.settings.preferences;
+      }
 
       const response = await fetch('http://localhost:8000/api/admin/company/settings', {
         method: 'PUT',
@@ -141,7 +175,7 @@ export default function CompanyPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(parsedSettings),
+        body: JSON.stringify(settings),
       });
 
       if (!response.ok) {
@@ -153,11 +187,7 @@ export default function CompanyPage() {
 
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
-      if (err instanceof SyntaxError) {
-        setError('JSON inválido. Por favor, revisa la sintaxis.');
-      } else {
-        setError(err.message);
-      }
+      setError(err.message);
     } finally {
       setSaving(false);
     }
@@ -460,31 +490,106 @@ export default function CompanyPage() {
               <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
                 <FileText className="w-5 h-5 text-green-600" />
               </div>
-              <div>
+              <div className="flex-1">
                 <h2 className="text-lg font-bold text-gray-900">Contexto de IA</h2>
                 <p className="text-sm text-gray-600">
-                  Configuración utilizada para clasificación inteligente
+                  Información utilizada para mejorar la clasificación automática de gastos
                 </p>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Configuración JSON
-                </label>
-                <textarea
-                  value={aiContext}
-                  onChange={(e) => setAiContext(e.target.value)}
+            <div className="space-y-6">
+              {/* Form Fields */}
+              <div className="space-y-4">
+                <Input
+                  label="Industria de la Empresa"
+                  value={industry}
+                  onChange={(e) => setIndustry(e.target.value)}
                   disabled={!isAdmin}
-                  rows={15}
-                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 font-mono focus:outline-none focus:border-[#11446e] focus:ring-2 focus:ring-[#11446e]/10 transition-all disabled:bg-gray-50 disabled:text-gray-600"
-                  placeholder='{\n  "industry": "...",\n  "business_model": "...",\n  "typical_expenses": [...]\n}'
+                  placeholder="Ej: Producción de alimentos, Tecnología, Construcción"
+                  helperText="El sector al que pertenece tu empresa"
                 />
-                <p className="mt-2 text-sm text-gray-500">
-                  Formato JSON válido. Incluye: industry, business_model, typical_expenses,
-                  provider_treatments, preferences
+
+                <Input
+                  label="Modelo de Negocio"
+                  value={businessModel}
+                  onChange={(e) => setBusinessModel(e.target.value)}
+                  disabled={!isAdmin}
+                  placeholder="Ej: B2B mayoreo, Retail, Servicios profesionales"
+                  helperText="Cómo opera tu empresa y vende sus productos/servicios"
+                />
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Gastos Típicos
+                  </label>
+                  <textarea
+                    value={typicalExpenses}
+                    onChange={(e) => setTypicalExpenses(e.target.value)}
+                    disabled={!isAdmin}
+                    rows={5}
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-[#11446e] focus:ring-2 focus:ring-[#11446e]/10 transition-all disabled:bg-gray-50 disabled:text-gray-600"
+                    placeholder="Transporte&#10;Materia prima&#10;Nómina&#10;Servicios profesionales&#10;Marketing"
+                  />
+                  <p className="mt-2 text-sm text-gray-500">
+                    Lista los tipos de gastos más comunes (uno por línea)
+                  </p>
+                </div>
+              </div>
+
+              {/* Example Usage Section */}
+              <div className="rounded-xl bg-blue-50 border border-blue-200 p-4">
+                <h3 className="text-sm font-semibold text-blue-900 mb-2">
+                  💡 ¿Cómo se usa esta información?
+                </h3>
+                <p className="text-sm text-blue-800 mb-3">
+                  Este contexto se envía automáticamente a la IA para mejorar la clasificación de facturas y gastos:
                 </p>
+                <div className="bg-white rounded-lg p-3 border border-blue-200">
+                  <p className="text-xs font-mono text-gray-700 leading-relaxed">
+                    <span className="text-blue-600">Sistema:</span> Clasifica esta factura considerando que la empresa es de{' '}
+                    <span className="font-semibold text-green-700">{industry || '[industria]'}</span>, opera con modelo{' '}
+                    <span className="font-semibold text-green-700">{businessModel || '[modelo de negocio]'}</span>
+                    {typicalExpenses && (
+                      <>
+                        {' '}y típicamente tiene gastos de:{' '}
+                        <span className="font-semibold text-green-700">
+                          {typicalExpenses.split('\n').filter(e => e.trim()).slice(0, 3).join(', ')}
+                        </span>
+                      </>
+                    )}
+                    .
+                  </p>
+                </div>
+                <p className="text-xs text-blue-700 mt-2">
+                  ✨ Mientras más específico, mejor será la clasificación automática
+                </p>
+              </div>
+
+              {/* Advanced JSON Editor (collapsible) */}
+              <div className="border-t pt-4">
+                <button
+                  onClick={() => setShowJsonEditor(!showJsonEditor)}
+                  className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-2"
+                >
+                  <span>{showJsonEditor ? '▼' : '▶'}</span>
+                  Modo Avanzado (JSON)
+                </button>
+
+                {showJsonEditor && (
+                  <div className="mt-3">
+                    <textarea
+                      value={aiContext}
+                      onChange={(e) => setAiContext(e.target.value)}
+                      disabled={!isAdmin}
+                      rows={12}
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-sm text-gray-900 font-mono focus:outline-none focus:border-[#11446e] focus:ring-2 focus:ring-[#11446e]/10 transition-all disabled:bg-gray-100 disabled:text-gray-600"
+                    />
+                    <p className="mt-2 text-xs text-gray-500">
+                      ⚠️ Edición manual del JSON - Usar solo si sabes lo que haces
+                    </p>
+                  </div>
+                )}
               </div>
 
               {isAdmin && (
@@ -503,7 +608,7 @@ export default function CompanyPage() {
                     ) : (
                       <>
                         <Save className="w-4 h-4 mr-2" />
-                        Guardar Contexto
+                        Guardar Configuración
                       </>
                     )}
                   </Button>
