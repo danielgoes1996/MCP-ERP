@@ -31,12 +31,11 @@ class CompanyInfoResponse(BaseModel):
     id: int
     name: str
     company_id: Optional[str] = None
-    description: Optional[str] = None
+    status: Optional[str] = None
     rfc: Optional[str] = None
     logo_url: Optional[str] = None
     fiscal_document_url: Optional[str] = None
     settings: Optional[Dict[str, Any]] = None
-    is_active: bool
     created_at: str
 
 
@@ -70,9 +69,9 @@ async def get_company_info(
         # Get tenant information
         cursor.execute("""
             SELECT
-                id, name, company_id, description,
+                id, name, company_id, status,
                 logo_url, fiscal_document_url, rfc,
-                is_active, created_at
+                created_at
             FROM tenants
             WHERE id = %s
         """, (current_user.tenant_id,))
@@ -102,12 +101,11 @@ async def get_company_info(
             id=tenant_row[0],
             name=tenant_row[1],
             company_id=tenant_row[2],
-            description=tenant_row[3],
+            status=tenant_row[3],
             logo_url=tenant_row[4],
             fiscal_document_url=tenant_row[5],
             rfc=tenant_row[6],
-            is_active=tenant_row[7],
-            created_at=tenant_row[8].isoformat() if isinstance(tenant_row[8], datetime) else str(tenant_row[8]),
+            created_at=tenant_row[7].isoformat() if isinstance(tenant_row[7], datetime) else str(tenant_row[7]),
             settings=settings
         )
     except HTTPException:

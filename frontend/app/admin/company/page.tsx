@@ -14,7 +14,6 @@ import {
   FileText,
   Image,
   Save,
-  X,
   CheckCircle,
   AlertCircle,
   Loader2,
@@ -24,7 +23,7 @@ interface CompanyInfo {
   id: number;
   name: string;
   company_id: string | null;
-  description: string | null;
+  status: string | null;
   rfc: string | null;
   logo_url: string | null;
   fiscal_document_url: string | null;
@@ -35,7 +34,6 @@ interface CompanyInfo {
     provider_treatments?: { [key: string]: string };
     preferences?: any;
   } | null;
-  is_active: boolean;
   created_at: string;
 }
 
