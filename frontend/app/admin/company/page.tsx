@@ -31,6 +31,10 @@ interface CompanyInfo {
     industry?: string;
     business_model?: string;
     typical_expenses?: string[];
+    capitalization_threshold_mxn?: number;
+    cogs_definition?: string;
+    operating_expenses_definition?: string;
+    sales_expenses_definition?: string;
     provider_treatments?: { [key: string]: string };
     preferences?: any;
   } | null;
@@ -55,6 +59,10 @@ export default function CompanyPage() {
   const [industry, setIndustry] = useState('');
   const [businessModel, setBusinessModel] = useState('');
   const [typicalExpenses, setTypicalExpenses] = useState('');
+  const [capitalizationThreshold, setCapitalizationThreshold] = useState('2000');
+  const [cogsDefinition, setCogsDefinition] = useState('');
+  const [operatingExpenses, setOperatingExpenses] = useState('');
+  const [salesExpenses, setSalesExpenses] = useState('');
   const [showJsonEditor, setShowJsonEditor] = useState(false);
 
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -95,6 +103,12 @@ export default function CompanyPage() {
             ? data.settings.typical_expenses.join('\n')
             : ''
         );
+        setCapitalizationThreshold(
+          data.settings.capitalization_threshold_mxn?.toString() || '2000'
+        );
+        setCogsDefinition(data.settings.cogs_definition || '');
+        setOperatingExpenses(data.settings.operating_expenses_definition || '');
+        setSalesExpenses(data.settings.sales_expenses_definition || '');
       }
     } catch (err: any) {
       setError(err.message);
@@ -160,6 +174,12 @@ export default function CompanyPage() {
           .map(e => e.trim())
           .filter(e => e.length > 0);
       }
+      if (capitalizationThreshold) {
+        settings.capitalization_threshold_mxn = parseInt(capitalizationThreshold, 10);
+      }
+      if (cogsDefinition) settings.cogs_definition = cogsDefinition;
+      if (operatingExpenses) settings.operating_expenses_definition = operatingExpenses;
+      if (salesExpenses) settings.sales_expenses_definition = salesExpenses;
 
       // Preserve existing provider_treatments and preferences if they exist
       if (company?.settings?.provider_treatments) {
@@ -533,6 +553,67 @@ export default function CompanyPage() {
                   />
                   <p className="mt-2 text-sm text-gray-500">
                     Lista los tipos de gastos más comunes (uno por línea)
+                  </p>
+                </div>
+
+                <Input
+                  label="Umbral de Capitalización (MXN)"
+                  type="number"
+                  value={capitalizationThreshold}
+                  onChange={(e) => setCapitalizationThreshold(e.target.value)}
+                  disabled={!isAdmin}
+                  placeholder="2000"
+                  helperText="Compras de activos fijos mayores a este monto se capitalizan (NIF C-6). Recomendado: $2,000 - $10,000 MXN"
+                />
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Definición de Costo de Ventas (COGS)
+                  </label>
+                  <textarea
+                    value={cogsDefinition}
+                    onChange={(e) => setCogsDefinition(e.target.value)}
+                    disabled={!isAdmin}
+                    rows={3}
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-[#11446e] focus:ring-2 focus:ring-[#11446e]/10 transition-all disabled:bg-gray-50 disabled:text-gray-600"
+                    placeholder="Ej: Materias primas, empaques, mano de obra directa de producción, insumos manufactureros"
+                  />
+                  <p className="mt-2 text-sm text-gray-500">
+                    Gastos directamente relacionados con la producción o adquisición de productos vendidos
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Definición de Gastos Operativos
+                  </label>
+                  <textarea
+                    value={operatingExpenses}
+                    onChange={(e) => setOperatingExpenses(e.target.value)}
+                    disabled={!isAdmin}
+                    rows={3}
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-[#11446e] focus:ring-2 focus:ring-[#11446e]/10 transition-all disabled:bg-gray-50 disabled:text-gray-600"
+                    placeholder="Ej: Renta de oficina, servicios (luz, agua, internet), nómina administrativa, seguros, mantenimiento"
+                  />
+                  <p className="mt-2 text-sm text-gray-500">
+                    Gastos necesarios para operar el negocio pero NO relacionados con producción
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Definición de Gastos de Venta
+                  </label>
+                  <textarea
+                    value={salesExpenses}
+                    onChange={(e) => setSalesExpenses(e.target.value)}
+                    disabled={!isAdmin}
+                    rows={3}
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-[#11446e] focus:ring-2 focus:ring-[#11446e]/10 transition-all disabled:bg-gray-50 disabled:text-gray-600"
+                    placeholder="Ej: Comisiones de vendedores, publicidad, marketing, fletes de entrega a clientes, promociones"
+                  />
+                  <p className="mt-2 text-sm text-gray-500">
+                    Gastos relacionados con la comercialización y entrega de productos/servicios
                   </p>
                 </div>
               </div>

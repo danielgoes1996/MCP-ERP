@@ -47,6 +47,10 @@ class UpdateCompanySettingsRequest(BaseModel):
     industry: Optional[str] = None
     business_model: Optional[str] = None
     typical_expenses: Optional[List[str]] = None
+    capitalization_threshold_mxn: Optional[int] = None
+    cogs_definition: Optional[str] = None
+    operating_expenses_definition: Optional[str] = None
+    sales_expenses_definition: Optional[str] = None
     provider_treatments: Optional[Dict[str, str]] = None
     preferences: Optional[Dict[str, Any]] = None
 
@@ -190,6 +194,14 @@ async def update_company_settings(
             current_settings['business_model'] = request.business_model
         if request.typical_expenses is not None:
             current_settings['typical_expenses'] = request.typical_expenses
+        if request.capitalization_threshold_mxn is not None:
+            current_settings['capitalization_threshold_mxn'] = request.capitalization_threshold_mxn
+        if request.cogs_definition is not None:
+            current_settings['cogs_definition'] = request.cogs_definition
+        if request.operating_expenses_definition is not None:
+            current_settings['operating_expenses_definition'] = request.operating_expenses_definition
+        if request.sales_expenses_definition is not None:
+            current_settings['sales_expenses_definition'] = request.sales_expenses_definition
         if request.provider_treatments is not None:
             current_settings['provider_treatments'] = request.provider_treatments
         if request.preferences is not None:

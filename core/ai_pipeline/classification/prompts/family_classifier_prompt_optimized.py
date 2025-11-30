@@ -37,10 +37,37 @@ def build_family_classification_prompt_optimized(
 
     # Build company context block (compact)
     context_block = ""
+    threshold_text = ""
+    cogs_text = ""
+    opex_text = ""
+    sales_text = ""
+
     if company_context:
-        industry = company_context.get('industry_description', 'N/A')
-        business_model = company_context.get('business_model_description', 'N/A')
+        industry = company_context.get('industry_description', company_context.get('industry', 'N/A'))
+        business_model = company_context.get('business_model_description', company_context.get('business_model', 'N/A'))
         context_block = f"\nCONTEXTO EMPRESA: {industry} | {business_model}"
+
+        # Capitalization threshold
+        threshold = company_context.get('capitalization_threshold_mxn')
+        if threshold:
+            threshold_text = f"\nUMBRAL CAPITALIZACIÓN: ${threshold:,.0f} MXN (NIF C-6: Activos >umbral → capitalizan en 181, <umbral → gastos en 600)"
+
+        # COGS definition
+        cogs_def = company_context.get('cogs_definition')
+        if cogs_def:
+            cogs_text = f"\nCOGS (500): {cogs_def}"
+
+        # Operating expenses definition
+        opex_def = company_context.get('operating_expenses_definition')
+        if opex_def:
+            opex_text = f"\nGASTOS OPERATIVOS (600): {opex_def}"
+
+        # Sales expenses definition
+        sales_def = company_context.get('sales_expenses_definition')
+        if sales_def:
+            sales_text = f"\nGASTOS VENTA (600-610): {sales_def}"
+
+        context_block += threshold_text + cogs_text + opex_text + sales_text
 
     # Build few-shot examples block
     few_shot_block = ""
