@@ -329,63 +329,119 @@ export default function AdminUsersPage() {
           />
 
           {/* Filters and Search */}
-          <Card className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <Card className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
               {/* Search */}
-              <div className="lg:col-span-2 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre o email..."
-                  className="w-full pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#60b97b]/20 focus:border-[#60b97b]"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+              <div className="lg:col-span-2">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Buscar
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Nombre o email..."
+                    className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#11446e] focus:ring-2 focus:ring-[#11446e]/10 transition-all"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
               </div>
 
               {/* Role Filter */}
-              <select
-                className="px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#60b97b]/20 focus:border-[#60b97b]"
-                value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value)}
-              >
-                <option value="all">Todos los roles</option>
-                {roles.map((role) => (
-                  <option key={role.id} value={role.name}>
-                    {role.display_name}
-                  </option>
-                ))}
-              </select>
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Rol
+                </label>
+                <div className="relative">
+                  <select
+                    className="w-full px-4 py-3.5 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:border-[#11446e] focus:ring-2 focus:ring-[#11446e]/10 transition-all appearance-none cursor-pointer"
+                    value={selectedRole}
+                    onChange={(e) => setSelectedRole(e.target.value)}
+                  >
+                    <option value="all">Todos</option>
+                    {roles.map((role) => (
+                      <option key={role.id} value={role.name}>
+                        {role.display_name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
 
               {/* Department Filter */}
-              <select
-                className="px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#60b97b]/20 focus:border-[#60b97b]"
-                value={selectedDepartment}
-                onChange={(e) => setSelectedDepartment(e.target.value)}
-              >
-                <option value="all">Todos los departamentos</option>
-                {departments.map((dept) => (
-                  <option key={dept.id} value={dept.id.toString()}>
-                    {dept.name} {dept.code && `(${dept.code})`}
-                  </option>
-                ))}
-              </select>
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Departamento
+                </label>
+                <div className="relative">
+                  <select
+                    className="w-full px-4 py-3.5 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:border-[#11446e] focus:ring-2 focus:ring-[#11446e]/10 transition-all appearance-none cursor-pointer"
+                    value={selectedDepartment}
+                    onChange={(e) => setSelectedDepartment(e.target.value)}
+                  >
+                    <option value="all">Todos</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id.toString()}>
+                        {dept.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
 
               {/* Status Filter */}
-              <select
-                className="px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#60b97b]/20 focus:border-[#60b97b]"
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-              >
-                <option value="all">Todos los estados</option>
-                <option value="active">Activos</option>
-                <option value="inactive">Inactivos</option>
-              </select>
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Estado
+                </label>
+                <div className="relative">
+                  <select
+                    className="w-full px-4 py-3.5 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:border-[#11446e] focus:ring-2 focus:ring-[#11446e]/10 transition-all appearance-none cursor-pointer"
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                  >
+                    <option value="all">Todos</option>
+                    <option value="active">Activos</option>
+                    <option value="inactive">Inactivos</option>
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Results count */}
-            <div className="mt-3 text-sm text-gray-600">
-              Mostrando {filteredUsers.length} de {users.length} usuarios
+            <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
+              <p className="text-sm text-gray-600">
+                Mostrando <span className="font-semibold text-gray-900">{filteredUsers.length}</span> de <span className="font-semibold text-gray-900">{users.length}</span> usuarios
+              </p>
+              {(searchTerm || selectedRole !== 'all' || selectedDepartment !== 'all' || selectedStatus !== 'all') && (
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSelectedRole('all');
+                    setSelectedDepartment('all');
+                    setSelectedStatus('all');
+                  }}
+                  className="text-sm text-[#11446e] hover:text-[#11446e]/80 font-medium transition-colors"
+                >
+                  Limpiar filtros
+                </button>
+              )}
             </div>
           </Card>
 
