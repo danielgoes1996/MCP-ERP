@@ -1,5 +1,5 @@
 /**
- * Dashboard Page
+ * Dashboard Page - ContaFlow Enterprise Design System
  *
  * Main dashboard with overview statistics and quick actions
  */
@@ -10,6 +10,8 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { StatCard } from '@/components/ui/StatCard';
+import { PageHeader } from '@/components/ui/PageHeader';
 import {
   FileText,
   Receipt,
@@ -19,8 +21,6 @@ import {
   CheckCircle,
   Clock,
   DollarSign,
-  ArrowUpRight,
-  ArrowDownRight,
   Brain,
   Zap,
 } from 'lucide-react';
@@ -33,7 +33,7 @@ export default function DashboardPage() {
       name: 'Gastos Pendientes',
       value: '24',
       change: '+12%',
-      trend: 'up',
+      trend: 'up' as const,
       icon: FileText,
       color: 'text-[#11446e]',
       bgColor: 'bg-[#11446e]/5',
@@ -42,7 +42,7 @@ export default function DashboardPage() {
       name: 'Facturas Este Mes',
       value: '156',
       change: '+8%',
-      trend: 'up',
+      trend: 'up' as const,
       icon: Receipt,
       color: 'text-[#60b97b]',
       bgColor: 'bg-[#60b97b]/10',
@@ -51,7 +51,7 @@ export default function DashboardPage() {
       name: 'Conciliaciones',
       value: '89%',
       change: '+5%',
-      trend: 'up',
+      trend: 'up' as const,
       icon: CreditCard,
       color: 'text-[#11446e]',
       bgColor: 'bg-[#11446e]/5',
@@ -60,7 +60,7 @@ export default function DashboardPage() {
       name: 'Total Gastos',
       value: '$847,392',
       change: '-3%',
-      trend: 'down',
+      trend: 'down' as const,
       icon: DollarSign,
       color: 'text-[#60b97b]',
       bgColor: 'bg-[#60b97b]/10',
@@ -143,53 +143,25 @@ export default function DashboardPage() {
       <AppLayout>
         <div className="space-y-6">
           {/* Page Header */}
-          <div>
-            <h1 className="text-3xl font-bold text-[#11446e]">Dashboard</h1>
-            <p className="text-gray-600 mt-2">
-              Bienvenido al sistema de gestión financiera
-            </p>
-          </div>
+          <PageHeader
+            title="Dashboard"
+            subtitle="Bienvenido al sistema de gestión financiera"
+          />
 
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {stats.map((stat) => (
-              <Card key={stat.name} noPadding>
-                <div className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div
-                      className={cn(
-                        'p-3 rounded-xl',
-                        stat.bgColor
-                      )}
-                    >
-                      <stat.icon className={cn('w-6 h-6', stat.color)} />
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      {stat.trend === 'up' ? (
-                        <ArrowUpRight className="w-4 h-4 text-[#60b97b]" />
-                      ) : (
-                        <ArrowDownRight className="w-4 h-4 text-red-500" />
-                      )}
-                      <span
-                        className={cn(
-                          'text-sm font-medium',
-                          stat.trend === 'up'
-                            ? 'text-[#60b97b]'
-                            : 'text-red-500'
-                        )}
-                      >
-                        {stat.change}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <p className="text-2xl font-bold text-gray-900">
-                      {stat.value}
-                    </p>
-                    <p className="text-sm text-gray-600 mt-1">{stat.name}</p>
-                  </div>
-                </div>
-              </Card>
+            {stats.map((stat, index) => (
+              <StatCard
+                key={stat.name}
+                name={stat.name}
+                value={stat.value}
+                change={stat.change}
+                trend={stat.trend}
+                icon={stat.icon}
+                iconColor={stat.color}
+                iconBgColor={stat.bgColor}
+                delay={index * 0.1}
+              />
             ))}
           </div>
 
