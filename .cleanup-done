@@ -1,0 +1,10 @@
+2025-12-06: Database cleanup completed
+- Removed migration 046 (redundant)
+- Removed mcp_database.db (empty)
+- Moved SQLite backup to _archived_db/
+- Created WHERE_IS_MY_DATA.md
+- Created DATABASE_AUDIT_REPORT_2025-12-06.md
+
+✅ Clean codebase
+✅ Single source of truth: Docker PostgreSQL
+✅ No database mixing
