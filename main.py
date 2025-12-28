@@ -221,6 +221,17 @@ async def lifespan(app: FastAPI):
         print("[LIFESPAN] Internal database initialized")
         logger.info("Internal account catalog initialised")
 
+        # Preload sentence transformer model to avoid 83s load on first classification
+        print("[LIFESPAN] Preloading sentence transformer model...")
+        try:
+            from core.ai_pipeline.classification.classification_learning import get_embedding_model
+            get_embedding_model()  # Loads 420MB model once at startup
+            print("[LIFESPAN] ✅ Sentence transformer model preloaded successfully")
+            logger.info("Sentence transformer model preloaded for classification memory system")
+        except Exception as model_exc:
+            print(f"[LIFESPAN] ⚠️  Failed to preload sentence transformer: {model_exc}")
+            logger.warning(f"Failed to preload sentence transformer model: {model_exc}")
+
         # Apply database optimizations (PostgreSQL - skip for now)
         # from pathlib import Path
         # db_path = Path(config.DB_PATH).resolve()
@@ -270,9 +281,13 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:3001",
+        "http://localhost:3002",
+        "http://localhost:3003",
         "http://localhost:3004",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:3001",
+        "http://127.0.0.1:3002",
+        "http://127.0.0.1:3003",
         "http://127.0.0.1:3004",
     ],
     allow_credentials=True,
@@ -285,21 +300,22 @@ app.add_middleware(
 # app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Direct access endpoints for main pages
-@app.get("/payment-accounts.html")
-async def payment_accounts_page():
-    """Serve payment accounts page directly"""
-    return FileResponse("static/payment-accounts.html")
+# COMMENTED OUT: Conflicting with API router - now using Next.js frontend
+# @app.get("/payment-accounts.html")
+# async def payment_accounts_page():
+#     """Serve payment accounts page directly"""
+#     return FileResponse("static/payment-accounts.html")
 
-@app.get("/payment-accounts")
-async def payment_accounts():
-    """
-    Payment accounts endpoint - serves the payment accounts interface.
-
-    Returns:
-        FileResponse: The payment accounts interface
-    """
-    logger.info("Payment accounts interface accessed")
-    return FileResponse("static/payment-accounts.html")
+# @app.get("/payment-accounts")
+# async def payment_accounts():
+#     """
+#     Payment accounts endpoint - serves the payment accounts interface.
+#
+#     Returns:
+#         FileResponse: The payment accounts interface
+#     """
+#     logger.info("Payment accounts interface accessed")
+#     return FileResponse("static/payment-accounts.html")
 
 @app.get("/employee-advances.html")
 async def employee_advances_page():
@@ -397,6 +413,63 @@ try:
     logger.info("Expense placeholder completion API loaded successfully")
 except ImportError as e:
     logger.warning(f"Expense placeholder completion API not available: {e}")
+
+# Import and mount expense invoice status tracking API
+# IMPORTANT: Must be before expenses_workflow_api to avoid route conflicts
+try:
+    from api.expense_invoice_status_api import router as expense_invoice_status_router
+    app.include_router(expense_invoice_status_router)
+    logger.info("✅ Expense invoice status tracking API loaded successfully")
+except ImportError as e:
+    logger.warning(f"Expense invoice status API not available: {e}")
+
+# Import and mount expense workflow API (MVP - department control, approval, evidence)
+try:
+    from api.expenses_workflow_api import router as expenses_workflow_router
+    app.include_router(expenses_workflow_router)
+    logger.info("✅ Expense workflow API (MVP) loaded successfully")
+except ImportError as e:
+    logger.warning(f"Expense workflow API not available: {e}")
+
+# Import and mount expense detail API (Trinity/Traceability Widget)
+try:
+    from api.expense_detail_api import router as expense_detail_router
+    app.include_router(expense_detail_router)
+    logger.info("✅ Expense detail API (Trinity/Traceability) loaded successfully")
+except ImportError as e:
+    logger.warning(f"Expense detail API not available: {e}")
+
+# Import and mount projects API (Phase 5 - Projects CRUD)
+try:
+    from api.projects_api import router as projects_router
+    app.include_router(projects_router)
+    logger.info("✅ Projects API (Phase 5) loaded successfully")
+except ImportError as e:
+    logger.warning(f"Projects API not available: {e}")
+
+# Import and mount purchase orders API (Purchase Orders Module)
+try:
+    from api.purchase_orders_api import router as purchase_orders_router
+    app.include_router(purchase_orders_router)
+    logger.info("✅ Purchase Orders API loaded successfully")
+except ImportError as e:
+    logger.warning(f"Purchase Orders API not available: {e}")
+
+# Import and mount treasury API (Treasury & Cash Flow Management)
+try:
+    from api.treasury_api import router as treasury_router
+    app.include_router(treasury_router)
+    logger.info("✅ Treasury API (Payment Scheduling & Cash Flow) loaded successfully")
+except ImportError as e:
+    logger.warning(f"Treasury API not available: {e}")
+
+# Import and mount currency rates API (Fase 0: CurrencyService)
+try:
+    from api.currency_rates_api import router as currency_rates_router
+    app.include_router(currency_rates_router)
+    logger.info("✅ Currency Rates API (Banxico integration) loaded successfully")
+except ImportError as e:
+    logger.warning(f"Currency Rates API not available: {e}")
 
 # Import and mount classification correction API (learning system)
 try:
@@ -526,6 +599,14 @@ try:
     logger.info("AI reconciliation API loaded successfully")
 except ImportError as e:
     logger.warning(f"AI reconciliation API not available: {e}")
+
+# Reconciliation Queue API (Async AI Suggestions)
+try:
+    from api.reconciliation_api import router as reconciliation_queue_router
+    app.include_router(reconciliation_queue_router)
+    logger.info("Reconciliation queue API loaded successfully")
+except ImportError as e:
+    logger.warning(f"Reconciliation queue API not available: {e}")
 
 # Employee Advances API
 try:
@@ -1460,73 +1541,7 @@ async def logout_get(request: Request):
         return RedirectResponse(url="/auth/login", status_code=302)
 
 
-@app.get("/auth/tenants")
-async def get_available_tenants(email: Optional[str] = None):
-    """Return available tenants, optionally filtered by user email."""
-    try:
-        conn = sqlite3.connect(str(config.DB_PATH))
-        cursor = conn.cursor()
-
-        if email:
-            cursor.execute(
-                """
-                SELECT DISTINCT t.id, t.name
-                FROM tenants t
-                JOIN users u ON u.tenant_id = t.id
-                WHERE LOWER(u.email) = LOWER(?)
-                ORDER BY t.name
-                """,
-                (email.strip(),),
-            )
-        else:
-            cursor.execute(
-                """
-                SELECT id, name
-                FROM tenants
-                ORDER BY name
-                """
-            )
-
-        tenants = [
-            {
-                "id": row[0],
-                "name": row[1],
-                "description": None,
-            }
-            for row in cursor.fetchall()
-        ]
-
-        conn.close()
-
-        if email and not tenants:
-            # Fallback to full list if user-specific query returned nothing
-            with sqlite3.connect(str(config.DB_PATH)) as fallback_conn:
-                fallback_cursor = fallback_conn.cursor()
-                fallback_cursor.execute(
-                    """
-                    SELECT id, name
-                    FROM tenants
-                    ORDER BY name
-                    """
-                )
-                tenants = [
-                    {
-                        "id": row[0],
-                        "name": row[1],
-                        "description": None,
-                    }
-                    for row in fallback_cursor.fetchall()
-                ]
-
-        return tenants
-
-    except Exception as e:
-        logger.exception(f"Error fetching tenants: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error fetching available tenants"
-        )
-
+# NOTE: /auth/tenants endpoint moved to api/auth_jwt_api.py (uses PostgreSQL)
 
 # =====================================================
 # ERROR MONITORING ENDPOINTS

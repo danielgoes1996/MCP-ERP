@@ -106,17 +106,22 @@ async def upload_sat_credentials(
     """
 
     try:
-        # Get company_id from user
+        # Get company_id from user's tenant
+        # NOTE: users.company_id doesn't exist (denormalized)
+        # We need to get it via: users.tenant_id -> companies.tenant_id
         conn = get_db_connection()
         cursor = conn.cursor()
 
         cursor.execute("""
-            SELECT company_id FROM users WHERE id = %s
-        """, (current_user.id,))
+            SELECT c.id
+            FROM companies c
+            WHERE c.tenant_id = %s
+            LIMIT 1
+        """, (current_user.tenant_id,))
 
         result = cursor.fetchone()
-        if not result or not result[0]:
-            raise HTTPException(status_code=400, detail="User has no associated company")
+        if not result:
+            raise HTTPException(status_code=400, detail="No company found for your tenant")
 
         company_id = result[0]
 
@@ -238,13 +243,18 @@ async def upload_sat_credentials(
         )
 
 
-@router.get("/{company_id}", response_model=Optional[SATCredentialsResponse])
+@router.get("/{company_identifier}", response_model=Optional[SATCredentialsResponse])
 async def get_sat_credentials(
-    company_id: int,
+    company_identifier: str,
     current_user: User = Depends(get_current_user)
 ):
     """
     Get SAT credentials for a company
+
+    **Parameters:**
+    - company_identifier: Can be either:
+      - Integer company_id (e.g., "1")
+      - String tenant company_id (e.g., "carreta_verde")
 
     **Returns:**
     - Credentials information (without sensitive passwords/keys)
@@ -255,6 +265,59 @@ async def get_sat_credentials(
         conn = get_db_connection()
         cursor = conn.cursor()
 
+        # Resolve company_identifier to companies.id AND tenant_id
+        # Accepts either integer (companies.id) or string (companies.company_id slug)
+        try:
+            company_id = int(company_identifier)
+        except ValueError:
+            # It's a company_id slug - look up companies.id directly
+            cursor.execute("""
+                SELECT id, tenant_id
+                FROM companies
+                WHERE company_id = %s
+                LIMIT 1
+            """, (company_identifier,))
+
+            result = cursor.fetchone()
+            if not result:
+                logger.warning(f"No company found for company_id slug: {company_identifier}")
+                conn.close()
+                return None
+
+            company_id = result[0]
+            company_tenant_id = result[1]
+            logger.info(f"Resolved company_id slug '{company_identifier}' to companies.id {company_id}")
+        else:
+            # Integer was provided - still need to get tenant_id for authorization
+            cursor.execute("""
+                SELECT tenant_id
+                FROM companies
+                WHERE id = %s
+                LIMIT 1
+            """, (company_id,))
+
+            result = cursor.fetchone()
+            if not result:
+                logger.warning(f"No company found for companies.id: {company_id}")
+                conn.close()
+                return None
+
+            company_tenant_id = result[0]
+
+        # 🔒 AUTHORIZATION: Verify user has access to this company
+        if current_user.tenant_id != company_tenant_id:
+            logger.warning(
+                f"SECURITY: User {current_user.email} (tenant_id={current_user.tenant_id}) "
+                f"attempted to access SAT credentials for company_id={company_id} "
+                f"(tenant_id={company_tenant_id})"
+            )
+            conn.close()
+            raise HTTPException(
+                status_code=403,
+                detail="You don't have permission to access this company's credentials"
+            )
+
+        # Now fetch SAT credentials using the resolved company_id
         cursor.execute("""
             SELECT id, company_id, rfc, certificate_serial_number,
                    certificate_valid_from, certificate_valid_until,
@@ -290,14 +353,19 @@ async def get_sat_credentials(
         )
 
 
-@router.delete("/{company_id}")
+@router.delete("/{company_identifier}")
 async def delete_sat_credentials(
-    company_id: int,
+    company_identifier: str,
     current_user: User = Depends(get_current_user)
 ):
     """
     Deactivate SAT credentials for a company
     (Soft delete - files remain for audit purposes)
+
+    **Parameters:**
+    - company_identifier: Can be either:
+      - Integer company_id (e.g., "1")
+      - String tenant company_id (e.g., "carreta_verde")
 
     **Returns:**
     - success: true/false
@@ -307,6 +375,51 @@ async def delete_sat_credentials(
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        # Resolve company_identifier to companies.id AND tenant_id
+        try:
+            company_id = int(company_identifier)
+        except ValueError:
+            cursor.execute("""
+                SELECT id, tenant_id
+                FROM companies
+                WHERE company_id = %s
+                LIMIT 1
+            """, (company_identifier,))
+
+            result = cursor.fetchone()
+            if not result:
+                raise HTTPException(status_code=404, detail="Company not found")
+
+            company_id = result[0]
+            company_tenant_id = result[1]
+        else:
+            # Integer was provided - still need to get tenant_id for authorization
+            cursor.execute("""
+                SELECT tenant_id
+                FROM companies
+                WHERE id = %s
+                LIMIT 1
+            """, (company_id,))
+
+            result = cursor.fetchone()
+            if not result:
+                raise HTTPException(status_code=404, detail="Company not found")
+
+            company_tenant_id = result[0]
+
+        # 🔒 AUTHORIZATION: Verify user has access to this company
+        if current_user.tenant_id != company_tenant_id:
+            logger.warning(
+                f"SECURITY: User {current_user.email} (tenant_id={current_user.tenant_id}) "
+                f"attempted to delete SAT credentials for company_id={company_id} "
+                f"(tenant_id={company_tenant_id})"
+            )
+            conn.close()
+            raise HTTPException(
+                status_code=403,
+                detail="You don't have permission to delete this company's credentials"
+            )
 
         cursor.execute("""
             UPDATE sat_efirma_credentials
