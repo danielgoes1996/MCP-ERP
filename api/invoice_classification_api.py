@@ -342,9 +342,12 @@ async def correct_classification(
 @router.get("/pending")
 async def get_pending_classifications(
     company_id: str,
+    current_user: User = Depends(get_current_user),
     limit: int = 50,
     offset: int = 0,
-    source: Optional[str] = None
+    source: Optional[str] = None,
+    year: Optional[int] = None,
+    month: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     Get list of invoices with pending classifications for a company
@@ -353,6 +356,8 @@ async def get_pending_classifications(
 
     Args:
         source: Filter by source ('manual', 'sat_auto_sync', or None for all)
+        year: Filter by year (e.g., 2025)
+        month: Filter by month (1-12)
     """
     log_endpoint_entry(
         "/invoice-classification/pending",
@@ -360,30 +365,69 @@ async def get_pending_classifications(
         company_id=company_id,
         limit=limit,
         offset=offset,
-        source=source
+        source=source,
+        year=year,
+        month=month
     )
 
     try:
         conn = _get_db_connection()
         cursor = conn.cursor()
 
-        # Build WHERE clause
-        where_clause = "WHERE company_id = %s AND accounting_classification->>'status' = 'pending_confirmation'"
+        # 🔒 SECURITY: Validate user has access to this company
+        cursor.execute("""
+            SELECT c.id, c.tenant_id
+            FROM companies c
+            WHERE c.company_id = %s OR CAST(c.id AS TEXT) = %s
+            LIMIT 1
+        """, (company_id, company_id))
+
+        company_row = cursor.fetchone()
+        if not company_row:
+            conn.close()
+            raise HTTPException(status_code=404, detail="Company not found")
+
+        company_tenant_id = company_row['tenant_id']
+        if current_user.tenant_id != company_tenant_id:
+            logger.warning(
+                f"SECURITY: User {current_user.email} (tenant_id={current_user.tenant_id}) "
+                f"attempted to access pending classifications for company_id={company_id} "
+                f"(tenant_id={company_tenant_id})"
+            )
+            conn.close()
+            raise HTTPException(status_code=403, detail="Not authorized to access this company's data")
+
+        # Build WHERE clause with table alias for join query
+        where_clause = "WHERE si.company_id = %s AND si.accounting_classification->>'status' = 'pending_confirmation'"
+        where_clause_count = "WHERE company_id = %s AND accounting_classification->>'status' = 'pending_confirmation'"
         params_count = [company_id]
         params_query = [company_id]
 
         if source:
-            where_clause += " AND source = %s"
+            where_clause += " AND si.source = %s"
+            where_clause_count += " AND source = %s"
             params_count.append(source)
-            params_query.extend([source, limit, offset])
-        else:
-            params_query.extend([limit, offset])
+            params_query.append(source)
+
+        if year is not None:
+            where_clause += " AND EXTRACT(YEAR FROM si.created_at) = %s"
+            where_clause_count += " AND EXTRACT(YEAR FROM created_at) = %s"
+            params_count.append(year)
+            params_query.append(year)
+
+        if month is not None:
+            where_clause += " AND EXTRACT(MONTH FROM si.created_at) = %s"
+            where_clause_count += " AND EXTRACT(MONTH FROM created_at) = %s"
+            params_count.append(month)
+            params_query.append(month)
+
+        params_query.extend([limit, offset])
 
         # Get total count
         cursor.execute(f"""
             SELECT COUNT(*) as total
             FROM sat_invoices
-            {where_clause}
+            {where_clause_count}
         """, params_count)
 
         total = cursor.fetchone()['total']
@@ -391,21 +435,34 @@ async def get_pending_classifications(
         # Get paginated results
         cursor.execute(f"""
             SELECT
-                id,
-                original_filename,
-                created_at,
-                source,
-                accounting_classification->>'sat_account_code' as sat_code,
-                accounting_classification->>'family_code' as family_code,
-                accounting_classification->>'confidence_sat' as confidence,
-                accounting_classification->>'explanation_short' as explanation,
-                accounting_classification->'alternative_candidates' as alternative_candidates,
-                parsed_data->>'total' as invoice_total,
-                parsed_data->>'emisor' as emisor,
-                parsed_data->'conceptos'->0->>'descripcion' as first_concept_description
-            FROM sat_invoices
+                si.id,
+                si.original_filename,
+                si.created_at,
+                si.source,
+                si.manual_expense_id,
+                si.accounting_classification->>'sat_account_code' as sat_code,
+                si.accounting_classification->>'sat_account_name' as sat_account_name,
+                si.accounting_classification->>'family_code' as family_code,
+                si.accounting_classification->>'confidence_sat' as confidence,
+                si.accounting_classification->>'explanation_short' as explanation,
+                si.accounting_classification->>'explanation_detail' as explanation_detail,
+                si.accounting_classification->'alternative_candidates' as alternative_candidates,
+                si.accounting_classification->'metadata'->'hierarchical_phase1' as hierarchical_phase1,
+                si.accounting_classification->'metadata'->'hierarchical_phase2a' as hierarchical_phase2a,
+                si.accounting_classification->'metadata'->'hierarchical_phase3' as hierarchical_phase3,
+                si.parsed_data->>'total' as invoice_total,
+                si.parsed_data->>'emisor' as emisor,
+                si.parsed_data->'conceptos'->0->>'descripcion' as first_concept_description,
+                si.parsed_data->'impuestos' as impuestos,
+                poi.po_id,
+                me.description as expense_description,
+                po.po_number
+            FROM sat_invoices si
+            LEFT JOIN po_invoices poi ON si.id = poi.sat_invoice_id
+            LEFT JOIN manual_expenses me ON si.manual_expense_id = me.id
+            LEFT JOIN purchase_orders po ON poi.po_id = po.id
             {where_clause}
-            ORDER BY created_at DESC
+            ORDER BY si.created_at DESC
             LIMIT %s OFFSET %s
         """, params_query)
 
@@ -423,19 +480,73 @@ async def get_pending_classifications(
                 except (json.JSONDecodeError, TypeError):
                     alternative_candidates = None
 
+            # Parse hierarchical metadata
+            hierarchical_phase1 = None
+            hierarchical_phase2a = None
+            hierarchical_phase3 = None
+
+            if row.get('hierarchical_phase1'):
+                try:
+                    if isinstance(row['hierarchical_phase1'], str):
+                        hierarchical_phase1 = json.loads(row['hierarchical_phase1'])
+                    else:
+                        hierarchical_phase1 = row['hierarchical_phase1']
+                except (json.JSONDecodeError, TypeError):
+                    hierarchical_phase1 = None
+
+            if row.get('hierarchical_phase2a'):
+                try:
+                    if isinstance(row['hierarchical_phase2a'], str):
+                        hierarchical_phase2a = json.loads(row['hierarchical_phase2a'])
+                    else:
+                        hierarchical_phase2a = row['hierarchical_phase2a']
+                except (json.JSONDecodeError, TypeError):
+                    hierarchical_phase2a = None
+
+            if row.get('hierarchical_phase3'):
+                try:
+                    if isinstance(row['hierarchical_phase3'], str):
+                        hierarchical_phase3 = json.loads(row['hierarchical_phase3'])
+                    else:
+                        hierarchical_phase3 = row['hierarchical_phase3']
+                except (json.JSONDecodeError, TypeError):
+                    hierarchical_phase3 = None
+
+            # Parse impuestos (tax breakdown)
+            impuestos = None
+            if row.get('impuestos'):
+                try:
+                    if isinstance(row['impuestos'], str):
+                        impuestos = json.loads(row['impuestos'])
+                    else:
+                        impuestos = row['impuestos']
+                except (json.JSONDecodeError, TypeError):
+                    impuestos = None
+
             invoices.append({
                 "session_id": row['id'],
                 "filename": row['original_filename'],
                 "created_at": row['created_at'].isoformat() if row['created_at'] else None,
                 "source": row.get('source', 'manual'),  # 'manual' o 'sat_auto_sync'
                 "sat_code": row['sat_code'],
+                "sat_account_name": row.get('sat_account_name'),
                 "family_code": row['family_code'],
                 "confidence": float(row['confidence']) if row['confidence'] else None,
                 "explanation": row['explanation'],
+                "explanation_detail": row.get('explanation_detail'),
                 "invoice_total": float(row['invoice_total']) if row['invoice_total'] else None,
                 "provider": json.loads(row['emisor']) if row['emisor'] else {},
                 "description": row['first_concept_description'],
-                "alternative_candidates": alternative_candidates
+                "impuestos": impuestos,
+                "alternative_candidates": alternative_candidates,
+                "hierarchical_phase1": hierarchical_phase1,
+                "hierarchical_phase2a": hierarchical_phase2a,
+                "hierarchical_phase3": hierarchical_phase3,
+                # Links to related entities
+                "manual_expense_id": row.get('manual_expense_id'),
+                "expense_description": row.get('expense_description'),
+                "po_id": row.get('po_id'),
+                "po_number": row.get('po_number')
             })
 
         response = {
@@ -462,6 +573,7 @@ async def get_pending_classifications(
 @router.get("/stats/{company_id}")
 async def get_classification_stats(
     company_id: str,
+    current_user: User = Depends(get_current_user),
     days: int = 30
 ) -> Dict[str, Any]:
     """
@@ -478,6 +590,29 @@ async def get_classification_stats(
     try:
         conn = _get_db_connection()
         cursor = conn.cursor()
+
+        # 🔒 SECURITY: Validate user has access to this company
+        cursor.execute("""
+            SELECT c.id, c.tenant_id
+            FROM companies c
+            WHERE c.company_id = %s OR CAST(c.id AS TEXT) = %s
+            LIMIT 1
+        """, (company_id, company_id))
+
+        company_row = cursor.fetchone()
+        if not company_row:
+            conn.close()
+            raise HTTPException(status_code=404, detail="Company not found")
+
+        company_tenant_id = company_row['tenant_id']
+        if current_user.tenant_id != company_tenant_id:
+            logger.warning(
+                f"SECURITY: User {current_user.email} (tenant_id={current_user.tenant_id}) "
+                f"attempted to access classification stats for company_id={company_id} "
+                f"(tenant_id={company_tenant_id})"
+            )
+            conn.close()
+            raise HTTPException(status_code=403, detail="Not authorized to access this company's data")
 
         # Get stats for last N days
         cursor.execute("""
@@ -532,7 +667,8 @@ async def get_classification_stats(
 
 @router.get("/detail/{session_id}")
 async def get_classification_detail(
-    session_id: str
+    session_id: str,
+    current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
     Get detailed classification information for a specific invoice
@@ -550,20 +686,34 @@ async def get_classification_detail(
 
         cursor.execute("""
             SELECT
-                id,
-                company_id,
-                original_filename,
-                created_at,
-                accounting_classification,
-                parsed_data,
-                processing_metrics
-            FROM sat_invoices
-            WHERE id = %s
+                si.id,
+                si.company_id,
+                si.original_filename,
+                si.created_at,
+                si.accounting_classification,
+                si.parsed_data,
+                si.processing_metrics,
+                c.tenant_id
+            FROM sat_invoices si
+            JOIN companies c ON si.company_id = c.id
+            WHERE si.id = %s
         """, (session_id,))
 
         row = cursor.fetchone()
         if not row:
+            conn.close()
             raise HTTPException(status_code=404, detail=f"Invoice session {session_id} not found")
+
+        # 🔒 SECURITY: Validate user has access to this invoice's company
+        invoice_tenant_id = row['tenant_id']
+        if current_user.tenant_id != invoice_tenant_id:
+            logger.warning(
+                f"SECURITY: User {current_user.email} (tenant_id={current_user.tenant_id}) "
+                f"attempted to access invoice detail session_id={session_id} "
+                f"(tenant_id={invoice_tenant_id})"
+            )
+            conn.close()
+            raise HTTPException(status_code=403, detail="Not authorized to access this invoice")
 
         classification = row['accounting_classification'] or {}
         parsed_data = row['parsed_data'] or {}
@@ -594,6 +744,260 @@ async def get_classification_detail(
     except Exception as e:
         error_msg = f"Error fetching classification detail: {str(e)}"
         log_endpoint_error(f"/invoice-classification/detail/{session_id}", error_msg)
+        logger.error(error_msg, exc_info=True)
+        raise HTTPException(status_code=500, detail=error_msg)
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+
+@router.get("/sat-catalog/families")
+async def get_sat_families() -> Dict[str, Any]:
+    """
+    Get list of SAT account families (3-digit codes)
+
+    Returns families like 600, 601, 602, etc. for cascading dropdown selection
+    """
+    log_endpoint_entry("/invoice-classification/sat-catalog/families", method="GET")
+
+    try:
+        conn = _get_db_connection()
+        cursor = conn.cursor()
+
+        # Get only top-level family codes (100, 200, 300, 400, 500, 600, 700, 800)
+        # These are the ones ending in '00'
+        cursor.execute("""
+            SELECT DISTINCT
+                code,
+                name,
+                description
+            FROM sat_account_embeddings
+            WHERE code ~ '^[0-9]00$'
+            ORDER BY code
+        """)
+
+        families = []
+        for row in cursor.fetchall():
+            families.append({
+                "code": row['code'],
+                "name": row['name'],
+                "description": row.get('description')
+            })
+
+        response = {
+            "families": families,
+            "total": len(families)
+        }
+
+        log_endpoint_success("/invoice-classification/sat-catalog/families", response)
+        return response
+
+    except Exception as e:
+        error_msg = f"Error fetching SAT families: {str(e)}"
+        log_endpoint_error("/invoice-classification/sat-catalog/families", error_msg)
+        logger.error(error_msg, exc_info=True)
+        raise HTTPException(status_code=500, detail=error_msg)
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+
+@router.get("/sat-catalog/subfamilies/{family_code}")
+async def get_sat_subfamilies(family_code: str) -> Dict[str, Any]:
+    """
+    Get subfamilies for a given family code
+
+    For example:
+    - family_code=600 returns 601, 602, 603, etc. (3-digit subfamilies starting with 6)
+    - family_code=601 returns 601.01, 601.02, 601.03, etc. (subfamilies with dot)
+    """
+    log_endpoint_entry(
+        f"/invoice-classification/sat-catalog/subfamilies/{family_code}",
+        method="GET"
+    )
+
+    try:
+        conn = _get_db_connection()
+        cursor = conn.cursor()
+
+        # Check if this is a top-level family (ends with 00) or a subfamily
+        if family_code.endswith('00'):
+            # Top-level family (e.g., 600) → return 3-digit subfamilies (601, 602, 603, etc.)
+            # Get the first digit (e.g., '6' from '600')
+            first_digit = family_code[0]
+            cursor.execute("""
+                SELECT
+                    code,
+                    name,
+                    description
+                FROM sat_account_embeddings
+                WHERE code ~ %s AND code != %s
+                ORDER BY code
+            """, (f"^{first_digit}[0-9]{{2}}$", family_code))
+        else:
+            # Subfamily (e.g., 601) → return codes with dots (601.01, 601.02, etc.)
+            cursor.execute("""
+                SELECT
+                    code,
+                    name,
+                    description
+                FROM sat_account_embeddings
+                WHERE code ~ %s
+                ORDER BY code
+            """, (f"^{family_code}\\.[0-9]{{2}}$",))
+
+        subfamilies = []
+        for row in cursor.fetchall():
+            subfamilies.append({
+                "code": row['code'],
+                "name": row['name'],
+                "description": row.get('description')
+            })
+
+        response = {
+            "family_code": family_code,
+            "subfamilies": subfamilies,
+            "total": len(subfamilies)
+        }
+
+        log_endpoint_success(
+            f"/invoice-classification/sat-catalog/subfamilies/{family_code}",
+            response
+        )
+        return response
+
+    except Exception as e:
+        error_msg = f"Error fetching SAT subfamilies: {str(e)}"
+        log_endpoint_error(
+            f"/invoice-classification/sat-catalog/subfamilies/{family_code}",
+            error_msg
+        )
+        logger.error(error_msg, exc_info=True)
+        raise HTTPException(status_code=500, detail=error_msg)
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+
+@router.get("/sat-catalog/accounts/{subfamily_code}")
+async def get_sat_accounts(subfamily_code: str) -> Dict[str, Any]:
+    """
+    Get final accounts for a given subfamily code
+
+    For example, subfamily_code=601.84 returns 601.84.01, 601.84.02, etc.
+    """
+    log_endpoint_entry(
+        f"/invoice-classification/sat-catalog/accounts/{subfamily_code}",
+        method="GET"
+    )
+
+    try:
+        conn = _get_db_connection()
+        cursor = conn.cursor()
+
+        # Get all codes that start with the subfamily code and have a third level
+        # e.g., 601.84.01, 601.84.02
+        cursor.execute("""
+            SELECT
+                code,
+                name,
+                description
+            FROM sat_account_embeddings
+            WHERE code ~ %s
+            ORDER BY code
+        """, (f"^{subfamily_code}\\.[0-9]{{2}}$",))
+
+        accounts = []
+        for row in cursor.fetchall():
+            accounts.append({
+                "code": row['code'],
+                "name": row['name'],
+                "description": row.get('description')
+            })
+
+        response = {
+            "subfamily_code": subfamily_code,
+            "accounts": accounts,
+            "total": len(accounts)
+        }
+
+        log_endpoint_success(
+            f"/invoice-classification/sat-catalog/accounts/{subfamily_code}",
+            response
+        )
+        return response
+
+    except Exception as e:
+        error_msg = f"Error fetching SAT accounts: {str(e)}"
+        log_endpoint_error(
+            f"/invoice-classification/sat-catalog/accounts/{subfamily_code}",
+            error_msg
+        )
+        logger.error(error_msg, exc_info=True)
+        raise HTTPException(status_code=500, detail=error_msg)
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+
+@router.get("/sat-catalog/search")
+async def search_sat_accounts(query: str, limit: int = 20) -> Dict[str, Any]:
+    """
+    Search SAT accounts by code or name (global search)
+
+    Allows searching across all SAT accounts without hierarchy restrictions
+    Perfect for quick corrections when you know the code or partial name
+    """
+    log_endpoint_entry(
+        "/invoice-classification/sat-catalog/search",
+        method="GET",
+        query=query,
+        limit=limit
+    )
+
+    try:
+        conn = _get_db_connection()
+        cursor = conn.cursor()
+
+        # Search by code or name (case insensitive)
+        search_pattern = f"%{query}%"
+        cursor.execute("""
+            SELECT
+                code,
+                name,
+                description
+            FROM sat_account_embeddings
+            WHERE code ILIKE %s OR name ILIKE %s
+            ORDER BY
+                CASE
+                    WHEN code = %s THEN 0
+                    WHEN code LIKE %s THEN 1
+                    ELSE 2
+                END,
+                code
+            LIMIT %s
+        """, (search_pattern, search_pattern, query, f"{query}%", limit))
+
+        results = []
+        for row in cursor.fetchall():
+            results.append({
+                "code": row['code'],
+                "name": row['name'],
+                "description": row.get('description')
+            })
+
+        response = {
+            "query": query,
+            "results": results,
+            "total": len(results)
+        }
+
+        log_endpoint_success("/invoice-classification/sat-catalog/search", response)
+        return response
+
+    except Exception as e:
+        error_msg = f"Error searching SAT accounts: {str(e)}"
+        log_endpoint_error("/invoice-classification/sat-catalog/search", error_msg)
         logger.error(error_msg, exc_info=True)
         raise HTTPException(status_code=500, detail=error_msg)
     finally:

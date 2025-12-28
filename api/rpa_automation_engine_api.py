@@ -6,6 +6,7 @@ import asyncio
 import os
 from pathlib import Path
 from core.rpa_automation_engine_system import RPAAutomationEngineSystem
+from core.auth.jwt import get_current_user, User
 from core.api_models import (
     RPASessionCreateRequest,
     RPASessionCreateResponse,
@@ -26,7 +27,10 @@ router = APIRouter(prefix="/api/rpa-automation-engine", tags=["RPA Automation En
 rpa_system = RPAAutomationEngineSystem()
 
 @router.post("/sessions", response_model=RPASessionCreateResponse)
-async def create_rpa_session(request: RPASessionCreateRequest):
+async def create_rpa_session(
+    request: RPASessionCreateRequest,
+    current_user: User = Depends(get_current_user)
+):
     """
     Crear nueva sesión de automatización RPA con Playwright
 
@@ -88,7 +92,11 @@ async def create_rpa_session(request: RPASessionCreateRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/sessions/{session_id}/start", response_model=RPASessionControlResponse)
-async def start_rpa_session(session_id: str, background_tasks: BackgroundTasks):
+async def start_rpa_session(
+    session_id: str,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user)
+):
     """
     Iniciar ejecución de sesión RPA
 
@@ -123,7 +131,10 @@ async def start_rpa_session(session_id: str, background_tasks: BackgroundTasks):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/sessions/{session_id}/pause", response_model=RPASessionControlResponse)
-async def pause_rpa_session(session_id: str):
+async def pause_rpa_session(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """
     Pausar sesión RPA en ejecución
     """
@@ -146,7 +157,10 @@ async def pause_rpa_session(session_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/sessions/{session_id}/resume", response_model=RPASessionControlResponse)
-async def resume_rpa_session(session_id: str):
+async def resume_rpa_session(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """
     Reanudar sesión RPA pausada
     """
@@ -169,7 +183,10 @@ async def resume_rpa_session(session_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/sessions/{session_id}/cancel", response_model=RPASessionControlResponse)
-async def cancel_rpa_session(session_id: str):
+async def cancel_rpa_session(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """
     Cancelar sesión RPA
     """
@@ -192,7 +209,10 @@ async def cancel_rpa_session(session_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/sessions/{session_id}/status", response_model=RPASessionStatusResponse)
-async def get_session_status(session_id: str):
+async def get_session_status(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """
     Obtener estado actual de sesión RPA con progreso detallado
     """
@@ -225,7 +245,8 @@ async def get_session_status(session_id: str):
 async def get_session_screenshots(
     session_id: str,
     screenshot_type: Optional[str] = Query(None, description="Filtrar por tipo de screenshot"),
-    limit: int = Query(default=50, ge=1, le=200, description="Número máximo de screenshots")
+    limit: int = Query(default=50, ge=1, le=200, description="Número máximo de screenshots"),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Obtener screenshots capturados durante la automatización
@@ -270,7 +291,8 @@ async def get_session_screenshots(
 @router.get("/analytics/{user_id}", response_model=RPAAnalyticsResponse)
 async def get_rpa_analytics(
     user_id: str,
-    days: int = Query(default=30, ge=1, le=365, description="Número de días para análisis")
+    days: int = Query(default=30, ge=1, le=365, description="Número de días para análisis"),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Obtener analytics de automatización RPA para usuario
@@ -298,7 +320,10 @@ async def get_rpa_analytics(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/templates", response_model=RPAPortalTemplateResponse)
-async def create_portal_template(request: RPAPortalTemplateRequest):
+async def create_portal_template(
+    request: RPAPortalTemplateRequest,
+    current_user: User = Depends(get_current_user)
+):
     """
     Crear plantilla reutilizable para automatización de portal
 
@@ -346,7 +371,8 @@ async def create_portal_template(request: RPAPortalTemplateRequest):
 @router.get("/templates", response_model=List[RPAPortalTemplateResponse])
 async def list_portal_templates(
     active_only: bool = Query(default=True, description="Solo mostrar plantillas activas"),
-    portal_domain: Optional[str] = Query(None, description="Filtrar por dominio")
+    portal_domain: Optional[str] = Query(None, description="Filtrar por dominio"),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Listar plantillas de portales disponibles
@@ -440,7 +466,10 @@ async def get_performance_metrics():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/sessions/{session_id}/screenshot")
-async def capture_manual_screenshot(session_id: str):
+async def capture_manual_screenshot(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """
     Capturar screenshot manual durante la ejecución
     """
@@ -479,7 +508,8 @@ async def capture_manual_screenshot(session_id: str):
 async def get_session_logs(
     session_id: str,
     log_level: Optional[str] = Query(None, description="Filtrar por nivel de log"),
-    limit: int = Query(default=100, ge=1, le=1000, description="Número máximo de logs")
+    limit: int = Query(default=100, ge=1, le=1000, description="Número máximo de logs"),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Obtener logs detallados de ejecución de sesión
@@ -518,7 +548,10 @@ async def get_session_logs(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/sessions/{session_id}/cleanup")
-async def cleanup_session_resources(session_id: str):
+async def cleanup_session_resources(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """
     Limpiar recursos de sesión (screenshots, logs temporales)
     """

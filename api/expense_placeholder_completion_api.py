@@ -4,7 +4,7 @@ API endpoints for completing expense placeholders created from bulk invoices.
 This handles the popup flow when invoices create incomplete expense placeholders
 that require user input to complete missing required fields.
 """
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -13,6 +13,7 @@ import json
 import sqlite3
 import time
 
+from core.auth.jwt import get_current_user, User
 from core.expenses.validation.expense_validation import expense_validator
 from core.structured_logger import (
     get_structured_logger,
@@ -96,7 +97,8 @@ def get_db_connection():
 @router.get("/pending", response_model=List[PendingExpenseResponse])
 async def get_pending_expenses(
     company_id: str = "default",
-    limit: int = 100
+    limit: int = 100,
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get list of expense placeholders that require completion.
@@ -155,7 +157,10 @@ async def get_pending_expenses(
 
 
 @router.get("/prompt/{expense_id}", response_model=CompletionPromptResponse)
-async def get_completion_prompt(expense_id: int):
+async def get_completion_prompt(
+    expense_id: int,
+    current_user: User = Depends(get_current_user)
+):
     """
     Get completion prompt data for a specific expense.
 
@@ -241,7 +246,10 @@ async def get_completion_prompt(expense_id: int):
 
 
 @router.post("/update")
-async def update_expense_with_completed_fields(request: UpdateExpenseRequest):
+async def update_expense_with_completed_fields(
+    request: UpdateExpenseRequest,
+    current_user: User = Depends(get_current_user)
+):
     """
     Update an expense with completed fields from the popup.
 
@@ -506,7 +514,10 @@ async def update_expense_with_completed_fields(request: UpdateExpenseRequest):
 
 
 @router.get("/stats", response_model=CompletionStatsResponse)
-async def get_completion_stats(company_id: str = "default"):
+async def get_completion_stats(
+    company_id: str = "default",
+    current_user: User = Depends(get_current_user)
+):
     """
     Get statistics about incomplete expense placeholders.
     """
@@ -567,7 +578,10 @@ async def get_completion_stats(company_id: str = "default"):
 
 
 @router.get("/stats/detailed", response_model=DetailedStatsResponse)
-async def get_detailed_stats(company_id: str = "default"):
+async def get_detailed_stats(
+    company_id: str = "default",
+    current_user: User = Depends(get_current_user)
+):
     """
     Get detailed KPIs and analytics for expense placeholder completion system.
 

@@ -1,14 +1,18 @@
 """
 Feature Flags Management API
 Provides endpoints to control feature flags for gradual rollout.
+
+🔒 SECURITY: ALL endpoints require SUPERADMIN access
 """
 
 from typing import Dict, Any, Optional
 from datetime import datetime
+import logging
 
-from fastapi import APIRouter, HTTPException, Query, Body
+from fastapi import APIRouter, HTTPException, Query, Body, Depends
 from pydantic import BaseModel, Field
 
+from core.auth.unified import get_current_superuser, UserInDB
 from core.config.feature_flags import (
     feature_flags,
     FeatureFlag,
@@ -19,6 +23,7 @@ from core.config.feature_flags import (
 )
 
 router = APIRouter(prefix="/api/v2/feature-flags", tags=["feature-flags"])
+logger = logging.getLogger(__name__)
 
 class FeatureFlagUpdate(BaseModel):
     """Request model for updating feature flags."""
@@ -50,10 +55,13 @@ class FeatureFlagStatus(BaseModel):
 
 @router.get("/status")
 async def get_all_feature_flags(
-    company_id: str = Query("default", description="Company ID to check flags for")
+    company_id: str = Query("default", description="Company ID to check flags for"),
+    current_user: UserInDB = Depends(get_current_superuser)
 ):
     """
     Get status of all feature flags for a company.
+
+    🔒 SUPERADMIN ONLY - System configuration visibility
 
     Returns the current status of all defined feature flags.
     """
@@ -88,10 +96,13 @@ async def get_all_feature_flags(
 async def check_feature_flag(
     flag_key: str,
     company_id: str = Query("default", description="Company ID"),
-    user_id: Optional[int] = Query(None, description="User ID")
+    user_id: Optional[int] = Query(None, description="User ID"),
+    current_user: UserInDB = Depends(get_current_superuser)
 ):
     """
     Check if a specific feature flag is enabled.
+
+    🔒 SUPERADMIN ONLY
 
     Returns whether the flag is enabled for the given context.
     """
@@ -127,15 +138,21 @@ async def check_feature_flag(
 @router.post("/update")
 async def update_feature_flag(
     update_request: FeatureFlagUpdate,
-    updated_by: str = Query("api_user", description="Who is making this change")
+    current_user: UserInDB = Depends(get_current_superuser)
 ):
     """
     Update a feature flag value.
+
+    🔒 SUPERADMIN ONLY - Controls system configuration
 
     Allows setting feature flags at different scopes with audit trail.
     """
 
     try:
+        logger.warning(
+            f"SECURITY: SuperAdmin {current_user.email} updating feature flag '{update_request.flag}' "
+            f"to value={update_request.value}, scope={update_request.scope}"
+        )
         # Find the flag enum
         flag_enum = None
         for flag in FeatureFlag:
@@ -162,7 +179,7 @@ async def update_feature_flag(
             scope=update_request.scope,
             scope_id=update_request.scope_id,
             reason=update_request.reason,
-            updated_by=updated_by
+            updated_by=current_user.email
         )
 
         if not success:
@@ -174,7 +191,7 @@ async def update_feature_flag(
             "value": update_request.value,
             "scope": update_request.scope,
             "scope_id": update_request.scope_id,
-            "updated_by": updated_by,
+            "updated_by": current_user.email,
             "timestamp": datetime.utcnow().isoformat()
         }
 
@@ -186,15 +203,22 @@ async def update_feature_flag(
 @router.post("/automation/enable-company")
 async def enable_automation_for_company_endpoint(
     company_id: str = Body(..., description="Company ID to enable automation for"),
-    reason: str = Body("Manual API enable", description="Reason for enabling")
+    reason: str = Body("Manual API enable", description="Reason for enabling"),
+    current_user: UserInDB = Depends(get_current_superuser)
 ):
     """
     Enable automation for a specific company.
+
+    🔒 SUPERADMIN ONLY - Controls automation rollout
 
     Convenience endpoint for enabling automation engine v2 for a company.
     """
 
     try:
+        logger.warning(
+            f"SECURITY: SuperAdmin {current_user.email} enabling automation for company_id={company_id}, "
+            f"reason={reason}"
+        )
         success = enable_automation_for_company(company_id, reason)
 
         if not success:
@@ -216,10 +240,13 @@ async def enable_automation_for_company_endpoint(
 @router.post("/automation/disable-global")
 async def disable_automation_globally_endpoint(
     reason: str = Body("Manual API disable", description="Reason for disabling"),
-    confirm: bool = Body(..., description="Confirmation required for global disable")
+    confirm: bool = Body(..., description="Confirmation required for global disable"),
+    current_user: UserInDB = Depends(get_current_superuser)
 ):
     """
     Disable automation globally (emergency stop).
+
+    🔒 SUPERADMIN ONLY - EMERGENCY SHUTDOWN FOR ALL COMPANIES
 
     This will disable automation for all companies. Use with caution.
     """
@@ -228,6 +255,10 @@ async def disable_automation_globally_endpoint(
         raise HTTPException(status_code=400, detail="Confirmation required for global disable")
 
     try:
+        logger.critical(
+            f"🚨 SECURITY ALERT: SuperAdmin {current_user.email} DISABLING AUTOMATION GLOBALLY! "
+            f"Reason: {reason}"
+        )
         success = disable_automation_globally(reason)
 
         if not success:
@@ -249,15 +280,22 @@ async def disable_automation_globally_endpoint(
 
 @router.post("/automation/set-rollout")
 async def set_automation_rollout_endpoint(
-    rollout_config: RolloutConfig
+    rollout_config: RolloutConfig,
+    current_user: UserInDB = Depends(get_current_superuser)
 ):
     """
     Configure automation rollout percentage.
+
+    🔒 SUPERADMIN ONLY - Controls gradual rollout
 
     Sets up gradual rollout of automation engine v2.
     """
 
     try:
+        logger.warning(
+            f"SECURITY: SuperAdmin {current_user.email} setting automation rollout to {rollout_config.percentage}%, "
+            f"reason={rollout_config.reason}"
+        )
         # Build rollout configuration
         config = {
             "enabled": rollout_config.percentage > 0,
@@ -297,10 +335,13 @@ async def set_automation_rollout_endpoint(
 @router.get("/automation/check")
 async def check_automation_status(
     company_id: str = Query("default", description="Company ID"),
-    user_id: Optional[int] = Query(None, description="User ID")
+    user_id: Optional[int] = Query(None, description="User ID"),
+    current_user: UserInDB = Depends(get_current_superuser)
 ):
     """
     Check automation engine status for a company/user.
+
+    🔒 SUPERADMIN ONLY
 
     Returns detailed information about automation enablement.
     """
@@ -323,10 +364,13 @@ async def check_automation_status(
 @router.get("/audit/{flag_key}")
 async def get_feature_flag_audit(
     flag_key: str,
-    limit: int = Query(50, ge=1, le=100, description="Maximum number of audit entries")
+    limit: int = Query(50, ge=1, le=100, description="Maximum number of audit entries"),
+    current_user: UserInDB = Depends(get_current_superuser)
 ):
     """
     Get audit trail for a feature flag.
+
+    🔒 SUPERADMIN ONLY - Sensitive audit trail
 
     Returns the history of changes for a specific feature flag.
     """

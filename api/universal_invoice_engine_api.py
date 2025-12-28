@@ -12,6 +12,7 @@ import asyncio
 from datetime import datetime
 import xml.etree.ElementTree as ET
 
+from core.auth.jwt import get_current_user, User
 from core.expenses.invoices.universal_invoice_engine_system import (
     universal_invoice_engine_system,
     InvoiceFormat,
@@ -207,7 +208,8 @@ async def batch_upload_and_process(
                 company_id=company_id,
                 file_path=file_path,
                 original_filename=file.filename or "uploaded_file",
-                user_id=user_id
+                user_id=user_id,
+                batch_id=batch_id
             )
             session_ids.append(session_id)
 
@@ -254,6 +256,7 @@ async def batch_upload_and_process(
 async def get_batch_status(batch_id: str, company_id: str) -> Dict[str, Any]:
     """
     Obtiene el estado de un batch de procesamiento
+    Filtra por batch_id específico para retornar solo las facturas de ese batch
     """
     try:
         from core.shared.db_config import get_connection
@@ -261,20 +264,18 @@ async def get_batch_status(batch_id: str, company_id: str) -> Dict[str, Any]:
         conn = get_connection(dict_cursor=True)
         cursor = conn.cursor()
 
-        # Obtener todas las sesiones creadas en el batch
-        # Nota: Necesitamos agregar batch_id a la tabla, por ahora usamos timestamp del batch_id
-        batch_timestamp = batch_id.replace("batch_", "")
-
+        # Obtener todas las sesiones creadas en este batch específico
         cursor.execute("""
             SELECT
                 id as session_id,
                 extraction_status,
-                original_filename
+                original_filename,
+                created_at
             FROM sat_invoices
             WHERE company_id = %s
-            AND created_at >= (NOW() - INTERVAL '1 hour')
-            ORDER BY created_at DESC
-        """, (company_id,))
+            AND batch_id = %s
+            ORDER BY created_at ASC
+        """, (company_id, batch_id))
 
         sessions = cursor.fetchall()
         cursor.close()
@@ -284,7 +285,7 @@ async def get_batch_status(batch_id: str, company_id: str) -> Dict[str, Any]:
         total = len(sessions)
         completed = sum(1 for s in sessions if s['extraction_status'] == 'completed')
         failed = sum(1 for s in sessions if s['extraction_status'] == 'failed')
-        pending = sum(1 for s in sessions if s['extraction_status'] == 'pending')
+        pending = sum(1 for s in sessions if s['extraction_status'] in ['pending', 'processing'])
 
         return {
             "batch_id": batch_id,
@@ -293,7 +294,7 @@ async def get_batch_status(batch_id: str, company_id: str) -> Dict[str, Any]:
             "failed": failed,
             "pending": pending,
             "progress_percentage": (completed / total * 100) if total > 0 else 0,
-            "is_complete": pending == 0,
+            "is_complete": (pending == 0 and total > 0),
             "sessions": sessions
         }
 
@@ -397,6 +398,7 @@ async def reprocess_failed_sessions(
 @router.get("/sessions/viewer-pro/{tenant_id}")
 async def get_sessions_for_viewer_pro(
     tenant_id: str,
+    current_user: User = Depends(get_current_user),
     year: Optional[int] = None,
     month: Optional[int] = None,
     tipo: Optional[str] = None,
@@ -433,6 +435,21 @@ async def get_sessions_for_viewer_pro(
 
         conn = get_connection(dict_cursor=True)
         cursor = conn.cursor()
+
+        # 🔒 SECURITY: Validate user has access to this tenant
+        # Convert tenant_id parameter to integer for comparison
+        try:
+            requested_tenant_id = int(tenant_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid tenant_id format")
+
+        if current_user.tenant_id != requested_tenant_id:
+            logger.warning(
+                f"SECURITY: User {current_user.email} (tenant_id={current_user.tenant_id}) "
+                f"attempted to access viewer-pro for tenant_id={requested_tenant_id}"
+            )
+            conn.close()
+            raise HTTPException(status_code=403, detail="Not authorized to access this tenant's data")
 
         # Query optimizado con JOIN para obtener todo en una consulta
         query = """
@@ -787,9 +804,12 @@ async def list_company_sessions(
                 extraction_status, extraction_confidence,
                 validation_score, overall_quality_score,
                 parsed_data, template_match, validation_results,
-                error_message, sat_validation_status
+                error_message, sat_validation_status, accounting_classification,
+                invoice_direction
             FROM sat_invoices
             WHERE company_id = %s
+              AND extraction_status = 'completed'
+              AND accounting_classification->>'sat_account_code' IS NOT NULL
         """
         params = [company_id]
 
@@ -861,6 +881,10 @@ async def list_company_sessions(
                 "created_at": session['created_at'].isoformat() if session['created_at'] else None,
                 "updated_at": session['updated_at'].isoformat() if session['updated_at'] else None,
                 "display_info": display_info,  # ✅ Información básica para la lista
+                "parsed_data": session['parsed_data'],  # ✅ Datos completos para cálculos (IVA, etc.)
+                # 🆕 Backend-detected fields (migration 060)
+                "invoice_direction": session.get('invoice_direction'),  # EMITIDA | RECIBIDA | UNKNOWN
+                "sat_validation_status": session.get('sat_validation_status'),  # vigente | cancelado | pending
             })
 
         response = {
@@ -1354,10 +1378,15 @@ async def _trigger_classification(session_id: str, processing_result: Dict[str, 
     Auto-trigger classification after invoice parsing completes.
 
     🔥 NEW: Uses hierarchical classification system (3-phase LLM classification)
+    🆕 ADDED: Invoice direction detection (EMITIDA vs RECIBIDA)
     """
     try:
-        # 🔥 IMPORTANT: Use hierarchical classification system instead of legacy
-        from core.expenses.invoices.universal_invoice_engine_system import UniversalInvoiceEngineSystem
+        from core.ai_pipeline.classification.classification_service import ClassificationService
+        from core.ai_pipeline.parsers.invoice_direction_detector import detect_invoice_direction, get_invoice_metadata
+        from sqlalchemy import text
+        from core.database import get_db_session
+        from dataclasses import asdict
+        import json
 
         company_id_str = processing_result.get('company_id')
         parsed_data = processing_result.get('parsed_data')
@@ -1368,21 +1397,180 @@ async def _trigger_classification(session_id: str, processing_result: Dict[str, 
 
         logger.info(f"Session {session_id}: Triggering HIERARCHICAL auto-classification (company_id={company_id_str})")
 
-        # Call hierarchical classification (3-phase: Family → Subfamily → Specific)
-        engine = UniversalInvoiceEngineSystem()
-        classification_result = await engine.classify_invoice_hierarchical(
+        # Resolve company_id to tenant_id for classification
+        # company_id can be either a numeric tenant_id or a company slug like 'carreta_verde'
+        tenant_id = None
+        try:
+            # Try to convert directly to int (if it's already a tenant_id)
+            tenant_id = int(company_id_str)
+        except ValueError:
+            # It's a company slug, look up the tenant_id from companies table
+            try:
+                with get_db_session() as db:
+                    result = db.execute(text("""
+                        SELECT tenant_id FROM companies
+                        WHERE company_id = :company_slug OR CAST(id AS TEXT) = :company_id
+                        LIMIT 1
+                    """), {"company_slug": company_id_str, "company_id": company_id_str}).fetchone()
+
+                    if result:
+                        tenant_id = result[0]
+                    else:
+                        logger.error(f"Session {session_id}: Company '{company_id_str}' not found in companies table")
+                        return
+            except Exception as e_lookup:
+                logger.error(f"Session {session_id}: Error looking up company: {e_lookup}")
+                return
+
+        if not tenant_id:
+            logger.error(f"Session {session_id}: Could not resolve company_id '{company_id_str}' to tenant_id")
+            return
+
+        logger.info(f"Session {session_id}: Resolved company_id '{company_id_str}' to tenant_id={tenant_id}")
+
+        # 🆕 STEP 1: Get company RFC for direction detection
+        company_rfc = None
+        try:
+            with get_db_session() as db:
+                rfc_result = db.execute(text("""
+                    SELECT rfc FROM companies
+                    WHERE tenant_id = :tenant_id
+                    LIMIT 1
+                """), {"tenant_id": tenant_id}).fetchone()
+
+                if rfc_result:
+                    company_rfc = rfc_result[0]
+                else:
+                    logger.warning(f"Session {session_id}: No RFC found for tenant_id={tenant_id}")
+        except Exception as e_rfc:
+            logger.error(f"Session {session_id}: Error getting company RFC: {e_rfc}")
+
+        # 🆕 STEP 2: Detect invoice direction (EMITIDA vs RECIBIDA)
+        invoice_direction = "UNKNOWN"
+        invoice_metadata = {}
+
+        if company_rfc:
+            try:
+                invoice_direction = detect_invoice_direction(parsed_data, company_rfc)
+                invoice_metadata = get_invoice_metadata(parsed_data, company_rfc)
+
+                logger.info(
+                    f"Session {session_id}: Invoice direction detected - {invoice_direction} "
+                    f"(Counterparty: {invoice_metadata.get('counterparty_name', 'N/A')} - "
+                    f"{invoice_metadata.get('counterparty_rfc', 'N/A')})"
+                )
+            except Exception as e_dir:
+                logger.error(f"Session {session_id}: Error detecting direction: {e_dir}")
+        else:
+            logger.warning(f"Session {session_id}: Cannot detect direction without company RFC")
+
+        # 🆕 STEP 3: Save invoice direction to database
+        try:
+            with get_db_session() as db:
+                db.execute(text("""
+                    UPDATE sat_invoices
+                    SET invoice_direction = :direction,
+                        updated_at = NOW()
+                    WHERE id = :session_id
+                """), {
+                    "direction": invoice_direction,
+                    "session_id": session_id
+                })
+                db.commit()
+                logger.info(f"Session {session_id}: Saved invoice_direction={invoice_direction} to database")
+        except Exception as e_save_dir:
+            logger.error(f"Session {session_id}: Error saving direction: {e_save_dir}")
+
+        # 🆕 STEP 4: Route to appropriate classifier based on direction
+        if invoice_direction == "EMITIDA":
+            # Use revenue classifier for emitted invoices (familia 400)
+            from core.ai_pipeline.classification.revenue_classifier import get_revenue_classifier
+
+            logger.info(f"Session {session_id}: Processing EMITIDA invoice with revenue classifier")
+
+            revenue_classifier = get_revenue_classifier()
+            classification_result = revenue_classifier.classify_revenue(
+                session_id=session_id,
+                tenant_id=tenant_id,
+                parsed_data=parsed_data,
+                customer_rfc=invoice_metadata.get('counterparty_rfc')
+            )
+
+            if not classification_result:
+                logger.warning(f"Session {session_id}: Revenue classification returned None")
+                return
+
+            # Save revenue classification result
+            try:
+                with get_db_session() as db:
+                    classification_dict = asdict(classification_result)
+                    db.execute(text("""
+                        UPDATE sat_invoices
+                        SET accounting_classification = :classification,
+                            status = :status,
+                            updated_at = NOW()
+                        WHERE id = :session_id
+                    """), {
+                        "classification": json.dumps(classification_dict),
+                        "status": "classified",
+                        "session_id": session_id
+                    })
+                    db.commit()
+
+                    logger.info(
+                        f"Session {session_id}: ✅ Revenue classification completed - "
+                        f"SAT code: {classification_result.sat_account_code}, "
+                        f"Method: {classification_result.classification_method}, "
+                        f"Confidence: {classification_result.confidence_sat:.2%}"
+                    )
+            except Exception as e_save_revenue:
+                logger.error(f"Session {session_id}: Error saving revenue classification: {e_save_revenue}")
+
+            return
+
+        # STEP 5: Proceed with expense classification for RECIBIDA invoices
+        logger.info(f"Session {session_id}: Proceeding with expense classification (RECIBIDA)")
+
+        # Call hierarchical classification using wrapper function
+        # ✅ FIX: Use classify_invoice_session() instead of service.classify_invoice()
+        # This wrapper properly extracts and saves hierarchical metadata (phase1/2a/2b/3)
+        from core.ai_pipeline.classification.classification_service import classify_invoice_session
+
+        classification_dict = classify_invoice_session(
             session_id=session_id,
-            company_id=company_id_str
+            tenant_id=tenant_id,
+            parsed_data=parsed_data,
+            top_k=15
         )
 
-        if not classification_result:
+        if not classification_dict:
             logger.warning(f"Session {session_id}: Hierarchical classification returned None")
             return
 
+        # Save classification result to sat_invoices
+        try:
+            with get_db_session() as db:
+                # classification_dict already has proper format with metadata
+                db.execute(text("""
+                    UPDATE sat_invoices
+                    SET accounting_classification = :classification,
+                        status = :status,
+                        updated_at = NOW()
+                    WHERE id = :session_id
+                """), {
+                    "classification": json.dumps(classification_dict),
+                    "status": "classified",
+                    "session_id": session_id
+                })
+                db.commit()
+        except Exception as e_save:
+            logger.error(f"Session {session_id}: Error saving classification: {e_save}")
+
         logger.info(
             f"Session {session_id}: ✅ Hierarchical classification completed - "
-            f"SAT code: {classification_result.get('sat_account_code')} "
-            f"(Phase 1: {classification_result.get('metadata', {}).get('hierarchical_phase1', {}).get('familia_codigo')})"
+            f"SAT code: {classification_dict.get('sat_account_code')}, "
+            f"Family: {classification_dict.get('family_code')}, "
+            f"Confidence: {classification_dict.get('confidence_sat', 0):.2%}"
         )
 
     except Exception as e:
@@ -1426,45 +1614,11 @@ async def _trigger_sat_validation(session_id: str, processing_result: Dict[str, 
             )
 
             if success and validation_info:
+                sat_status = validation_info.get('status', 'unknown')
                 logger.info(
                     f"Session {session_id}: SAT validation completed - "
-                    f"Status: {validation_info.get('status', 'unknown')}"
+                    f"Status: {sat_status}"
                 )
-
-                # 🔥 FIX: Update display_info.sat_status so frontend shows correct status
-                from core.shared.db_config import get_connection
-                import json
-
-                conn = get_connection(dict_cursor=True)
-                cursor = conn.cursor()
-
-                # Get current display_info
-                cursor.execute("""
-                    SELECT display_info
-                    FROM sat_invoices
-                    WHERE id = %s
-                """, (session_id,))
-
-                row = cursor.fetchone()
-                display_info = row['display_info'] if row and row['display_info'] else {}
-
-                # Update sat_status in display_info
-                sat_status = validation_info.get('status', 'desconocido')
-                display_info['sat_status'] = sat_status
-
-                # Save back to database
-                cursor.execute("""
-                    UPDATE sat_invoices
-                    SET display_info = %s,
-                        updated_at = now()
-                    WHERE id = %s
-                """, (json.dumps(display_info), session_id))
-
-                conn.commit()
-                cursor.close()
-                conn.close()
-
-                logger.info(f"Session {session_id}: Updated display_info.sat_status = {sat_status}")
 
             elif error:
                 logger.warning(f"Session {session_id}: SAT validation error: {error}")

@@ -4,6 +4,7 @@ from datetime import datetime
 import logging
 import asyncio
 from core.conversational_assistant_system import ConversationalAssistantSystem
+from core.auth.jwt import get_current_user, User
 from core.api_models import (
     ConversationSessionRequest,
     ConversationSessionResponse,
@@ -22,7 +23,10 @@ router = APIRouter(prefix="/api/conversational-assistant", tags=["Conversational
 assistant_system = ConversationalAssistantSystem()
 
 @router.post("/sessions", response_model=ConversationSessionResponse)
-async def create_conversation_session(request: ConversationSessionRequest):
+async def create_conversation_session(
+    request: ConversationSessionRequest,
+    current_user: User = Depends(get_current_user)
+):
     """
     Crear nueva sesión de conversación con el asistente
     """
@@ -47,7 +51,10 @@ async def create_conversation_session(request: ConversationSessionRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/query", response_model=UserQueryResponse)
-async def process_user_query(request: UserQueryRequest):
+async def process_user_query(
+    request: UserQueryRequest,
+    current_user: User = Depends(get_current_user)
+):
     """
     Procesar consulta del usuario con el asistente conversacional
 
@@ -58,6 +65,9 @@ async def process_user_query(request: UserQueryRequest):
     - SQL injection prevention
     - Logging completo de interacciones
     """
+    logger.warning(
+        f"SECURITY: User {current_user.email} executing SQL query via LLM: {request.user_query}"
+    )
     try:
         # Validar longitud de query
         if len(request.user_query) > 10000:
@@ -110,7 +120,8 @@ async def process_user_query(request: UserQueryRequest):
 @router.get("/sessions/{session_id}/history", response_model=List[QueryInteraction])
 async def get_conversation_history(
     session_id: str,
-    limit: int = Query(default=50, ge=1, le=200, description="Número máximo de interacciones a retornar")
+    limit: int = Query(default=50, ge=1, le=200, description="Número máximo de interacciones a retornar"),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Obtener historial de conversación de una sesión
@@ -140,7 +151,8 @@ async def get_conversation_history(
 @router.get("/analytics/{user_id}", response_model=ConversationalAnalyticsResponse)
 async def get_user_analytics(
     user_id: str,
-    days: int = Query(default=30, ge=1, le=365, description="Número de días para el análisis")
+    days: int = Query(default=30, ge=1, le=365, description="Número de días para el análisis"),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Obtener analytics de uso del asistente conversacional
@@ -166,7 +178,10 @@ async def get_user_analytics(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/models/config", response_model=LLMModelConfigResponse)
-async def configure_llm_model(request: LLMModelConfigRequest):
+async def configure_llm_model(
+    request: LLMModelConfigRequest,
+    current_user: User = Depends(get_current_user)
+):
     """
     Configurar un nuevo modelo LLM o actualizar configuración existente
 
@@ -215,7 +230,10 @@ async def configure_llm_model(request: LLMModelConfigRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/models", response_model=List[LLMModelConfigResponse])
-async def list_llm_models(active_only: bool = Query(default=True, description="Solo mostrar modelos activos")):
+async def list_llm_models(
+    active_only: bool = Query(default=True, description="Solo mostrar modelos activos"),
+    current_user: User = Depends(get_current_user)
+):
     """
     Listar todos los modelos LLM configurados
     """
@@ -264,7 +282,9 @@ async def list_llm_models(active_only: bool = Query(default=True, description="S
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/cache/stats", response_model=CacheStatsResponse)
-async def get_cache_statistics():
+async def get_cache_statistics(
+    current_user: User = Depends(get_current_user)
+):
     """
     Obtener estadísticas del cache de respuestas LLM
     """
@@ -290,7 +310,8 @@ async def get_cache_statistics():
 @router.delete("/cache", status_code=204)
 async def clear_cache(
     expired_only: bool = Query(default=True, description="Solo limpiar entradas expiradas"),
-    background_tasks: BackgroundTasks = None
+    background_tasks: BackgroundTasks = None,
+    current_user: User = Depends(get_current_user)
 ):
     """
     Limpiar cache de respuestas LLM
@@ -324,7 +345,8 @@ async def record_user_feedback(
     session_id: str,
     interaction_id: Optional[int] = None,
     rating: int = Query(..., ge=1, le=5, description="Rating de 1-5 estrellas"),
-    feedback_text: Optional[str] = None
+    feedback_text: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
 ):
     """
     Registrar feedback del usuario sobre respuestas del asistente

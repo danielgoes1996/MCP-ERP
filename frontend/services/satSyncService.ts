@@ -4,7 +4,16 @@
  * Handles API calls for SAT auto-sync configuration
  */
 
+import { useAuthStore } from '@/stores/auth/useAuthStore';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+/**
+ * Get auth token from Zustand store
+ */
+function getAuthToken(): string | null {
+  return useAuthStore.getState().token;
+}
 
 // Types
 export interface SATSyncConfig {
@@ -56,8 +65,17 @@ export interface ScheduledJob {
  * Get SAT sync configuration for a company
  */
 export async function getSATSyncConfig(companyId: number): Promise<SATSyncConfig> {
+  const token = getAuthToken();
+
   const response = await fetch(
-    `${API_BASE_URL}/sat/sync-config/config/${companyId}`
+    `${API_BASE_URL}/sat/sync-config/config/${companyId}`,
+    {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    }
   );
 
   if (!response.ok) {
@@ -74,11 +92,14 @@ export async function getSATSyncConfig(companyId: number): Promise<SATSyncConfig
  * Create or update SAT sync configuration
  */
 export async function saveSATSyncConfig(config: SATSyncConfigCreate): Promise<SATSyncConfig> {
+  const token = getAuthToken();
+
   const response = await fetch(
     `${API_BASE_URL}/sat/sync-config/config`,
     {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(config),
@@ -96,11 +117,14 @@ export async function saveSATSyncConfig(config: SATSyncConfigCreate): Promise<SA
  * Trigger manual sync for a company
  */
 export async function triggerManualSync(companyId: number): Promise<{ success: boolean; message: string }> {
+  const token = getAuthToken();
+
   const response = await fetch(
     `${API_BASE_URL}/sat/sync-config/manual-sync`,
     {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ company_id: companyId }),
@@ -118,8 +142,17 @@ export async function triggerManualSync(companyId: number): Promise<{ success: b
  * Get sync history for a company
  */
 export async function getSyncHistory(companyId: number): Promise<{ company_id: number; history: SyncHistory[] }> {
+  const token = getAuthToken();
+
   const response = await fetch(
-    `${API_BASE_URL}/sat/sync-config/sync-history/${companyId}`
+    `${API_BASE_URL}/sat/sync-config/sync-history/${companyId}`,
+    {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    }
   );
 
   if (!response.ok) {
@@ -133,8 +166,17 @@ export async function getSyncHistory(companyId: number): Promise<{ company_id: n
  * Get scheduled jobs from the scheduler
  */
 export async function getScheduledJobs(): Promise<{ success: boolean; scheduler_running: boolean; jobs: ScheduledJob[] }> {
+  const token = getAuthToken();
+
   const response = await fetch(
-    `${API_BASE_URL}/sat/sync-config/scheduled-jobs`
+    `${API_BASE_URL}/sat/sync-config/scheduled-jobs`,
+    {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    }
   );
 
   if (!response.ok) {
@@ -148,10 +190,16 @@ export async function getScheduledJobs(): Promise<{ success: boolean; scheduler_
  * Reload scheduler manually
  */
 export async function reloadScheduler(): Promise<{ success: boolean; message: string }> {
+  const token = getAuthToken();
+
   const response = await fetch(
     `${API_BASE_URL}/sat/sync-config/reload-scheduler`,
     {
       method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
     }
   );
 

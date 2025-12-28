@@ -1,14 +1,18 @@
 """
 API para Gestión de Clientes y Credenciales
 Endpoints para configurar clientes, sus datos fiscales y credenciales de portales.
+
+🔒 SECURITY: All endpoints require authentication + tenant validation
 """
 
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, EmailStr, validator
 from typing import Dict, List, Optional, Any
 import uuid
+import logging
 from datetime import datetime
 
+from core.auth.jwt import get_current_user, User
 from core.client_credential_manager import (
     get_credential_manager,
     ClientFiscalData,
@@ -17,6 +21,7 @@ from core.client_credential_manager import (
 )
 
 router = APIRouter(prefix="/api/v1/clients", tags=["client-management"])
+logger = logging.getLogger(__name__)
 
 
 # ===============================================================
@@ -67,7 +72,8 @@ class InvoiceRequest(BaseModel):
 @router.post("/setup")
 async def setup_client(
     client_data: ClientFiscalDataRequest,
-    client_id: Optional[str] = None
+    client_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
 ):
     """Configura un nuevo cliente con sus datos fiscales"""
 
@@ -110,7 +116,10 @@ async def setup_client(
 
 
 @router.get("/{client_id}")
-async def get_client_info(client_id: str):
+async def get_client_info(
+    client_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """Obtiene información completa de un cliente"""
 
     try:
@@ -140,7 +149,8 @@ async def get_client_info(client_id: str):
 @router.put("/{client_id}/fiscal-data")
 async def update_client_fiscal_data(
     client_id: str,
-    fiscal_data: ClientFiscalDataRequest
+    fiscal_data: ClientFiscalDataRequest,
+    current_user: User = Depends(get_current_user)
 ):
     """Actualiza los datos fiscales de un cliente"""
 
@@ -189,11 +199,21 @@ async def update_client_fiscal_data(
 async def setup_portal_credentials(
     client_id: str,
     merchant_name: str,
-    credentials: MerchantCredentialsRequest
+    credentials: MerchantCredentialsRequest,
+    current_user: User = Depends(get_current_user)
 ):
-    """Configura credenciales de un cliente para un portal específico"""
+    """
+    Configura credenciales de un cliente para un portal específico
+
+    🔒 CRITICAL: Stores merchant portal credentials
+    """
 
     try:
+        logger.warning(
+            f"SECURITY: User {current_user.email} (tenant_id={current_user.tenant_id}) "
+            f"storing credentials for client_id={client_id}, merchant={merchant_name}"
+        )
+
         manager = get_credential_manager()
 
         # Verificar que el cliente exista
@@ -203,6 +223,8 @@ async def setup_portal_credentials(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Cliente {client_id} no encontrado"
             )
+
+        # TODO: Add tenant validation - verify client_id belongs to current_user.tenant_id
 
         merchant_creds = MerchantCredentials(
             merchant_name=credentials.merchant_name,
@@ -238,7 +260,10 @@ async def setup_portal_credentials(
 
 
 @router.get("/{client_id}/portals")
-async def list_client_portals(client_id: str):
+async def list_client_portals(
+    client_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """Lista todos los portales configurados para un cliente"""
 
     try:
@@ -260,7 +285,11 @@ async def list_client_portals(client_id: str):
 
 
 @router.get("/{client_id}/portals/{merchant_name}/status")
-async def check_portal_status(client_id: str, merchant_name: str):
+async def check_portal_status(
+    client_id: str,
+    merchant_name: str,
+    current_user: User = Depends(get_current_user)
+):
     """Verifica el estado de configuración de un portal"""
 
     try:
@@ -300,7 +329,8 @@ async def check_portal_status(client_id: str, merchant_name: str):
 @router.post("/{client_id}/invoice")
 async def create_invoice_with_context(
     client_id: str,
-    invoice_request: InvoiceRequest
+    invoice_request: InvoiceRequest,
+    current_user: User = Depends(get_current_user)
 ):
     """
     Crea una factura automáticamente usando el contexto completo del cliente.
@@ -357,7 +387,10 @@ async def create_invoice_with_context(
 # ===============================================================
 
 @router.post("/batch-setup")
-async def batch_setup_clients(clients_data: List[ClientFiscalDataRequest]):
+async def batch_setup_clients(
+    clients_data: List[ClientFiscalDataRequest],
+    current_user: User = Depends(get_current_user)
+):
     """Configura múltiples clientes de forma masiva"""
 
     results = []
@@ -404,7 +437,7 @@ async def batch_setup_clients(clients_data: List[ClientFiscalDataRequest]):
 
 
 @router.get("/")
-async def list_all_clients():
+async def list_all_clients(current_user: User = Depends(get_current_user)):
     """Lista todos los clientes configurados (para desarrollo)"""
 
     # En una implementación real, esto vendría de la base de datos

@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from core.sat.sat_auto_sync_job import run_sync_for_company
 from core.sat.sat_sync_scheduler import get_scheduler
+from core.auth.jwt import get_current_user, User
 
 router = APIRouter(prefix="/sat/sync-config", tags=["SAT Auto Sync"])
 logger = logging.getLogger(__name__)
@@ -68,9 +69,32 @@ class ManualSyncRequest(BaseModel):
 # ============================================================================
 
 @router.get("/config/{company_id}", response_model=SATSyncConfigResponse)
-async def get_config(company_id: int, db: Session = Depends(get_db)):
+async def get_config(
+    company_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Obtiene configuración de sync para una compañía"""
     try:
+        # 🔒 SECURITY: Validate user has access to this company
+        cursor = db.execute(text("""
+            SELECT tenant_id FROM companies WHERE id = :company_id
+        """), {"company_id": company_id})
+
+        company = cursor.fetchone()
+
+        if not company:
+            raise HTTPException(status_code=404, detail="Company not found")
+
+        if company[0] != current_user.tenant_id:
+            logger.warning(
+                f"SECURITY: User {current_user.email} (tenant_id={current_user.tenant_id}) "
+                f"attempted to access SAT sync config for company_id={company_id} "
+                f"(tenant_id={company[0]})"
+            )
+            raise HTTPException(status_code=403, detail="Not authorized to access this company's configuration")
+
+        # Fetch sync configuration
         cursor = db.execute(text("""
             SELECT id, company_id, enabled, frequency, day_of_week, time,
                    lookback_days, auto_classify, notify_email, notify_threshold,
@@ -114,10 +138,29 @@ async def get_config(company_id: int, db: Session = Depends(get_db)):
 @router.post("/config", response_model=SATSyncConfigResponse)
 async def create_or_update_config(
     config: SATSyncConfigCreate,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Crea o actualiza configuración de sync"""
     try:
+        # 🔒 SECURITY: Validate user has access to this company
+        cursor = db.execute(text("""
+            SELECT tenant_id FROM companies WHERE id = :company_id
+        """), {"company_id": config.company_id})
+
+        company = cursor.fetchone()
+
+        if not company:
+            raise HTTPException(status_code=404, detail="Company not found")
+
+        if company[0] != current_user.tenant_id:
+            logger.warning(
+                f"SECURITY: User {current_user.email} (tenant_id={current_user.tenant_id}) "
+                f"attempted to modify SAT sync config for company_id={config.company_id} "
+                f"(tenant_id={company[0]})"
+            )
+            raise HTTPException(status_code=403, detail="Not authorized to modify this company's configuration")
+
         # Verificar si ya existe
         cursor = db.execute(text("""
             SELECT id FROM sat_sync_config WHERE company_id = :company_id
@@ -196,7 +239,11 @@ async def create_or_update_config(
 
 
 @router.post("/manual-sync")
-async def trigger_manual_sync(request: ManualSyncRequest):
+async def trigger_manual_sync(
+    request: ManualSyncRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Ejecuta sincronización manual para una compañía
 
@@ -204,6 +251,24 @@ async def trigger_manual_sync(request: ManualSyncRequest):
     sin esperar al cron job programado.
     """
     try:
+        # 🔒 SECURITY: Validate user has access to this company
+        cursor = db.execute(text("""
+            SELECT tenant_id FROM companies WHERE id = :company_id
+        """), {"company_id": request.company_id})
+
+        company = cursor.fetchone()
+
+        if not company:
+            raise HTTPException(status_code=404, detail="Company not found")
+
+        if company[0] != current_user.tenant_id:
+            logger.warning(
+                f"SECURITY: User {current_user.email} (tenant_id={current_user.tenant_id}) "
+                f"attempted to trigger manual sync for company_id={request.company_id} "
+                f"(tenant_id={company[0]})"
+            )
+            raise HTTPException(status_code=403, detail="Not authorized to trigger sync for this company")
+
         logger.info(f"[MANUAL_SYNC] Iniciando sync manual para company_id={request.company_id}")
 
         # Ejecutar sync en background
@@ -221,9 +286,31 @@ async def trigger_manual_sync(request: ManualSyncRequest):
 
 
 @router.get("/sync-history/{company_id}")
-async def get_sync_history(company_id: int, db: Session = Depends(get_db)):
+async def get_sync_history(
+    company_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """Obtiene historial de sincronizaciones"""
     try:
+        # 🔒 SECURITY: Validate user has access to this company
+        cursor = db.execute(text("""
+            SELECT tenant_id FROM companies WHERE id = :company_id
+        """), {"company_id": company_id})
+
+        company = cursor.fetchone()
+
+        if not company:
+            raise HTTPException(status_code=404, detail="Company not found")
+
+        if company[0] != current_user.tenant_id:
+            logger.warning(
+                f"SECURITY: User {current_user.email} (tenant_id={current_user.tenant_id}) "
+                f"attempted to access sync history for company_id={company_id} "
+                f"(tenant_id={company[0]})"
+            )
+            raise HTTPException(status_code=403, detail="Not authorized to access this company's sync history")
+
         # Por ahora solo retornamos el último sync de la config
         # En el futuro, podemos crear una tabla sync_history separada
         cursor = db.execute(text("""
