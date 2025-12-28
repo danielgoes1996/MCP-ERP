@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Any
 import logging
 from datetime import datetime
 
+from core.auth.jwt import get_current_user, User
 from core.hybrid_processor_system import (
     hybrid_processor_system,
     InputType,
@@ -33,7 +34,8 @@ logger = logging.getLogger(__name__)
 
 @router.post("/sessions/")
 async def create_hybrid_processing_session(
-    request: HybridProcessorSessionCreateRequest
+    request: HybridProcessorSessionCreateRequest,
+    current_user: User = Depends(get_current_user)
 ) -> HybridProcessorSessionResponse:
     """
     Crea una nueva sesión de procesamiento híbrido multi-modal
@@ -76,7 +78,8 @@ async def create_hybrid_processing_session(
 @router.post("/sessions/{session_id}/process")
 async def process_hybrid_session(
     session_id: str,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user)
 ) -> HybridProcessorProcessResponse:
     """
     Inicia el procesamiento de una sesión híbrida
@@ -111,7 +114,10 @@ async def process_hybrid_session(
         raise HTTPException(status_code=500, detail=error_msg)
 
 @router.get("/sessions/{session_id}/status")
-async def get_hybrid_session_status(session_id: str) -> HybridProcessorStatusResponse:
+async def get_hybrid_session_status(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+) -> HybridProcessorStatusResponse:
     """
     Obtiene el estado actual de una sesión con processing_metrics detallados
     """
@@ -147,7 +153,10 @@ async def get_hybrid_session_status(session_id: str) -> HybridProcessorStatusRes
         raise HTTPException(status_code=500, detail=error_msg)
 
 @router.get("/sessions/{session_id}/metrics")
-async def get_session_processing_metrics(session_id: str) -> HybridProcessorMetricsResponse:
+async def get_session_processing_metrics(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+) -> HybridProcessorMetricsResponse:
     """
     Obtiene métricas detalladas de procesamiento de una sesión
     Incluye processing_metrics granulares por step
@@ -184,7 +193,10 @@ async def get_session_processing_metrics(session_id: str) -> HybridProcessorMetr
         raise HTTPException(status_code=500, detail=error_msg)
 
 @router.get("/sessions/{session_id}/results")
-async def get_hybrid_session_results(session_id: str) -> HybridProcessorResultsResponse:
+async def get_hybrid_session_results(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+) -> HybridProcessorResultsResponse:
     """
     Obtiene los resultados finales de procesamiento híbrido
     """
@@ -224,7 +236,10 @@ async def get_hybrid_session_results(session_id: str) -> HybridProcessorResultsR
         raise HTTPException(status_code=500, detail=error_msg)
 
 @router.delete("/sessions/{session_id}")
-async def cancel_hybrid_session(session_id: str) -> HybridProcessorCancelResponse:
+async def cancel_hybrid_session(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+) -> HybridProcessorCancelResponse:
     """
     Cancela una sesión de procesamiento híbrido
     """
@@ -260,7 +275,9 @@ async def cancel_hybrid_session(session_id: str) -> HybridProcessorCancelRespons
         raise HTTPException(status_code=500, detail=error_msg)
 
 @router.get("/processors/")
-async def list_available_processors() -> HybridProcessorListResponse:
+async def list_available_processors(
+    current_user: User = Depends(get_current_user)
+) -> HybridProcessorListResponse:
     """
     Lista todos los procesadores disponibles con sus métricas
     """
@@ -295,7 +312,10 @@ async def list_available_processors() -> HybridProcessorListResponse:
         raise HTTPException(status_code=500, detail=error_msg)
 
 @router.get("/metrics/{company_id}")
-async def get_company_hybrid_metrics(company_id: str) -> HybridProcessorCompanyMetricsResponse:
+async def get_company_hybrid_metrics(
+    company_id: str,
+    current_user: User = Depends(get_current_user)
+) -> HybridProcessorCompanyMetricsResponse:
     """
     Obtiene métricas agregadas de procesamiento híbrido para una empresa
     """
@@ -325,7 +345,9 @@ async def get_company_hybrid_metrics(company_id: str) -> HybridProcessorCompanyM
         raise HTTPException(status_code=500, detail=error_msg)
 
 @router.post("/processors/health-check")
-async def run_processors_health_check() -> HybridProcessorHealthCheckResponse:
+async def run_processors_health_check(
+    current_user: User = Depends(get_current_user)
+) -> HybridProcessorHealthCheckResponse:
     """
     Ejecuta health check en todos los procesadores
     """

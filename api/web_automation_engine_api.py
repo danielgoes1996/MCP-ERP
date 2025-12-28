@@ -4,6 +4,7 @@ from datetime import datetime
 import logging
 import asyncio
 from core.web_automation_engine_system import WebAutomationEngineSystem, WebAutomationStrategy, WebAutomationEngine
+from core.auth.jwt import get_current_user, User
 from core.api_models import (
     WebAutomationSessionCreateRequest,
     WebAutomationSessionCreateResponse,
@@ -25,7 +26,10 @@ router = APIRouter(prefix="/api/web-automation-engine", tags=["Web Automation En
 web_system = WebAutomationEngineSystem()
 
 @router.post("/sessions", response_model=WebAutomationSessionCreateResponse)
-async def create_web_automation_session(request: WebAutomationSessionCreateRequest):
+async def create_web_automation_session(
+    request: WebAutomationSessionCreateRequest,
+    current_user: User = Depends(get_current_user)
+):
     """
     Crear nueva sesión de automatización web multi-engine
 
@@ -100,7 +104,10 @@ async def create_web_automation_session(request: WebAutomationSessionCreateReque
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/sessions/{session_id}/start", response_model=WebSessionControlResponse)
-async def start_web_automation_session(session_id: str):
+async def start_web_automation_session(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """
     Iniciar ejecución de sesión de automatización web
 
@@ -141,7 +148,10 @@ async def start_web_automation_session(session_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/sessions/{session_id}/status", response_model=WebAutomationSessionStatusResponse)
-async def get_web_session_status(session_id: str):
+async def get_web_session_status(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """
     Obtener estado detallado de sesión web con métricas de performance
     """
@@ -176,7 +186,10 @@ async def get_web_session_status(session_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/sessions/{session_id}/pause", response_model=WebSessionControlResponse)
-async def pause_web_session(session_id: str):
+async def pause_web_session(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """
     Pausar sesión de automatización web
     """
@@ -196,7 +209,10 @@ async def pause_web_session(session_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/sessions/{session_id}/resume", response_model=WebSessionControlResponse)
-async def resume_web_session(session_id: str):
+async def resume_web_session(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """
     Reanudar sesión de automatización web pausada
     """
@@ -215,7 +231,10 @@ async def resume_web_session(session_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/sessions/{session_id}/cancel", response_model=WebSessionControlResponse)
-async def cancel_web_session(session_id: str):
+async def cancel_web_session(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """
     Cancelar sesión de automatización web
     """
@@ -238,7 +257,8 @@ async def cancel_web_session(session_id: str):
 @router.get("/analytics/{user_id}", response_model=WebAutomationAnalyticsResponse)
 async def get_web_analytics(
     user_id: str,
-    days: int = Query(default=30, ge=1, le=365, description="Número de días para análisis")
+    days: int = Query(default=30, ge=1, le=365, description="Número de días para análisis"),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Obtener analytics completas de automatización web
@@ -268,7 +288,10 @@ async def get_web_analytics(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/engines/config", response_model=WebEngineConfigResponse)
-async def configure_web_engine(request: WebEngineConfigRequest):
+async def configure_web_engine(
+    request: WebEngineConfigRequest,
+    current_user: User = Depends(get_current_user)
+):
     """
     Configurar engine de automatización web
 
@@ -316,7 +339,10 @@ async def configure_web_engine(request: WebEngineConfigRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/engines", response_model=List[WebEngineConfigResponse])
-async def list_web_engines(active_only: bool = Query(default=True, description="Solo mostrar engines activos")):
+async def list_web_engines(
+    active_only: bool = Query(default=True, description="Solo mostrar engines activos"),
+    current_user: User = Depends(get_current_user)
+):
     """
     Listar engines de automatización web disponibles
     """
@@ -392,7 +418,8 @@ async def list_web_engines(active_only: bool = Query(default=True, description="
 @router.get("/sessions/{session_id}/dom-analysis", response_model=List[WebDOMAnalysisResponse])
 async def get_session_dom_analysis(
     session_id: str,
-    limit: int = Query(default=10, ge=1, le=50, description="Número máximo de análisis")
+    limit: int = Query(default=10, ge=1, le=50, description="Número máximo de análisis"),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Obtener análisis de DOM realizados durante la sesión
@@ -440,7 +467,8 @@ async def get_session_dom_analysis(
 @router.get("/sessions/{session_id}/captcha-solutions", response_model=List[WebCaptchaSolutionResponse])
 async def get_session_captcha_solutions(
     session_id: str,
-    limit: int = Query(default=10, ge=1, le=50, description="Número máximo de soluciones")
+    limit: int = Query(default=10, ge=1, le=50, description="Número máximo de soluciones"),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Obtener historial de soluciones de CAPTCHA de la sesión
@@ -472,7 +500,9 @@ async def get_session_captcha_solutions(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/performance", response_model=WebPerformanceMetricsResponse)
-async def get_web_performance_metrics():
+async def get_web_performance_metrics(
+    current_user: User = Depends(get_current_user)
+):
     """
     Obtener métricas de performance del sistema de automatización web
     """
@@ -498,7 +528,10 @@ async def get_web_performance_metrics():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/sessions/{session_id}/fingerprint/rotate")
-async def rotate_browser_fingerprint(session_id: str):
+async def rotate_browser_fingerprint(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """
     Rotar browser fingerprint para evasión avanzada
     """
@@ -522,7 +555,10 @@ async def rotate_browser_fingerprint(session_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/sessions/{session_id}/anti-detection/enable")
-async def enable_anti_detection(session_id: str):
+async def enable_anti_detection(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """
     Activar medidas anti-detection avanzadas
     """
