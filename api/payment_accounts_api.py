@@ -6,8 +6,10 @@ Incluye CRUD completo para bancos, efectivo, terminales y tarjetas de crédito
 from fastapi import APIRouter, HTTPException, Depends, status, Query
 from typing import List, Optional
 import logging
+from pydantic import BaseModel
+from datetime import datetime
 
-from core.auth.unified import get_current_active_user, User
+from core.auth.jwt import get_current_user, User
 from core.payment_accounts_models import (
     UserPaymentAccount,
     CreateUserPaymentAccountRequest,
@@ -20,6 +22,55 @@ from core.payment_accounts_models import (
     payment_account_service
 )
 
+
+# Response model with English field names for frontend compatibility
+class PaymentAccountResponse(BaseModel):
+    """Response model with English field names matching frontend expectations"""
+    id: int
+    account_name: str
+    bank_name: Optional[str] = None
+    account_number: Optional[str] = None
+    account_type: str
+    currency: str
+    balance: float
+    status: str
+    tenant_id: int
+    company_id: Optional[int] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+def map_account_to_response(account: UserPaymentAccount) -> PaymentAccountResponse:
+    """Map Spanish field names to English for frontend compatibility"""
+
+    # Map account type based on tipo and subtipo
+    account_type_map = {
+        (TipoCuenta.BANCARIA, SubtipoCuenta.CREDITO): "credit_card",
+        (TipoCuenta.BANCARIA, SubtipoCuenta.DEBITO): "debit_card",
+        (TipoCuenta.EFECTIVO, None): "cash",
+        (TipoCuenta.TERMINAL, None): "terminal",
+    }
+
+    account_type = account_type_map.get(
+        (account.tipo, account.subtipo),
+        "checking"  # default
+    )
+
+    return PaymentAccountResponse(
+        id=account.id,
+        account_name=account.nombre,
+        bank_name=account.banco_nombre,
+        account_number=account.numero_cuenta_enmascarado or account.numero_tarjeta,
+        account_type=account_type,
+        currency=account.moneda,
+        balance=account.saldo_actual,
+        status="active" if account.activo else "inactive",
+        tenant_id=account.tenant_id,
+        company_id=None,  # user_payment_accounts doesn't have company_id
+        created_at=account.created_at.isoformat() if account.created_at else None,
+        updated_at=account.updated_at.isoformat() if account.updated_at else None
+    )
+
 logger = logging.getLogger(__name__)
 
 # Router para endpoints de cuentas de pago
@@ -28,7 +79,7 @@ router = APIRouter(prefix="/payment-accounts", tags=["Payment Accounts"])
 
 @router.get("/", response_model=List[UserPaymentAccount])
 async def get_user_payment_accounts(
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_user),
     active_only: bool = Query(True, description="Solo cuentas activas"),
     tipo: Optional[TipoCuenta] = Query(None, description="Filtrar por tipo de cuenta")
 ):
@@ -40,7 +91,7 @@ async def get_user_payment_accounts(
     - tipo: Filtrar por tipo específico de cuenta (opcional)
 
     Retorna:
-    - Lista de cuentas de pago del usuario
+    - Lista de cuentas de pago del usuario con nombres de campos en español
     """
     try:
         logger.info(f"Getting payment accounts for user: {current_user.email}")
@@ -68,7 +119,7 @@ async def get_user_payment_accounts(
 @router.get("/{account_id}", response_model=UserPaymentAccount)
 async def get_payment_account(
     account_id: int,
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Obtener una cuenta de pago específica
@@ -105,7 +156,7 @@ async def get_payment_account(
 @router.post("/", response_model=UserPaymentAccount, status_code=status.HTTP_201_CREATED)
 async def create_payment_account(
     request: CreateUserPaymentAccountRequest,
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Crear nueva cuenta de pago
@@ -195,7 +246,7 @@ async def create_payment_account(
 async def update_payment_account(
     account_id: int,
     request: UpdateUserPaymentAccountRequest,
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Actualizar cuenta de pago existente
@@ -247,7 +298,7 @@ async def update_payment_account(
 @router.delete("/{account_id}")
 async def delete_payment_account(
     account_id: int,
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Desactivar cuenta de pago (soft delete)
@@ -296,7 +347,7 @@ async def delete_payment_account(
 
 @router.get("/summary/dashboard")
 async def get_accounts_summary(
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Obtener resumen de cuentas para dashboard
