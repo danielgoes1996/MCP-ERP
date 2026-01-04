@@ -1,0 +1,307 @@
+name: 🛡️ Production Gatekeeper
+
+# MISIÓN: NO permitir que código roto llegue a main
+# Si algo falla aquí, el deploy se CANCELA automáticamente
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # ==================== JOB 1: Security & Tests ====================
+  security-tests:
+    name: 🔒 Security & Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v3
+
+      - name: 🐍 Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+
+      - name: 📦 Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio
+
+      - name: 🧪 Run Shared Logic Tests (CRÍTICO)
+        run: |
+          echo "🛡️ Running critical security tests..."
+          pytest tests/test_shared_logic.py -v --tb=short
+
+          # Si falla, el workflow se detiene aquí
+          if [ $? -ne 0 ]; then
+            echo "❌ CRITICAL: Shared logic tests failed!"
+            echo "🚨 shared_logic.py is single point of failure"
+            echo "🚨 Fix tests before merging to main"
+            exit 1
+          fi
+
+          echo "✅ All critical tests passed"
+
+      - name: 🧪 Run All Unit Tests
+        run: |
+          pytest tests/ -v --ignore=tests/integration/ --ignore=tests/e2e/
+        continue-on-error: false
+
+      - name: 📊 Generate Coverage Report
+        run: |
+          pytest tests/test_shared_logic.py \
+            --cov=core.verticals.base.shared_logic \
+            --cov-report=html \
+            --cov-report=term \
+            --cov-fail-under=80
+
+          echo "✅ Coverage threshold met (>80%)"
+
+      - name: 📤 Upload Coverage Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: htmlcov/
+
+  # ==================== JOB 2: SQL Validation ====================
+  sql-validation:
+    name: 🗄️ SQL Migration Validation
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v3
+
+      - name: 🔍 Check SQL Syntax
+        run: |
+          echo "🔍 Validating SQL migrations syntax..."
+
+          # Buscar todas las migraciones
+          for sql_file in migrations/*.sql migrations/verticals/**/*.sql; do
+            if [ -f "$sql_file" ]; then
+              echo "Checking: $sql_file"
+
+              # Validar sintaxis con psql --dry-run (parse only)
+              docker exec -i $(docker ps -q -f ancestor=postgres:16) \
+                psql -U postgres -d test_db -f - --dry-run < "$sql_file" 2>&1 | grep -i "error" && {
+                  echo "❌ SQL syntax error in: $sql_file"
+                  exit 1
+                } || true
+            fi
+          done
+
+          echo "✅ All SQL migrations have valid syntax"
+
+      - name: 🧪 Test Critical Migration (064)
+        run: |
+          echo "🧪 Testing MV refresh strategy migration..."
+
+          # Aplicar migración
+          docker exec -i $(docker ps -q -f ancestor=postgres:16) \
+            psql -U postgres -d test_db < migrations/064_mv_refresh_strategy.sql
+
+          # Verificar que tablas se crearon
+          docker exec -i $(docker ps -q -f ancestor=postgres:16) \
+            psql -U postgres -d test_db -c "\dt mv_refresh_log" | grep "mv_refresh_log" || {
+              echo "❌ Migration 064 failed: mv_refresh_log not created"
+              exit 1
+            }
+
+          echo "✅ Migration 064 applied successfully"
+
+  # ==================== JOB 3: Security Scan ====================
+  security-scan:
+    name: 🔐 Security Vulnerability Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v3
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: 🔍 Run Bandit (Security Linter)
+        run: |
+          pip install bandit
+          bandit -r core/ api/ -f json -o bandit-report.json || true
+          bandit -r core/ api/ -ll  # High severity only
+
+          # Si hay HIGH severity issues, fallar
+          bandit -r core/ api/ -lll && {
+            echo "✅ No critical security issues found"
+          } || {
+            echo "❌ CRITICAL security issues found!"
+            exit 1
+          }
+
+      - name: 📤 Upload Security Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-report
+          path: bandit-report.json
+
+  # ==================== JOB 4: Linting & Code Quality ====================
+  code-quality:
+    name: 📝 Code Quality & Linting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v3
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: 📦 Install Linters
+        run: |
+          pip install flake8 black isort mypy
+
+      - name: 🎨 Check Code Formatting (Black)
+        run: |
+          black --check core/ api/ tests/
+        continue-on-error: true  # Warning only
+
+      - name: 📏 Check Import Order (isort)
+        run: |
+          isort --check-only core/ api/ tests/
+        continue-on-error: true
+
+      - name: 🔍 Run Flake8
+        run: |
+          flake8 core/ api/ --max-line-length=120 --ignore=E203,W503
+        continue-on-error: true
+
+  # ==================== JOB 5: Integration Tests (Optional) ====================
+  integration-tests:
+    name: 🔗 Integration Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: mcp_system
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v3
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: 📦 Install Dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+
+      - name: 🗄️ Setup Test Database
+        run: |
+          # Aplicar migraciones críticas
+          PGPASSWORD=test_password psql -h localhost -U postgres -d mcp_system \
+            < migrations/062_cpg_retail_vertical_tables.sql
+
+          PGPASSWORD=test_password psql -h localhost -U postgres -d mcp_system \
+            < migrations/064_mv_refresh_strategy.sql
+
+      - name: 🧪 Run Integration Tests
+        run: |
+          pytest tests/integration/ -v
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: mcp_system
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test_password
+
+  # ==================== JOB 6: Deployment Gate ====================
+  deployment-gate:
+    name: 🚦 Deployment Gate
+    runs-on: ubuntu-latest
+    needs: [security-tests, sql-validation, security-scan]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: ✅ All Gates Passed
+        run: |
+          echo "🎉 =================================="
+          echo "🎉 ALL PRODUCTION GATES PASSED"
+          echo "🎉 =================================="
+          echo ""
+          echo "✅ Security Tests: PASSED"
+          echo "✅ SQL Validation: PASSED"
+          echo "✅ Security Scan: PASSED"
+          echo ""
+          echo "🚀 Safe to deploy to production"
+          echo ""
+          echo "Next steps:"
+          echo "  1. Review deployment checklist"
+          echo "  2. Run: ./deploy.sh staging"
+          echo "  3. Verify staging"
+          echo "  4. Run: ./deploy.sh production"
+
+      - name: 📢 Notify Success
+        if: success()
+        run: |
+          echo "::notice title=Deployment Ready::All production gates passed. Safe to deploy."
+
+      - name: 🚨 Notify Failure
+        if: failure()
+        run: |
+          echo "::error title=Production Gate Failed::One or more critical checks failed. DO NOT deploy."
+          exit 1
+
+# ==================== Notifications (Optional) ====================
+  # notify-slack:
+  #   name: 📢 Notify Team
+  #   runs-on: ubuntu-latest
+  #   needs: [deployment-gate]
+  #   if: always()
+  #
+  #   steps:
+  #     - name: Send Slack Notification
+  #       uses: slackapi/slack-github-action@v1
+  #       with:
+  #         payload: |
+  #           {
+  #             "text": "Production Gatekeeper: ${{ job.status }}",
+  #             "blocks": [
+  #               {
+  #                 "type": "section",
+  #                 "text": {
+  #                   "type": "mrkdwn",
+  #                   "text": "🛡️ *Production Gatekeeper*\nStatus: ${{ job.status }}\nBranch: ${{ github.ref }}"
+  #                 }
+  #               }
+  #             ]
+  #           }
+  #       env:
+  #         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

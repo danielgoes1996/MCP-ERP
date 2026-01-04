@@ -1,0 +1,130 @@
+#!/bin/bash
+
+# =====================================================
+# Pre-Commit Hook: Local Guardian
+# Previene commits con código roto
+# =====================================================
+
+set -e
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+echo ""
+echo "🛡️  Running pre-commit checks..."
+echo ""
+
+# =====================================================
+# 1. Check for Large Files
+# =====================================================
+
+echo "📦 Checking for large files..."
+git diff --cached --name-only | while read file; do
+    if [ -f "$file" ]; then
+        size=$(wc -c <"$file")
+        if [ $size -gt 5242880 ]; then  # 5MB
+            echo -e "${RED}❌ File too large: $file ($(numfmt --to=iec-i --suffix=B $size))${NC}"
+            echo "   Consider using Git LFS or excluding this file"
+            exit 1
+        fi
+    fi
+done
+
+echo -e "${GREEN}✅ No large files${NC}"
+
+# =====================================================
+# 2. Check for Secrets/Credentials
+# =====================================================
+
+echo ""
+echo "🔐 Checking for secrets..."
+
+SECRETS_PATTERNS=(
+    "password.*=.*['\"].*['\"]"
+    "api[_-]?key.*=.*['\"].*['\"]"
+    "secret.*=.*['\"].*['\"]"
+    "token.*=.*['\"].*['\"]"
+    "POSTGRES_PASSWORD.*=.*['\"](?!changeme)"  # OK if 'changeme'
+)
+
+for pattern in "${SECRETS_PATTERNS[@]}"; do
+    # Exclude .git-hooks/ directory from scanning (don't flag our own patterns!)
+    if git diff --cached -- . ':!.git-hooks/' | grep -iE "$pattern" > /dev/null; then
+        echo -e "${RED}❌ Potential secret found!${NC}"
+        echo "   Pattern: $pattern"
+        echo "   Please review your staged changes"
+        exit 1
+    fi
+done
+
+echo -e "${GREEN}✅ No secrets detected${NC}"
+
+# =====================================================
+# 3. Run Critical Tests (Fast)
+# =====================================================
+
+echo ""
+echo "🧪 Running critical tests..."
+
+# Only run if Python files changed
+if git diff --cached --name-only | grep -qE '\.py$'; then
+    # Run only security tests (fast)
+    python3 -m pytest tests/test_shared_logic.py::TestSecurityAndEdgeCases -v --tb=line -q
+
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}❌ Critical security tests failed!${NC}"
+        echo "   Fix tests before committing"
+        echo ""
+        echo "   To skip (NOT RECOMMENDED): git commit --no-verify"
+        exit 1
+    fi
+
+    echo -e "${GREEN}✅ Critical tests passed${NC}"
+else
+    echo -e "${YELLOW}⏭️  No Python files changed, skipping tests${NC}"
+fi
+
+# =====================================================
+# 4. Check SQL Files
+# =====================================================
+
+echo ""
+echo "🗄️  Checking SQL files..."
+
+if git diff --cached --name-only | grep -qE '\.sql$'; then
+    # Check for dangerous SQL commands
+    if git diff --cached | grep -iE '(DROP DATABASE|TRUNCATE.*CASCADE|DELETE FROM.*WHERE.*1=1)' > /dev/null; then
+        echo -e "${RED}❌ Dangerous SQL command detected!${NC}"
+        echo "   Please review your SQL changes carefully"
+        exit 1
+    fi
+
+    echo -e "${GREEN}✅ SQL files look safe${NC}"
+fi
+
+# =====================================================
+# 5. Lint Python Files (Optional - Warning Only)
+# =====================================================
+
+echo ""
+echo "📝 Linting Python files..."
+
+if git diff --cached --name-only | grep -qE '\.py$'; then
+    if command -v flake8 &> /dev/null; then
+        git diff --cached --name-only | grep '\.py$' | xargs flake8 --max-line-length=120 --ignore=E203,W503 2>&1 | head -20 || {
+            echo -e "${YELLOW}⚠️  Linting warnings (not blocking)${NC}"
+        }
+    fi
+fi
+
+# =====================================================
+# Summary
+# =====================================================
+
+echo ""
+echo -e "${GREEN}🎉 All pre-commit checks passed!${NC}"
+echo ""
+
+exit 0

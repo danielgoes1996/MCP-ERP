@@ -1,0 +1,112 @@
+# GitLab CI/CD Configuration
+# Alternative to GitHub Actions for GitLab users
+
+stages:
+  - test
+  - security
+  - validate
+  - deploy-gate
+
+variables:
+  POSTGRES_DB: test_db
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: test_password
+  POSTGRES_HOST_AUTH_METHOD: trust
+
+# ==================== STAGE 1: Tests ====================
+
+unit-tests:
+  stage: test
+  image: python:3.11
+
+  before_script:
+    - pip install -r requirements.txt
+    - pip install pytest pytest-cov pytest-asyncio
+
+  script:
+    - echo "🧪 Running critical shared logic tests..."
+    - pytest tests/test_shared_logic.py -v --tb=short
+    - |
+      if [ $? -ne 0 ]; then
+        echo "❌ CRITICAL: Shared logic tests failed!"
+        exit 1
+      fi
+    - echo "✅ Critical tests passed"
+    - pytest tests/ -v --ignore=tests/integration/ --ignore=tests/e2e/
+
+  coverage: '/TOTAL.*\s+(\d+%)$/'
+
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - htmlcov/
+    expire_in: 1 week
+
+# ==================== STAGE 2: Security ====================
+
+security-scan:
+  stage: security
+  image: python:3.11
+
+  script:
+    - pip install bandit safety
+    - echo "🔍 Running security scan..."
+    - bandit -r core/ api/ -ll
+    - safety check --json
+
+  allow_failure: false
+
+sql-injection-check:
+  stage: security
+  image: python:3.11
+
+  script:
+    - echo "🔍 Checking for SQL injection vulnerabilities..."
+    - grep -rn "execute_query.*f\"" core/ api/ && exit 1 || echo "✅ No f-strings in SQL queries"
+    - grep -rn "execute_query.*format(" core/ api/ && exit 1 || echo "✅ No .format() in SQL queries"
+    - echo "✅ SQL injection checks passed"
+
+# ==================== STAGE 3: Validation ====================
+
+sql-validation:
+  stage: validate
+  image: postgres:16
+
+  services:
+    - postgres:16
+
+  script:
+    - echo "🗄️ Testing SQL migrations..."
+    - psql -U postgres -d test_db < migrations/062_cpg_retail_vertical_tables.sql
+    - psql -U postgres -d test_db < migrations/064_mv_refresh_strategy.sql
+    - psql -U postgres -d test_db -c "\dt mv_refresh_log" | grep "mv_refresh_log"
+    - echo "✅ SQL migrations valid"
+
+# ==================== STAGE 4: Deployment Gate ====================
+
+deployment-gate:
+  stage: deploy-gate
+  image: alpine:latest
+
+  dependencies:
+    - unit-tests
+    - security-scan
+    - sql-validation
+
+  script:
+    - echo "🎉 =================================="
+    - echo "🎉 ALL PRODUCTION GATES PASSED"
+    - echo "🎉 =================================="
+    - echo ""
+    - echo "✅ Security Tests: PASSED"
+    - echo "✅ SQL Validation: PASSED"
+    - echo "✅ Security Scan: PASSED"
+    - echo ""
+    - echo "🚀 Safe to deploy to production"
+
+  only:
+    - main
+    - master
