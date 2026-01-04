@@ -1989,6 +1989,89 @@ def get_unified_adapter(db_path: str = None) -> UnifiedDBAdapter:
 
     return _global_adapter
 
+
+# Generic query execution function for verticals
+def execute_query(
+    query: str,
+    params: Optional[Union[Tuple[Any, ...], Sequence[Any]]] = None,
+    fetch_one: bool = False
+) -> Union[Dict[str, Any], List[Dict[str, Any]], None]:
+    """
+    Execute a raw SQL query and return results as dict(s).
+
+    This is the generic query executor used by the vertical system.
+
+    Args:
+        query: SQL query string
+        params: Query parameters (tuple or list)
+        fetch_one: If True, return single dict; if False, return list of dicts
+
+    Returns:
+        Single dict if fetch_one=True, list of dicts otherwise, or None if no results
+
+    Examples:
+        # Fetch single row
+        result = execute_query(
+            "SELECT * FROM users WHERE id = %s",
+            (user_id,),
+            fetch_one=True
+        )
+
+        # Fetch multiple rows
+        results = execute_query(
+            "SELECT * FROM products WHERE company_id = %s",
+            (company_id,)
+        )
+    """
+    adapter = get_unified_adapter()
+
+    try:
+        with adapter.get_connection() as conn:
+            cursor = conn.cursor()
+
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+
+            if fetch_one:
+                row = cursor.fetchone()
+                if row is None:
+                    return None
+
+                # Convert Row object to dict
+                if hasattr(row, 'keys'):
+                    return dict(row)
+                elif isinstance(row, dict):
+                    return row
+                else:
+                    # Fallback for tuple rows
+                    return {"result": row}
+            else:
+                rows = cursor.fetchall()
+                if not rows:
+                    return []
+
+                # Convert Row objects to dicts
+                results = []
+                for row in rows:
+                    if hasattr(row, 'keys'):
+                        results.append(dict(row))
+                    elif isinstance(row, dict):
+                        results.append(row)
+                    else:
+                        # Fallback for tuple rows
+                        results.append({"result": row})
+
+                return results
+
+    except Exception as e:
+        logger.error(f"Error executing query: {e}", exc_info=True)
+        logger.error(f"Query: {query}")
+        logger.error(f"Params: {params}")
+        raise
+
+
 # Funciones de compatibilidad directa
 def record_internal_expense(expense_data: Dict[str, Any], tenant_id: int = 1) -> int:
     return get_unified_adapter().record_internal_expense(expense_data, tenant_id)
