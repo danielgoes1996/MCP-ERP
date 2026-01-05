@@ -4,16 +4,55 @@ Shared business logic across ALL verticals.
 NO MÁS COPY-PASTE. Usa composición, no duplicación.
 """
 
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, Callable
 from datetime import datetime
 import logging
 from dataclasses import dataclass
 import json
+from contextlib import contextmanager
 
 # Import execute_query at module level for testing/patching
 from core.shared.unified_db_adapter import execute_query
 
 logger = logging.getLogger(__name__)
+
+
+# ==================== Transaction Management ====================
+# NOTE: This is currently a STUB - real implementation blocked by unified_db_adapter limitations
+# See CRITICAL_TECHNICAL_DEBT.md for details
+
+@contextmanager
+def atomic_transaction():
+    """
+    Context manager for atomic database transactions.
+
+    ⚠️ STUB IMPLEMENTATION - NOT FUNCTIONAL
+    Real implementation requires refactoring execute_query() to support external connections.
+    See CRITICAL_TECHNICAL_DEBT.md for details.
+
+    Planned Usage:
+        with atomic_transaction() as conn:
+            # All queries use this connection
+            # Automatic COMMIT on success, ROLLBACK on exception
+    """
+    # TODO: Implement when execute_query() supports connection parameter
+    # conn = get_connection()  # Function doesn't exist yet
+    # try:
+    #     yield conn
+    #     conn.commit()
+    #     logger.debug("✅ Transaction committed successfully")
+    # except Exception as e:
+    #     conn.rollback()
+    #     logger.error(f"❌ Transaction rolled back due to: {e}")
+    #     raise
+    # finally:
+    #     pass
+
+    raise NotImplementedError(
+        "atomic_transaction() is not yet implemented. "
+        "Requires refactoring execute_query() to accept external connections. "
+        "See CRITICAL_TECHNICAL_DEBT.md for mitigation strategy."
+    )
 
 
 # ==================== Shared Data Access Layer ====================

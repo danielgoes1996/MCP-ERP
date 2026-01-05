@@ -24,6 +24,7 @@ from .models import (
     POSStatus,
     ConsignmentStatus
 )
+from .utils.geo import validate_geofence
 
 logger = logging.getLogger(__name__)
 
@@ -553,17 +554,44 @@ class CPGRetailVertical(VerticalBase, EnhancedVerticalBase):
         GPS check-in at visit location.
 
         gps_data: {"lat": X, "lng": Y, "accuracy": Z, "timestamp": "..."}
+
+        🛡️ SECURITY: Validates geofencing (vendedor must be within 200m of POS)
         """
         current = self.visits_dal.get(company_id, visit_id)
         if not current:
             raise ValueError(f"Visit {visit_id} not found")
 
+        # Get POS coordinates for geofencing validation
+        pos = self.pos_dal.get(company_id, current['pos_id'])
+        if not pos:
+            raise ValueError(f"POS {current['pos_id']} not found")
+
+        # Extract coordinates
+        visit_lat = gps_data.get('lat')
+        visit_lon = gps_data.get('lng')
+        pos_coords = pos.get('coordenadas', {}) if pos.get('coordenadas') else {}
+        pos_lat = pos_coords.get('lat') if isinstance(pos_coords, dict) else None
+        pos_lon = pos_coords.get('lng') if isinstance(pos_coords, dict) else None
+
+        # Validate geofence (200m threshold)
+        geofence_result = validate_geofence(visit_lat, visit_lon, pos_lat, pos_lon, threshold_meters=200)
+
+        if not geofence_result['valid']:
+            logger.warning(f"❌ Geofence violation for visit {visit_id}: {geofence_result.get('error')}")
+            raise ValueError(f"Geofence violation: {geofence_result.get('error')}")
+
+        logger.info(f"✅ Geofence validation passed: {geofence_result.get('distance_meters')}m from POS")
+
+        # Store validated GPS data
         result = self.visits_dal.update(company_id, visit_id, {
             'gps_checkin': gps_data,
             'fecha_visita_real': gps_data.get('timestamp')
         })
 
-        self.log_operation("checkin", "visit", visit_id, gps_data)
+        self.log_operation("checkin", "visit", visit_id, {
+            **gps_data,
+            "geofence_distance_meters": geofence_result.get('distance_meters')
+        })
         return result
 
     async def visit_checkout(self, company_id: str, visit_id: int, gps_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -613,6 +641,11 @@ class CPGRetailVertical(VerticalBase, EnhancedVerticalBase):
             "observaciones": "...",
             "foto_evidencias": [...]
         }
+
+        ⚠️ CRITICAL: NO REAL TRANSACTION SUPPORT (Technical Debt)
+        🛡️ FAIL-SAFE ORDER: Dinero → Inventario → Status
+           If crash happens, we have "Consignment exists but Visit still open"
+           which is DETECTABLE and RECOVERABLE (vs silent data loss)
         """
         # Validate state transition
         current = self.visits_dal.get(company_id, visit_id)
@@ -627,31 +660,53 @@ class CPGRetailVertical(VerticalBase, EnhancedVerticalBase):
             monto_total = self.financial.calculate_total(productos, qty_field='qty', price_field='precio')
             completion_data['monto_total_entregado'] = monto_total
 
-        # Mark as completed
-        completion_data['status'] = 'completed'
+        consignment_id = None
 
-        result = self.visits_dal.update(company_id, visit_id, completion_data)
+        try:
+            # STEP 1: 💰 Create Consignment FIRST (MONEY - most critical)
+            if productos and completion_data.get('monto_total_entregado', 0) > 0:
+                logger.info(f"[VISIT-{visit_id}] Step 1/3: Creating consignment (${completion_data['monto_total_entregado']})")
+                consignment = await self.create_consignment(company_id, {
+                    'pos_id': current['pos_id'],
+                    'visit_id': visit_id,
+                    'origen_visita': True,
+                    'numero_remision': f"VISIT-{visit_id}",
+                    'fecha_entrega': completion_data.get('fecha_visita_real') or current.get('fecha_visita_real'),
+                    'productos': productos,
+                    'monto_total': completion_data['monto_total_entregado'],
+                    'notas': f"Generado automáticamente desde visita #{visit_id}"
+                })
+                consignment_id = consignment.get('id')
+                logger.info(f"[VISIT-{visit_id}] ✅ Consignment created: {consignment_id}")
 
-        # Update POS ultima_visita
-        self.pos_dal.update(company_id, current['pos_id'], {
-            'ultima_visita': result.get('fecha_visita_real')
-        })
+            # STEP 2: 📦 Update POS (INVENTORY)
+            logger.info(f"[VISIT-{visit_id}] Step 2/3: Updating POS ultima_visita")
+            self.pos_dal.update(company_id, current['pos_id'], {
+                'ultima_visita': completion_data.get('fecha_visita_real') or current.get('fecha_visita_real')
+            })
+            logger.info(f"[VISIT-{visit_id}] ✅ POS updated")
 
-        # Create consignment if productos were delivered
-        if productos and completion_data.get('monto_total_entregado', 0) > 0:
-            await self.create_consignment(company_id, {
-                'pos_id': current['pos_id'],
-                'visit_id': visit_id,
-                'origen_visita': True,
-                'numero_remision': f"VISIT-{visit_id}",
-                'fecha_entrega': result.get('fecha_visita_real'),
-                'productos': productos,
-                'monto_total': completion_data['monto_total_entregado'],
-                'notas': f"Generado automáticamente desde visita #{visit_id}"
+            # STEP 3: 🏁 Mark Visit as Completed (STATUS - last to avoid silent failures)
+            logger.info(f"[VISIT-{visit_id}] Step 3/3: Closing visit")
+            completion_data['status'] = 'completed'
+            result = self.visits_dal.update(company_id, visit_id, completion_data)
+            logger.info(f"[VISIT-{visit_id}] ✅ Visit completed successfully")
+
+            self.log_operation("complete", "visit", visit_id, {
+                "consignment_id": consignment_id,
+                "monto_entregado": completion_data.get('monto_total_entregado'),
+                "productos_count": len(productos) if productos else 0
             })
 
-        self.log_operation("complete", "visit", visit_id)
-        return result
+            return result
+
+        except Exception as e:
+            logger.error(f"❌ [VISIT-{visit_id}] CRITICAL ERROR during completion: {e}")
+            logger.error(f"   Consignment ID: {consignment_id or 'NOT_CREATED'}")
+            logger.error(f"   POS ID: {current['pos_id']}")
+            logger.error(f"   Visit Status: {current['status']}")
+            logger.error(f"   🧹 MANUAL CLEANUP REQUIRED - Check 'orphaned consignments' report")
+            raise
 
     # ==================== Reports (Sin cambios - queries específicos) ====================
 
