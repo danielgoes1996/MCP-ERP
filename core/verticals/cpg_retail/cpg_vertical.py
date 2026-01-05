@@ -51,6 +51,12 @@ class CPGRetailVertical(VerticalBase, EnhancedVerticalBase):
         self.pos_dal = self.create_dal("cpg_pos")
         self.consignment_dal = self.create_dal("cpg_consignment")
 
+        # 🆕 NEW: Field Sales DALs
+        self.productos_dal = self.create_dal("cpg_productos")
+        self.routes_dal = self.create_dal("cpg_routes")
+        self.visits_dal = self.create_dal("cpg_visits")
+        self.delivery_items_dal = self.create_dal("cpg_delivery_items")
+
         # ✅ State machine para consignment (previene transiciones inválidas)
         self.consignment_sm = self.create_status_machine({
             "pending": ["sold", "returned", "cancelled"],
@@ -59,6 +65,15 @@ class CPGRetailVertical(VerticalBase, EnhancedVerticalBase):
             "paid": [],
             "returned": [],
             "cancelled": []
+        })
+
+        # 🆕 NEW: State machine para visits
+        self.visit_sm = self.create_status_machine({
+            "scheduled": ["completed", "cancelled", "no_show", "rescheduled"],
+            "completed": [],
+            "cancelled": ["scheduled"],  # Can reschedule
+            "no_show": ["scheduled"],
+            "rescheduled": ["completed", "cancelled", "no_show"]
         })
 
     def get_custom_endpoints(self) -> List[tuple]:
@@ -78,9 +93,37 @@ class CPGRetailVertical(VerticalBase, EnhancedVerticalBase):
             ("PUT", "/api/v1/verticals/cpg/consignment/{consignment_id}/sold", self.mark_consignment_sold),
             ("PUT", "/api/v1/verticals/cpg/consignment/{consignment_id}/paid", self.mark_consignment_paid),
 
+            # 🆕 Products
+            ("GET", "/api/v1/verticals/cpg/productos", self.list_productos),
+            ("POST", "/api/v1/verticals/cpg/productos", self.create_producto),
+            ("GET", "/api/v1/verticals/cpg/productos/{producto_id}", self.get_producto),
+            ("PUT", "/api/v1/verticals/cpg/productos/{producto_id}", self.update_producto),
+            ("DELETE", "/api/v1/verticals/cpg/productos/{producto_id}", self.deactivate_producto),
+
+            # 🆕 Routes
+            ("GET", "/api/v1/verticals/cpg/routes", self.list_routes),
+            ("POST", "/api/v1/verticals/cpg/routes", self.create_route),
+            ("GET", "/api/v1/verticals/cpg/routes/{route_id}", self.get_route),
+            ("PUT", "/api/v1/verticals/cpg/routes/{route_id}", self.update_route),
+            ("DELETE", "/api/v1/verticals/cpg/routes/{route_id}", self.deactivate_route),
+
+            # 🆕 Visits
+            ("GET", "/api/v1/verticals/cpg/visits", self.list_visits),
+            ("POST", "/api/v1/verticals/cpg/visits", self.create_visit),
+            ("GET", "/api/v1/verticals/cpg/visits/{visit_id}", self.get_visit),
+            ("PUT", "/api/v1/verticals/cpg/visits/{visit_id}", self.update_visit),
+            ("POST", "/api/v1/verticals/cpg/visits/{visit_id}/checkin", self.visit_checkin),
+            ("POST", "/api/v1/verticals/cpg/visits/{visit_id}/checkout", self.visit_checkout),
+            ("POST", "/api/v1/verticals/cpg/visits/{visit_id}/signature", self.visit_signature),
+            ("POST", "/api/v1/verticals/cpg/visits/{visit_id}/complete", self.complete_visit),
+
             # Reports
             ("GET", "/api/v1/verticals/cpg/reports/pos-sales", self.pos_sales_report),
             ("GET", "/api/v1/verticals/cpg/reports/consignment-aging", self.consignment_aging_report),
+            ("GET", "/api/v1/verticals/cpg/reports/route-performance", self.route_performance_report),
+            ("GET", "/api/v1/verticals/cpg/reports/visit-compliance", self.visit_compliance_report),
+            ("GET", "/api/v1/verticals/cpg/reports/product-performance", self.product_performance_report),
+            ("GET", "/api/v1/verticals/cpg/reports/inventory-variance", self.inventory_variance_report),
         ]
 
     def get_database_migrations(self) -> List[str]:
@@ -89,6 +132,7 @@ class CPGRetailVertical(VerticalBase, EnhancedVerticalBase):
             "migrations/verticals/cpg_retail/001_create_pos_table.sql",
             "migrations/verticals/cpg_retail/002_create_consignment_table.sql",
             "migrations/verticals/cpg_retail/003_add_pos_indexes.sql",
+            "migrations/verticals/cpg_retail/004_field_sales_system.sql",
         ]
 
     def get_feature_flags(self) -> Dict[str, bool]:
@@ -96,8 +140,12 @@ class CPGRetailVertical(VerticalBase, EnhancedVerticalBase):
         return {
             "cpg_pos_enabled": True,
             "cpg_consignment_tracking": True,
-            "cpg_inventory_sync": False,  # Future feature
-            "cpg_route_optimization": False,  # Future feature
+            "cpg_field_sales": True,  # 🆕 NEW
+            "cpg_route_management": True,  # 🆕 NEW
+            "cpg_gps_tracking": True,  # 🆕 NEW
+            "cpg_digital_signature": True,  # 🆕 NEW
+            "cpg_inventory_audit": True,  # 🆕 NEW
+            "cpg_route_optimization": False,  # Future: AI-based route optimization
         }
 
     def get_ui_config(self) -> Dict[str, Any]:
@@ -117,10 +165,28 @@ class CPGRetailVertical(VerticalBase, EnhancedVerticalBase):
                     "order": 101
                 },
                 {
+                    "label": "Productos",  # 🆕 NEW
+                    "path": "/cpg/productos",
+                    "icon": "box",
+                    "order": 102
+                },
+                {
+                    "label": "Rutas",  # 🆕 NEW
+                    "path": "/cpg/routes",
+                    "icon": "map",
+                    "order": 103
+                },
+                {
+                    "label": "Visitas",  # 🆕 NEW
+                    "path": "/cpg/visits",
+                    "icon": "map-pin",
+                    "order": 104
+                },
+                {
                     "label": "Reportes CPG",
                     "path": "/cpg/reports",
                     "icon": "chart-bar",
-                    "order": 102
+                    "order": 105
                 }
             ],
             "dashboard_widgets": [
@@ -135,6 +201,18 @@ class CPGRetailVertical(VerticalBase, EnhancedVerticalBase):
                     "component": "ConsignmentPendingWidget",
                     "size": "small",
                     "order": 2
+                },
+                {
+                    "type": "cpg_visits_today",  # 🆕 NEW
+                    "component": "VisitsTodayWidget",
+                    "size": "medium",
+                    "order": 3
+                },
+                {
+                    "type": "cpg_route_compliance",  # 🆕 NEW
+                    "component": "RouteComplianceWidget",
+                    "size": "small",
+                    "order": 4
                 }
             ]
         }
@@ -336,6 +414,245 @@ class CPGRetailVertical(VerticalBase, EnhancedVerticalBase):
         self.log_operation("mark_paid", "consignment", consignment_id)
         return result
 
+    # ==================== Products Management (🆕 NEW) ====================
+
+    async def list_productos(self, company_id: str, disponible: Optional[bool] = None) -> List[Dict[str, Any]]:
+        """List all products for a company."""
+        filters = {"disponible": disponible} if disponible is not None else None
+        return self.productos_dal.list(company_id, filters=filters)
+
+    async def create_producto(self, company_id: str, producto_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new product."""
+        return self.productos_dal.create(company_id, producto_data)
+
+    async def get_producto(self, company_id: str, producto_id: int) -> Optional[Dict[str, Any]]:
+        """Get product by ID."""
+        return self.productos_dal.get(company_id, producto_id)
+
+    async def update_producto(self, company_id: str, producto_id: int, updates: Dict[str, Any]) -> Dict[str, Any]:
+        """Update product information."""
+        return self.productos_dal.update(company_id, producto_id, updates)
+
+    async def deactivate_producto(self, company_id: str, producto_id: int) -> Dict[str, Any]:
+        """Deactivate a product (soft delete)."""
+        return self.productos_dal.update(company_id, producto_id, {"disponible": False})
+
+    # ==================== Routes Management (🆕 NEW) ====================
+
+    async def list_routes(self, company_id: str, status: Optional[str] = None, vendedor_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """List all routes for a company."""
+        filters = {}
+        if status:
+            filters["status"] = status
+        if vendedor_id:
+            filters["vendedor_id"] = vendedor_id
+        return self.routes_dal.list(company_id, filters=filters if filters else None)
+
+    async def create_route(self, company_id: str, route_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new sales route."""
+        return self.routes_dal.create(company_id, route_data)
+
+    async def get_route(self, company_id: str, route_id: int) -> Optional[Dict[str, Any]]:
+        """Get route by ID."""
+        return self.routes_dal.get(company_id, route_id)
+
+    async def update_route(self, company_id: str, route_id: int, updates: Dict[str, Any]) -> Dict[str, Any]:
+        """Update route information."""
+        return self.routes_dal.update(company_id, route_id, updates)
+
+    async def deactivate_route(self, company_id: str, route_id: int) -> Dict[str, Any]:
+        """Deactivate a route (soft delete)."""
+        return self.routes_dal.delete(company_id, route_id)
+
+    # ==================== Visits Management (🆕 NEW - Complex) ====================
+
+    async def list_visits(
+        self,
+        company_id: str,
+        vendedor_id: Optional[int] = None,
+        route_id: Optional[int] = None,
+        status: Optional[str] = None,
+        fecha_inicio: Optional[str] = None,
+        fecha_fin: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """List visits with optional filters."""
+        query = """
+            SELECT v.*,
+                   p.codigo as pos_codigo,
+                   p.nombre as pos_nombre,
+                   r.codigo_ruta,
+                   r.nombre_ruta
+            FROM cpg_visits v
+            LEFT JOIN cpg_pos p ON p.id = v.pos_id
+            LEFT JOIN cpg_routes r ON r.id = v.route_id
+            WHERE v.company_id = %s
+        """
+        params = [company_id]
+
+        if vendedor_id:
+            query += " AND v.vendedor_id = %s"
+            params.append(vendedor_id)
+
+        if route_id:
+            query += " AND v.route_id = %s"
+            params.append(route_id)
+
+        if status:
+            query += " AND v.status = %s"
+            params.append(status)
+
+        if fecha_inicio and fecha_fin:
+            query += " AND v.fecha_programada BETWEEN %s AND %s"
+            params.append(fecha_inicio)
+            params.append(fecha_fin)
+
+        query += " ORDER BY v.fecha_programada DESC"
+
+        results = execute_query(query, tuple(params))
+        return results or []
+
+    async def create_visit(self, company_id: str, visit_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Schedule a new visit."""
+        visit_data['status'] = 'scheduled'
+        result = self.visits_dal.create(company_id, visit_data)
+
+        # Update POS proxima_visita
+        if 'pos_id' in visit_data:
+            self.pos_dal.update(company_id, visit_data['pos_id'], {
+                'proxima_visita': visit_data.get('fecha_programada')
+            })
+
+        self.log_operation("create", "visit", result['id'])
+        return result
+
+    async def get_visit(self, company_id: str, visit_id: int) -> Optional[Dict[str, Any]]:
+        """Get visit by ID with related data."""
+        result = execute_query(
+            """
+            SELECT v.*,
+                   p.codigo as pos_codigo,
+                   p.nombre as pos_nombre,
+                   r.codigo_ruta,
+                   r.nombre_ruta
+            FROM cpg_visits v
+            LEFT JOIN cpg_pos p ON p.id = v.pos_id
+            LEFT JOIN cpg_routes r ON r.id = v.route_id
+            WHERE v.id = %s AND v.company_id = %s
+            """,
+            (visit_id, company_id),
+            fetch_one=True
+        )
+        return result
+
+    async def update_visit(self, company_id: str, visit_id: int, updates: Dict[str, Any]) -> Dict[str, Any]:
+        """Update visit information."""
+        return self.visits_dal.update(company_id, visit_id, updates)
+
+    async def visit_checkin(self, company_id: str, visit_id: int, gps_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        GPS check-in at visit location.
+
+        gps_data: {"lat": X, "lng": Y, "accuracy": Z, "timestamp": "..."}
+        """
+        current = self.visits_dal.get(company_id, visit_id)
+        if not current:
+            raise ValueError(f"Visit {visit_id} not found")
+
+        result = self.visits_dal.update(company_id, visit_id, {
+            'gps_checkin': gps_data,
+            'fecha_visita_real': gps_data.get('timestamp')
+        })
+
+        self.log_operation("checkin", "visit", visit_id, gps_data)
+        return result
+
+    async def visit_checkout(self, company_id: str, visit_id: int, gps_data: Dict[str, Any]) -> Dict[str, Any]:
+        """GPS check-out from visit location."""
+        result = self.visits_dal.update(company_id, visit_id, {
+            'gps_checkout': gps_data
+        })
+
+        self.log_operation("checkout", "visit", visit_id, gps_data)
+        return result
+
+    async def visit_signature(
+        self,
+        company_id: str,
+        visit_id: int,
+        signature_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Upload digital signature.
+
+        signature_data: {
+            "firma_digital": "data:image/png;base64,...",
+            "firma_nombre": "Juan Pérez",
+            "foto_firma_url": "https://..."  # Optional
+        }
+        """
+        result = self.visits_dal.update(company_id, visit_id, signature_data)
+
+        self.log_operation("signature", "visit", visit_id)
+        return result
+
+    async def complete_visit(
+        self,
+        company_id: str,
+        visit_id: int,
+        completion_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Mark visit as completed with all data.
+
+        completion_data: {
+            "productos_entregados": [...],
+            "monto_total_entregado": X,
+            "monto_cobrado": Y,
+            "inventario_contado": {...},
+            "diferencia_inventario": {...},
+            "observaciones": "...",
+            "foto_evidencias": [...]
+        }
+        """
+        # Validate state transition
+        current = self.visits_dal.get(company_id, visit_id)
+        if not current:
+            raise ValueError(f"Visit {visit_id} not found")
+
+        self.visit_sm.validate_transition(current['status'], 'completed')
+
+        # Calculate total entregado usando FinancialCalculator
+        productos = completion_data.get('productos_entregados', [])
+        if productos:
+            monto_total = self.financial.calculate_total(productos, qty_field='qty', price_field='precio')
+            completion_data['monto_total_entregado'] = monto_total
+
+        # Mark as completed
+        completion_data['status'] = 'completed'
+
+        result = self.visits_dal.update(company_id, visit_id, completion_data)
+
+        # Update POS ultima_visita
+        self.pos_dal.update(company_id, current['pos_id'], {
+            'ultima_visita': result.get('fecha_visita_real')
+        })
+
+        # Create consignment if productos were delivered
+        if productos and completion_data.get('monto_total_entregado', 0) > 0:
+            await self.create_consignment(company_id, {
+                'pos_id': current['pos_id'],
+                'visit_id': visit_id,
+                'origen_visita': True,
+                'numero_remision': f"VISIT-{visit_id}",
+                'fecha_entrega': result.get('fecha_visita_real'),
+                'productos': productos,
+                'monto_total': completion_data['monto_total_entregado'],
+                'notas': f"Generado automáticamente desde visita #{visit_id}"
+            })
+
+        self.log_operation("complete", "visit", visit_id)
+        return result
+
     # ==================== Reports (Sin cambios - queries específicos) ====================
 
     async def pos_sales_report(
@@ -407,6 +724,104 @@ class CPGRetailVertical(VerticalBase, EnhancedVerticalBase):
         """
 
         results = execute_query(query, (company_id,))
+        return results or []
+
+    async def route_performance_report(
+        self,
+        company_id: str,
+        route_id: Optional[int] = None,
+        vendedor_id: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate route performance report using cpg_route_performance view.
+        """
+        query = "SELECT * FROM cpg_route_performance WHERE company_id = %s"
+        params = [company_id]
+
+        if route_id:
+            query += " AND route_id = %s"
+            params.append(route_id)
+
+        if vendedor_id:
+            query += " AND vendedor_id = %s"
+            params.append(vendedor_id)
+
+        query += " ORDER BY tasa_cumplimiento DESC"
+
+        results = execute_query(query, tuple(params))
+        return results or []
+
+    async def visit_compliance_report(
+        self,
+        company_id: str,
+        vendedor_id: Optional[int] = None,
+        fecha_inicio: Optional[str] = None,
+        fecha_fin: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate visit compliance report using cpg_visit_compliance view.
+
+        Shows visits missing GPS, signature, or inventory data.
+        """
+        query = "SELECT * FROM cpg_visit_compliance WHERE company_id = %s"
+        params = [company_id]
+
+        if vendedor_id:
+            query += " AND vendedor_id = %s"
+            params.append(vendedor_id)
+
+        if fecha_inicio and fecha_fin:
+            query += " AND fecha_visita_real BETWEEN %s AND %s"
+            params.append(fecha_inicio)
+            params.append(fecha_fin)
+
+        query += " ORDER BY fecha_visita_real DESC"
+
+        results = execute_query(query, tuple(params))
+        return results or []
+
+    async def product_performance_report(
+        self,
+        company_id: str,
+        producto_id: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate product performance report using cpg_product_performance view.
+
+        Shows sales, returns, and sell-through rates per product.
+        """
+        query = "SELECT * FROM cpg_product_performance WHERE company_id = %s"
+        params = [company_id]
+
+        if producto_id:
+            query += " AND producto_id = %s"
+            params.append(producto_id)
+
+        query += " ORDER BY tasa_venta DESC"
+
+        results = execute_query(query, tuple(params))
+        return results or []
+
+    async def inventory_variance_report(
+        self,
+        company_id: str,
+        pos_id: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate inventory variance report using cpg_inventory_variance view.
+
+        Detects missing or excess inventory.
+        """
+        query = "SELECT * FROM cpg_inventory_variance WHERE company_id = %s"
+        params = [company_id]
+
+        if pos_id:
+            query += " AND pos_id = %s"
+            params.append(pos_id)
+
+        query += " AND productos_con_faltante > 0 ORDER BY productos_con_faltante DESC"
+
+        results = execute_query(query, tuple(params))
         return results or []
 
     # ==================== Hooks ====================
