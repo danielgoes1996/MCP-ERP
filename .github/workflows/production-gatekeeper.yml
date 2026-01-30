@@ -62,7 +62,7 @@ jobs:
           echo "✅ Coverage threshold met (>80%)"
 
       - name: 📤 Upload Coverage Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-report
           path: htmlcov/
@@ -156,7 +156,7 @@ jobs:
           }
 
       - name: 📤 Upload Security Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v6
         with:
           name: security-report
           path: bandit-report.json
