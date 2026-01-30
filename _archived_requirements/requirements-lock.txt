@@ -117,7 +117,7 @@ pdfminer.six==20250506
 pdfplumber==0.11.7
 phonenumbers==9.0.16
 pillow==11.3.0
-platformdirs==4.4.0
+platformdirs==4.5.1
 playwright==1.55.0
 pluggy==1.6.0
 pre_commit==4.3.0
