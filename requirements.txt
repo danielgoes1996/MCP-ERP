@@ -26,7 +26,7 @@ openai==1.3.0
 pydub==0.25.1
 
 # AI and ML dependencies
-numpy==1.24.3
+numpy==2.4.1
 
 # AI-Driven Parsing (Gemini)
 google-generativeai>=0.3.0  # Gemini Vision OCR + LLM

@@ -101,7 +101,7 @@ mypy_extensions==1.1.0
 networkx==3.2.1
 nodeenv==1.9.1
 numba==0.60.0
-numpy==2.0.2
+numpy==2.4.1
 oauthlib==3.3.1
 openai==1.52.0
 openai-whisper==20250625
