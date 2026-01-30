@@ -1,7 +1,7 @@
 # ============================================
 # STAGE 1: Builder - Instala dependencias
 # ============================================
-FROM python:3.11-slim as builder
+FROM python:3.14-slim as builder
 
 # Establecer variables de entorno para optimizar pip
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -29,7 +29,7 @@ RUN pip install --user --no-cache-dir -r requirements-prod.txt
 # ============================================
 # STAGE 2: Runtime - Imagen final optimizada
 # ============================================
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 # Crear usuario no-root para seguridad
 RUN groupadd -r appuser && useradd -r -g appuser appuser
