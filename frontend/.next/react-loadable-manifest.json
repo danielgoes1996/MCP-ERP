@@ -1,6 +1,0 @@
-{
-  "lib/api/client.ts -> @/stores/auth/useAuthStore": {
-    "id": "lib/api/client.ts -> @/stores/auth/useAuthStore",
-    "files": []
-  }
-}

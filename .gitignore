@@ -81,3 +81,4 @@ example_with_real_data.py
 *.sqlite
 *.sqlite3
 _archived_db/
+frontend/.next/

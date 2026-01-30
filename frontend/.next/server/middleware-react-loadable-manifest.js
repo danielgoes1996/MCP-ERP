@@ -1,1 +1,0 @@
-self.__REACT_LOADABLE_MANIFEST="{\"lib/api/client.ts -> @/stores/auth/useAuthStore\":{\"id\":\"lib/api/client.ts -> @/stores/auth/useAuthStore\",\"files\":[]}}"
