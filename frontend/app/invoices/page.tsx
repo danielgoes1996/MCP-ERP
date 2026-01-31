@@ -345,7 +345,7 @@ export default function InvoicesPage() {
           const classification: ClassificationData = {
             session_id: detail.session_id,
             sat_code: detail.classification.sat_account_code,
-            sat_account_name: detail.classification.sat_account_name || detail.classification.sat_account_code, // Official name from catalog
+            sat_account_name: detail.classification.sat_account_code, // Use code as name fallback
             family_code: detail.classification.family_code,
             confidence: confidence,
             explanation: detail.classification.explanation_short,
