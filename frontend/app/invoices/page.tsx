@@ -349,7 +349,7 @@ export default function InvoicesPage() {
             family_code: detail.classification.family_code,
             confidence: confidence,
             explanation: detail.classification.explanation_short,
-            explanation_detail: detail.classification.explanation_detail || undefined,
+            explanation_detail: undefined,
             status: detail.classification.status as 'pending_confirmation' | 'confirmed' | 'corrected' | 'not_classified',
             confirmed_by: detail.classification.confirmed_by || undefined,
             confirmed_at: detail.classification.confirmed_at || undefined,
