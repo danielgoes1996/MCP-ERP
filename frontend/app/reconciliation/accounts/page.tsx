@@ -184,9 +184,9 @@ export default function ReconciliationAccountsPage() {
   const [bankingInstitutions, setBankingInstitutions] = useState<
     BankingInstitution[]
   >([]);
-  const token = useAuthStore((state) => state.token);
+  const token = useAuthStore((state: any) => state.token);
 
-  const authHeaders = useMemo(() => {
+  const authHeaders = useMemo((): HeadersInit => {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }, [token]);
 

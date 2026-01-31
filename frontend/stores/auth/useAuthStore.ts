@@ -4,8 +4,8 @@
  * Global authentication state management
  */
 
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { create, StateCreator } from 'zustand';
+import { persist, PersistOptions } from 'zustand/middleware';
 import type { User, Tenant, AuthState } from '@/types/auth';
 
 interface AuthActions {
@@ -30,7 +30,7 @@ type AuthStore = AuthState & AuthActions;
 
 export const useAuthStore = create<AuthStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // Initial state
       user: null,
       tenant: null,
@@ -91,7 +91,7 @@ export const useAuthStore = create<AuthStore>()(
 
       // Multi-role helpers
       hasRole: (roleName) => {
-        const state = useAuthStore.getState();
+        const state = get();
         if (!state.user) return false;
         // Check both legacy role and new roles array
         if (state.user.role === roleName) return true;
@@ -99,7 +99,7 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       hasAnyRole: (roleNames) => {
-        const state = useAuthStore.getState();
+        const state = get();
         if (!state.user) return false;
         // Check legacy role
         if (roleNames.includes(state.user.role)) return true;
@@ -108,27 +108,27 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       hasAllRoles: (roleNames) => {
-        const state = useAuthStore.getState();
+        const state = get();
         if (!state.user) return false;
         const userRoles = state.user.roles ?? [state.user.role];
         return roleNames.every(role => userRoles.includes(role));
       },
 
       getUserRoles: () => {
-        const state = useAuthStore.getState();
+        const state = get();
         if (!state.user) return [];
         // Return roles array if available, otherwise return legacy role
         return state.user.roles ?? [state.user.role];
       },
 
       isAdmin: () => {
-        const state = useAuthStore.getState();
+        const state = get();
         if (!state.user) return false;
         return state.user.role === 'admin' || state.user.roles?.includes('admin') || false;
       },
 
       isContador: () => {
-        const state = useAuthStore.getState();
+        const state = get();
         if (!state.user) return false;
         return state.user.role === 'contador' || state.user.roles?.includes('contador') || false;
       },

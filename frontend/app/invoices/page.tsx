@@ -155,6 +155,16 @@ interface InvoiceSession {
     error: string | null;
     verificationUrl: string | null;
   };
+  parsed_data?: {
+    payment_complement?: {
+      pagos?: Array<{
+        monto?: number;
+        [key: string]: any;
+      }>;
+      [key: string]: any;
+    };
+    [key: string]: any;
+  };
 }
 
 interface ExtractedData {
@@ -192,6 +202,14 @@ interface ExtractedData {
   pagos: {
     tipo: string;
     numero_parcialidades: number | null;
+  };
+  payment_complement?: {
+    pagos?: Array<{
+      monto?: number;
+      fecha_pago?: string;
+      [key: string]: any;
+    }>;
+    [key: string]: any;
   };
   conceptos: any[];
 }
@@ -1667,14 +1685,14 @@ export default function InvoicesPage() {
                         const data = extractedData[session.session_id];
 
                         // Extraer info básica del complemento
-                        const emisorNombre = data?.emisor?.nombre || displayInfo.emisor_nombre || 'Cargando...';
-                        const emisorRfc = data?.emisor?.rfc || displayInfo.emisor_rfc || 'N/A';
+                        const emisorNombre = data?.emisor?.nombre || session.display_info?.emisor_nombre || 'Cargando...';
+                        const emisorRfc = data?.emisor?.rfc || session.display_info?.emisor_rfc || 'N/A';
 
                         // Extraer datos del complemento de pago (pago20:Pagos)
                         const paymentComplement = data?.payment_complement;
                         const hasPagos = paymentComplement && paymentComplement.pagos && paymentComplement.pagos.length > 0;
 
-                        const pago = hasPagos ? paymentComplement.pagos[0] : null;
+                        const pago = hasPagos ? paymentComplement.pagos?.[0] : null;
                         const fechaPago = pago?.fecha_pago || 'N/A';
                         const montoPagado = pago?.monto || 0;
                         const moneda = pago?.moneda || 'MXN';

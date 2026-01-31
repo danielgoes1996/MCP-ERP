@@ -27,6 +27,7 @@ function getAuthHeaders(): HeadersInit {
 
 export interface Project {
   id: number;
+  code?: string;
   name: string;
   description?: string;
   budget_mxn?: number;
@@ -39,9 +40,18 @@ export interface Project {
 /**
  * Get all projects
  */
-export async function getProjects(): Promise<Project[]> {
+export async function getProjects(params?: {
+  status_filter?: string;
+  limit?: number;
+}): Promise<Project[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/projects`, {
+    const searchParams = new URLSearchParams();
+    if (params?.status_filter) searchParams.append('status_filter', params.status_filter);
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+
+    const url = `${API_BASE_URL}/api/v1/projects${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+
+    const response = await fetch(url, {
       headers: getAuthHeaders(),
     });
 

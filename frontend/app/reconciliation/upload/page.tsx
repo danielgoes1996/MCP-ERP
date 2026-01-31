@@ -46,7 +46,7 @@ interface UploadResponse {
 
 export default function ReconciliationUploadPage() {
   const router = useRouter();
-  const token = useAuthStore((state) => state.token);
+  const token = useAuthStore((state: any) => state.token);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
@@ -57,7 +57,7 @@ export default function ReconciliationUploadPage() {
   // For now using a default account ID
   const accountId = 1;
 
-  const authHeaders = useMemo(() => {
+  const authHeaders = useMemo((): HeadersInit => {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }, [token]);
 

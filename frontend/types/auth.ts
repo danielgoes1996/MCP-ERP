@@ -40,7 +40,9 @@ export interface RegisterData {
   email: string;
   password: string;
   full_name: string;
-  tenant_id: number;
+  tenant_id?: number;
+  company_name?: string;
+  company_description?: string;
 }
 
 export interface AuthResponse {

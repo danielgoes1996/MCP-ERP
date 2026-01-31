@@ -3,7 +3,22 @@
  * Formato compatible con StoreLocator component
  */
 
-import type { Store } from '@/components/tienda/StoreLocator';
+export interface Store {
+  id: number;
+  name: string;
+  type: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  lat: number;
+  lng: number;
+  phone: string;
+  hours: string;
+  rating: number;
+  products: string[];
+  isOpen: boolean;
+}
 
 export const CHEDRAUI_LOCATIONS: Store[] = [
   // ========== CDMX (7 tiendas) ==========
