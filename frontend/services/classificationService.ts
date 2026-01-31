@@ -81,6 +81,7 @@ export interface ClassificationDetail {
   created_at: string;
   classification: {
     sat_account_code: string;
+    sat_account_name?: string;  // Optional: nombre oficial del catálogo SAT
     family_code: string;
     confidence_sat: number;
     confidence_family: number;
@@ -92,6 +93,12 @@ export interface ClassificationDetail {
     corrected_sat_code: string | null;
     correction_notes: string | null;
     explanation_short: string;
+    explanation_detail?: string;  // Optional: explicación detallada
+    alternative_candidates?: Array<{
+      code: string;
+      name: string;
+      confidence: number;
+    }>;  // Optional: alternativas sugeridas
   };
   invoice_data: {
     tipo_comprobante: string;

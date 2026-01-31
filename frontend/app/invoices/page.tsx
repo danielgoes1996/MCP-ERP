@@ -345,11 +345,11 @@ export default function InvoicesPage() {
           const classification: ClassificationData = {
             session_id: detail.session_id,
             sat_code: detail.classification.sat_account_code,
-            sat_account_name: detail.classification.sat_account_code, // Use code as name fallback
+            sat_account_name: detail.classification.sat_account_name || detail.classification.sat_account_code,
             family_code: detail.classification.family_code,
             confidence: confidence,
             explanation: detail.classification.explanation_short,
-            explanation_detail: undefined,
+            explanation_detail: detail.classification.explanation_detail || undefined,
             status: detail.classification.status as 'pending_confirmation' | 'confirmed' | 'corrected' | 'not_classified',
             confirmed_by: detail.classification.confirmed_by || undefined,
             confirmed_at: detail.classification.confirmed_at || undefined,
