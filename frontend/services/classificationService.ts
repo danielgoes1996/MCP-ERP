@@ -121,6 +121,12 @@ export interface ClassificationDetail {
     used_llm: boolean;
     confidence: number;
   };
+  metadata?: {
+    hierarchical_phase1?: any;
+    hierarchical_phase2a?: any;
+    hierarchical_phase2b?: any;
+    hierarchical_phase3?: any;
+  };
 }
 
 /**
