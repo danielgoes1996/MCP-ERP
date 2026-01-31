@@ -94,11 +94,7 @@ export interface ClassificationDetail {
     correction_notes: string | null;
     explanation_short: string;
     explanation_detail?: string;  // Optional: explicación detallada
-    alternative_candidates?: Array<{
-      code: string;
-      name: string;
-      confidence: number;
-    }>;  // Optional: alternativas sugeridas
+    alternative_candidates?: AlternativeCandidate[];  // Optional: alternativas sugeridas
   };
   invoice_data: {
     tipo_comprobante: string;
