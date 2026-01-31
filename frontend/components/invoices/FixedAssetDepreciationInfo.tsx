@@ -3,15 +3,11 @@
  *
  * Displays depreciation information for fixed assets detected in invoices.
  * Shows fiscal (LISR) and accounting (NIF) rates with legal basis.
- *
- * Author: System
- * Date: 2025-11-28
  */
 
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import {
   Building2,
   FileText,
@@ -35,26 +31,16 @@ interface LegalBasis {
 interface FixedAssetInfo {
   is_fixed_asset: boolean;
   asset_type: string;
-
-  // Fiscal rates (LISR - for tax returns)
   depreciation_rate_fiscal_annual: number;
   depreciation_years_fiscal: number;
   depreciation_months_fiscal: number;
-
-  // Accounting rates (NIF - for financial statements)
   depreciation_rate_accounting_annual: number;
   depreciation_years_accounting: number;
   depreciation_months_accounting: number;
-
-  // Legal backing
   legal_basis: LegalBasis;
-
-  // Context
   applies_to: string[];
   reasoning: string;
   confidence: number;
-
-  // Deferred tax flag
   has_deferred_tax: boolean;
 }
 
@@ -74,7 +60,6 @@ const ASSET_TYPE_LABELS: Record<string, string> = {
   activos_intangibles: 'Activos Intangibles',
   activos_biologicos: 'Activos Biológicos',
   herramental: 'Herramental',
-  equipo_computo: 'Equipo de Cómputo'
 };
 
 export function FixedAssetDepreciationInfo({ data, onCreateAsset }: Props) {
@@ -86,17 +71,17 @@ export function FixedAssetDepreciationInfo({ data, onCreateAsset }: Props) {
 
   return (
     <Card className="mt-4 border-blue-200 bg-blue-50/50">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-blue-900">
-          <Building2 className="h-5 w-5 text-blue-600" />
-          Activo Fijo Detectado
-          <Badge variant="outline" className="ml-auto bg-blue-100 text-blue-700 border-blue-300">
-            {assetTypeLabel}
-          </Badge>
-        </CardTitle>
-      </CardHeader>
+      {/* Header */}
+      <div className="flex items-center gap-2 text-blue-900 font-semibold mb-4">
+        <Building2 className="h-5 w-5 text-blue-600" />
+        <span>Activo Fijo Detectado</span>
+        <span className="ml-auto px-2 py-1 text-xs rounded bg-blue-100 text-blue-700 border border-blue-300">
+          {assetTypeLabel}
+        </span>
+      </div>
 
-      <CardContent className="space-y-4">
+      {/* Content */}
+      <div className="space-y-4">
         {/* Alert for deferred tax */}
         {data.has_deferred_tax && (
           <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
@@ -122,7 +107,6 @@ export function FixedAssetDepreciationInfo({ data, onCreateAsset }: Props) {
                 Depreciación Fiscal (SAT)
               </h4>
             </div>
-
             <div className="space-y-2">
               <div>
                 <p className="text-3xl font-bold text-blue-600">
@@ -130,7 +114,6 @@ export function FixedAssetDepreciationInfo({ data, onCreateAsset }: Props) {
                 </p>
                 <p className="text-xs text-gray-500">Tasa anual</p>
               </div>
-
               <div className="flex items-center gap-4 text-sm">
                 <div>
                   <p className="font-medium text-gray-700">
@@ -156,7 +139,6 @@ export function FixedAssetDepreciationInfo({ data, onCreateAsset }: Props) {
                 Depreciación Contable (NIF)
               </h4>
             </div>
-
             <div className="space-y-2">
               <div>
                 <p className="text-3xl font-bold text-green-600">
@@ -164,7 +146,6 @@ export function FixedAssetDepreciationInfo({ data, onCreateAsset }: Props) {
                 </p>
                 <p className="text-xs text-gray-500">Tasa anual</p>
               </div>
-
               <div className="flex items-center gap-4 text-sm">
                 <div>
                   <p className="font-medium text-gray-700">
@@ -193,16 +174,16 @@ export function FixedAssetDepreciationInfo({ data, onCreateAsset }: Props) {
               </h4>
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="font-mono text-xs">
+                  <span className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-700 font-mono">
                     {data.legal_basis.law}
-                  </Badge>
+                  </span>
                   <span className="text-sm text-gray-600">
                     Artículo {data.legal_basis.article} {data.legal_basis.section}
                   </span>
                 </div>
 
                 <p className="text-sm text-gray-700 italic border-l-2 border-gray-300 pl-3">
-                  "{data.legal_basis.article_text}"
+                  &quot;{data.legal_basis.article_text}&quot;
                 </p>
 
                 <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -232,9 +213,9 @@ export function FixedAssetDepreciationInfo({ data, onCreateAsset }: Props) {
             </h5>
             <div className="flex flex-wrap gap-1">
               {data.applies_to.map((item, i) => (
-                <Badge key={i} variant="secondary" className="text-xs">
+                <span key={i} className="px-2 py-1 text-xs rounded bg-gray-200 text-gray-700">
                   {item}
-                </Badge>
+                </span>
               ))}
             </div>
           </div>
@@ -271,13 +252,12 @@ export function FixedAssetDepreciationInfo({ data, onCreateAsset }: Props) {
           <Button
             onClick={onCreateAsset}
             className="w-full bg-blue-600 hover:bg-blue-700"
-            size="lg"
           >
             <Plus className="mr-2 h-4 w-4" />
             Registrar como Activo Fijo
           </Button>
         )}
-      </CardContent>
+      </div>
     </Card>
   );
 }

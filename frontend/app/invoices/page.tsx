@@ -1555,7 +1555,7 @@ export default function InvoicesPage() {
                     onClick={() => setSearchTerm('')}
                     className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                   >
-                    <span>Búsqueda: "{searchTerm.substring(0, 20)}{searchTerm.length > 20 ? '...' : ''}"</span>
+                    <span>Búsqueda: &quot;{searchTerm.substring(0, 20)}{searchTerm.length > 20 ? '...' : ''}&quot;</span>
                     <X className="w-3 h-3" />
                   </button>
                 )}
